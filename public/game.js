@@ -184,12 +184,15 @@ function sendNet(o) { if (NET.open && NET.ws && NET.ws.readyState === 1) NET.ws.
 function onMsg(m) {
   switch (m.t) {
     case 'hello':
-      NET.id = m.id; NET.nick = m.nick; NET.color = m.color;
-      $('lobbyNick').textContent = m.nick; $('nick').textContent = m.nick; if (me.tag) me.tag.querySelector('.nm').textContent = m.nick;
+      NET.id = m.id; NET.color = m.color; setNick(m.nick);
+      { const saved = savedNick(); if (saved && saved !== m.nick) sendNet({ t: 'nick', name: saved }); }
       setLive(m);
       if (NET.wantCh && !$('app').hidden) sendNet({ t: 'join', ch: NET.wantCh });
       break;
     case 'lobby': setLive(m); break;
+    case 'nick': setNick(m.nick); saveNick(m.nick); nickDone(); break;
+    case 'nickerr': nickError(m.msg); break;
+    case 'rename': { const o = NET.others.get(m.id); if (!o) return; feed(`${o.nick} 님이 이름표를 ${m.nick}(으)로 바꿨어요`); o.nick = m.nick; if (o.tag) o.tag.querySelector('.nm').textContent = m.nick; break; }
     case 'total': NET.total = m.total; updChannelBadge(); break;
     case 'full': feed('지금은 모든 채널이 꽉 찼어요. 혼자 라운딩으로 시작할게요.'); if (pendingJoin) { clearTimeout(pendingJoin); pendingJoin = 0; enterGame(); } break;
     case 'joined':
@@ -241,7 +244,46 @@ $('toLobby').onclick = () => {
   sendNet({ t: 'leave' }); NET.ch = 0; NET.wantCh = 0; clearOthers();
   $('app').hidden = true; $('lobby').hidden = false; running = false; setMaster(false);
 };
-function localNick() { const a = ['아삭한', '느긋한', '조용한', '주황빛'], b = ['당근', '버디', '퍼터', '캐디']; return a[Math.random() * 4 | 0] + ' ' + b[Math.random() * 4 | 0]; }
+// ---- 닉네임 ----
+const NICK_RE = /^[가-힣a-zA-Z0-9 _]+$/;
+const NICK_BANNED = ['씨발', '시발', 'ㅅㅂ', '병신', 'ㅂㅅ', '개새', '좆', '지랄', '꺼져', '섹스', '자지', '보지', '니미', '애미', '애비', '느금', 'fuck', 'shit', 'sex', 'bitch', '관리자', '운영자', '운영진', 'admin', '캐디봇'];
+function checkNick(raw) {
+  const n = String(raw || '').normalize('NFC').replace(/\s+/g, ' ').trim();
+  if (n.length < 2 || n.length > 10) return { err: '이름은 2~10자로 정해 주세요.' };
+  if (!NICK_RE.test(n)) return { err: '한글, 영문, 숫자만 쓸 수 있어요.' };
+  if (NICK_BANNED.some(w => n.replace(/[\s_]/g, '').toLowerCase().includes(w))) return { err: '쓸 수 없는 단어가 들어 있어요.' };
+  return { nick: n };
+}
+function savedNick() { try { return localStorage.getItem('carrot-cc-nick') || ''; } catch { return ''; } }
+function saveNick(n) { try { localStorage.setItem('carrot-cc-nick', n); } catch {} }
+function setNick(n) {
+  NET.nick = n; $('lobbyNick').textContent = n; $('nick').textContent = n;
+  if (me.tag) me.tag.querySelector('.nm').textContent = n;
+}
+let nickErrEl = null, nickPending = 0;
+function submitNick(raw, errEl) {
+  nickErrEl = errEl; errEl.textContent = '';
+  const r = checkNick(raw); if (r.err) { errEl.textContent = r.err; return; }
+  if (NET.open) { sendNet({ t: 'nick', name: r.nick }); clearTimeout(nickPending); nickPending = setTimeout(() => { setNick(r.nick); saveNick(r.nick); nickDone(); }, 2500); }
+  else { setNick(r.nick); saveNick(r.nick); nickDone(); }
+}
+function nickDone() { clearTimeout(nickPending); $('nickForm').hidden = true; $('nickEdit').hidden = false; if (!$('overlay').hidden && $('nickCard')) closeOverlay(); toastIfGame(`이름표를 ${NET.nick}(으)로 바꿨어요`); }
+function nickError(msg) { clearTimeout(nickPending); if (nickErrEl) nickErrEl.textContent = msg; }
+function toastIfGame(t) { if (!$('app').hidden) toast(t); }
+$('nickEdit').onclick = () => { $('nickForm').hidden = false; $('nickEdit').hidden = true; const i = $('nickInput'); i.value = NET.nick || ''; i.focus(); i.select(); };
+$('nickForm').onsubmit = e => { e.preventDefault(); submitNick($('nickInput').value, $('nickErr')); };
+$('nickRandom').onclick = () => { $('nickInput').value = localNick(); $('nickInput').focus(); };
+$('nick').onclick = () => {
+  overlay(`<div id="nickCard"><span class="eyebrow">이름표 바꾸기</span></div><h2>뭐라고 불러드릴까요?</h2>
+    <form id="nickForm2" class="nickform"><label for="nickInput2" class="sr">닉네임</label><input id="nickInput2" maxlength="10" placeholder="2~10자, 한글·영문·숫자" autocomplete="off" spellcheck="false" value="${esc(NET.nick)}">
+    <button class="btn" type="submit">저장</button><button class="ghost" type="button" id="nickRandom2">랜덤</button><p class="nickerr" id="nickErr2" role="alert"></p></form>
+    <button class="btn sub" id="nickCancel" type="button">그대로 둘게요</button>`);
+  const i = $('nickInput2'); i.focus(); i.select();
+  $('nickForm2').onsubmit = e => { e.preventDefault(); submitNick(i.value, $('nickErr2')); };
+  $('nickRandom2').onclick = () => { i.value = localNick(); i.focus(); };
+  $('nickCancel').onclick = closeOverlay;
+};
+function localNick() { const a = ['아삭한', '느긋한', '조용한', '주황빛', '포근한', '산뜻한', '은은한', '나른한'], b = ['당근', '버디', '퍼터', '캐디', '이글', '티샷', '그린', '웨지']; return a[Math.random() * a.length | 0] + ' ' + b[Math.random() * b.length | 0]; }
 function updChannelBadge() {
   const b = $('chBadge');
   b.textContent = NET.ch ? `${NET.ch}채널 · ${NET.others.size + 1}/${NET.cap}명` : NET.wantCh ? '재연결 중' : '혼자 라운딩';
@@ -738,9 +780,10 @@ function updActions() {
     if (S.mulligans && S.prev) html += `<button class="act sub" id="mull">멀리건 (${S.mulligans})</button>`;
   }
   if (S.mode === 'ride') html = '<button class="act sub" id="skipRide">바로 내리기</button>';
+  if (S.mode === 'flight') html = '<button class="act sub" id="skipFlight">공 멈춘 곳 바로 보기 ▸▸</button>';
   a.innerHTML = html;
   const on = (id, f) => { const el = $(id); if (el) el.onclick = f; };
-  on('skipRide', skipRide); on('ready', enterAim); on('goBall', walkToBall); on('cartBall', () => cartTo(S.ball.x, S.ball.z, true)); on('menuBtn', showShade); on('mull', mulligan);
+  on('skipRide', skipRide); on('skipFlight', skipFlight); on('ready', enterAim); on('goBall', walkToBall); on('cartBall', () => cartTo(S.ball.x, S.ball.z, true)); on('menuBtn', showShade); on('mull', mulligan);
   on('cancel', exitAim); on('clubBtn', () => { S.club = (S.club + 1) % 4; S.clubAuto = false; lastActKey = ''; });
   const hold = (id, d) => { const el = $(id); if (!el) return; let iv = 0; const stop = () => clearInterval(iv); el.onpointerdown = e => { e.preventDefault(); iv = setInterval(() => { S.aimYaw += d * .012; }, 16); }; el.onpointerup = stop; el.onpointerleave = stop; el.onpointercancel = stop; };
   hold('aL', 1); hold('aR', -1);
@@ -935,7 +978,7 @@ function stepBall(b, dt, sim) {
     b.y = heightAt(b.x, b.z);
     b.rollT = (b.rollT || 0) + dt;
     const slopeAcc = G * GRAV_ROLL * Math.hypot(gx, gz);
-    if (ns < .12 && (slopeAcc < c * 1.05 || b.rollT > 30)) { b.vx = b.vz = 0; b.state = 'rest'; return 'stop'; }
+    if ((ns < .3 && (slopeAcc < c * 1.6 || b.rollT > 3)) || b.rollT > 6) { b.vx = b.vz = 0; b.state = 'rest'; return 'stop'; }
   }
   return null;
 }
@@ -970,9 +1013,14 @@ function onBallEvent(e) {
     if (s === 'green' && d < 1.1) { S.strokes++; S.mode = 'wait'; finishHole('OK! 컨시드'); return; }
     if (S.strokes >= h.par * 2) { S.mode = 'wait'; finishHole('양파! 픽업'); return; }
     toast(`${LIE[s]} · 핀까지 ${Math.round(d * M_PER_U)}m`, 1600);
-    S.mode = 'wait'; setTimeout(() => { S.mode = 'walk'; cam.mode = 'follow'; lastActKey = ''; }, 900);
+    S.mode = 'wait'; setTimeout(() => { S.mode = 'walk'; cam.mode = 'follow'; lastActKey = ''; updActions(); }, 250);
   }
   updHud();
+}
+// 공이 멈출 때까지 기다리지 않고 결과로 바로 넘어가요
+function skipFlight() {
+  if (S.mode !== 'flight') return;
+  for (let i = 0; i < 20000; i++) { const e = stepBall(S.ball, 1 / 120, false); if (e) { onBallEvent(e); return; } }
 }
 function penaltyReturn() {
   S.strokes++; Object.assign(S.ball, { x: S.last.x, y: 0, z: S.last.z, vx: 0, vy: 0, vz: 0, state: 'rest' }); S.ballVis = true;
@@ -1189,6 +1237,7 @@ function bindInput() {
     const k = e.key.toLowerCase();
     if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) { keys.add(k); e.preventDefault(); }
     if (k === ' ' && S.mode === 'aim') { e.preventDefault(); if (!e.repeat) startCharge(); }
+    else if (k === ' ' && S.mode === 'flight' && !e.repeat) { e.preventDefault(); skipFlight(); }
     if (k === 'e' && S.mode === 'walk') enterAim();
     if (k === 'escape' && S.mode === 'aim') exitAim();
     if (k === 'c' && S.mode === 'aim') { S.club = (S.club + 1) % 4; S.clubAuto = false; lastActKey = ''; }
@@ -1333,7 +1382,8 @@ function frame() {
 
   // 공
   if (S.mode === 'flight') {
-    for (let i = 0; i < 4; i++) { const e = stepBall(S.ball, dt / 4, false); if (e) { onBallEvent(e); break; } }
+    const ts = S.ball.state === 'roll' ? 1.8 : 1.15, sub = S.ball.state === 'roll' ? 6 : 4;
+    for (let i = 0; i < sub; i++) { const e = stepBall(S.ball, dt * ts / sub, false); if (e) { onBallEvent(e); break; } }
     if (S.mode === 'flight' && (S.ball.state === 'fly' || S.ball.state === 'roll') && Math.random() < .02) updHud();
   }
   if (S.ball.state === 'rest' || S.ball.state === 'done') S.ball.y = heightAt(S.ball.x, S.ball.z);
@@ -1390,7 +1440,7 @@ function frame() {
 
 // ================= 시작 =================
 function enterGame() {
-  if (!NET.nick) { NET.nick = localNick(); $('nick').textContent = NET.nick; }
+  if (!NET.nick) setNick(savedNick() || localNick());
   $('lobby').hidden = true; $('app').hidden = false;
   if (!T) { stage.insertAdjacentHTML('beforeend', '<div class="nogl"><p>3D 라이브러리를 불러오지 못했어요. 인터넷 연결을 확인하고 새로고침해 주세요.</p></div>'); return; }
   if (!build()) return;

@@ -85,6 +85,17 @@ function leaveChannel(p) {
   toChannel(p.ch, { t: 'leave', id: p.id });
   p.ch = 0;
 }
+// 닉네임 검사: 2~10자, 한글·영문·숫자·공백·밑줄만. 욕설이나 운영자 사칭은 막아요
+const BANNED = ['씨발', '시발', 'ㅅㅂ', '병신', 'ㅂㅅ', '개새', '좆', '지랄', '꺼져', '섹스', '자지', '보지', '니미', '애미', '애비', '느금', 'fuck', 'shit', 'sex', 'bitch', '관리자', '운영자', '운영진', 'admin', '캐디봇'];
+function cleanNick(raw) {
+  if (typeof raw !== 'string') return { err: '이름을 입력해 주세요.' };
+  const n = raw.normalize('NFC').replace(/\s+/g, ' ').trim();
+  if (n.length < 2 || n.length > 10) return { err: '이름은 2~10자로 정해 주세요.' };
+  if (!/^[가-힣a-zA-Z0-9 _]+$/.test(n)) return { err: '한글, 영문, 숫자만 쓸 수 있어요.' };
+  const flat = n.replace(/[\s_]/g, '').toLowerCase();
+  if (BANNED.some(w => flat.includes(w))) return { err: '쓸 수 없는 단어가 들어 있어요.' };
+  return { nick: n };
+}
 const int = (v, lo, hi) => (Number.isInteger(v) && v >= lo && v <= hi) ? v : null;
 
 // ---- 웹소켓 ----
@@ -119,6 +130,13 @@ wss.on('connection', (ws) => {
         break;
       }
       case 'leave': leaveChannel(p); break;
+      case 'nick': {
+        const now = Date.now(); if (now - (p.lastNick || 0) < 3000) return send(ws, { t: 'nickerr', msg: '잠시 후에 다시 바꿔 주세요.' });
+        const r = cleanNick(m.name); if (r.err) return send(ws, { t: 'nickerr', msg: r.err });
+        p.lastNick = now; p.nick = r.nick; send(ws, { t: 'nick', nick: p.nick });
+        if (p.ch) toChannel(p.ch, { t: 'rename', id: p.id, nick: p.nick }, p.id);
+        break;
+      }
       case 'pos': {
         if (!p.ch) return;
         // 3D 좌표는 소수 첫째 자리까지 ×10 정수로 받아요
