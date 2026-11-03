@@ -45,7 +45,8 @@ const server = http.createServer((req, res) => {
     const ext = path.extname(full);
     res.writeHead(200, {
       'Content-Type': MIME[ext] || 'application/octet-stream',
-      'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=3600',
+      // html·js·css는 매번 새 버전인지 확인해요 (배포하면 새로고침 한 번에 바로 반영)
+      'Cache-Control': ['.html', '.js', '.css'].includes(ext) ? 'no-cache' : 'public, max-age=3600',
       'X-Content-Type-Options': 'nosniff',
     });
     res.end(data);
