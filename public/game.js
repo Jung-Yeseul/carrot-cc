@@ -69,6 +69,7 @@ const MENU = [
   { id: 'ramen', name: '그늘집 컵라면', price: '9,000원', eff: '멀리건 1장 + 처음 먹으면 비거리 +20%.', chip: '컵라면: 비거리 +20%', tix: [1, 0] },
   { id: 'makgeolli', name: '막걸리 한 잔', price: '15,000원', eff: '멀리건 1장·OK권 1장 + 처음 먹으면 홀컵이 크게 보여요(손 떨림).', chip: '막걸리: 홀컵 크게, 손 떨림', tix: [1, 1] },
   { id: 'odeng', name: '오뎅 꼬치', price: '11,000원', eff: '멀리건 2장. 동반자가 너그러워져요.', chip: '오뎅: 너그러운 동반자', tix: [2, 0] },
+  { id: 'tteok', name: '매운 떡볶이', price: '13,000원', eff: '멀리건 1장·OK권 1장 + 처음 먹으면 매워서 정신이 번쩍! 파워바가 천천히 움직여요.', chip: '떡볶이: 파워바 느리게', tix: [1, 1] },
 ];
 
 // ================= 지형 판정 =================
@@ -656,7 +657,7 @@ function buildShadeHouse() {
   const fridge = new T.Mesh(new T.BoxGeometry(1, 2, .8), mat(0xf6f6f2)); fridge.position.set(3.4, 1.45, -2.4); fridge.castShadow = true; g.add(fridge);
   const door = new T.Mesh(new T.PlaneGeometry(.8, 1.6), new T.MeshLambertMaterial({ map: textTexture(128, 256, (c, w, h) => { c.fillStyle = '#e8f3f6'; c.fillRect(0, 0, w, h); for (let i = 0; i < 4; i++) { c.fillStyle = ['#f08a2f', '#ffd166', '#78c587', '#f08a2f'][i]; c.fillRect(18 + (i % 2) * 50, 30 + (i >> 1) * 100, 40, 80); } }) }));
   door.position.set(3.4, 1.45, -1.99); g.add(door);
-  const menuT = textTexture(256, 340, (c, w, h) => { c.fillStyle = '#26332a'; c.fillRect(0, 0, w, h); c.fillStyle = '#f4e9cf'; c.font = `400 40px ${FONT}`; c.textAlign = 'center'; c.fillText('오늘의 메뉴', w / 2, 52); c.font = `400 28px ${FONT}`; c.textAlign = 'left'; MENU.forEach((m, i) => { c.fillStyle = '#f4e9cf'; c.fillText(m.name.replace('갓 짠 ', '').replace('그늘집 ', ''), 18, 110 + i * 56); c.fillStyle = '#ffd166'; c.textAlign = 'right'; c.fillText(m.price, w - 16, 110 + i * 56); c.textAlign = 'left'; }); });
+  const menuT = textTexture(256, 340, (c, w, h) => { c.fillStyle = '#26332a'; c.fillRect(0, 0, w, h); c.fillStyle = '#f4e9cf'; c.font = `400 40px ${FONT}`; c.textAlign = 'center'; c.fillText('오늘의 메뉴', w / 2, 52); c.font = `400 25px ${FONT}`; c.textAlign = 'left'; MENU.forEach((m, i) => { c.fillStyle = '#f4e9cf'; c.fillText(m.name.replace('갓 짠 ', '').replace('그늘집 ', '').replace('매운 ', ''), 16, 104 + i * 48); c.fillStyle = '#ffd166'; c.textAlign = 'right'; c.fillText(m.price, w - 14, 104 + i * 48); c.textAlign = 'left'; }); });
   const menu = new T.Mesh(new T.PlaneGeometry(1.2, 1.6), new T.MeshLambertMaterial({ map: menuT })); menu.position.set(2.6, 1.3, 4.6); menu.rotation.x = -.15; g.add(menu);
   const easel = new T.Mesh(new T.BoxGeometry(1.3, .08, .08), dark); easel.position.set(2.6, .45, 4.65); g.add(easel);
   for (const x of [-3.6, 3.6]) { const lan = new T.Mesh(new T.SphereGeometry(.28, 12, 8), new T.MeshLambertMaterial({ color: 0xffa64d, emissive: 0xff7a1a, emissiveIntensity: .7 })); lan.position.set(x, 3.3, 3.5); g.add(lan); }
@@ -936,7 +937,7 @@ function updActions() {
   } else if (S.mode === 'walk') {
     if (S.ball.state === 'rest') {
       if (near) html += '<button class="act" id="ready">샷 준비 (E)</button>';
-      else html += '<button class="act" id="goBall">공으로 걸어가기</button><button class="act sub" id="cartBall">카트 타고 공으로</button>';
+      else html += '<button class="act" id="warpBall">공으로 순간이동</button><button class="act sub" id="goBall">걸어가기</button><button class="act sub" id="cartBall">카트</button>';
     }
     if (inShade) html += '<button class="act" id="menuBtn">그늘집 메뉴판 보기</button>';
     if (nearRR) html += '<button class="act wc m" id="wcM">남자 화장실</button><button class="act wc w" id="wcW">여자 화장실</button>';
@@ -949,7 +950,7 @@ function updActions() {
   if (S.mode === 'flight') html = '<button class="act sub" id="skipFlight">공 멈춘 곳 바로 보기 ▸▸</button>';
   a.innerHTML = html;
   const on = (id, f) => { const el = $(id); if (el) el.onclick = f; };
-  on('skipRide', skipRide); on('eatDone', () => { EAT.t = EAT_SEC; }); on('skipFlight', skipFlight); on('ready', enterAim); on('goBall', walkToBall); on('cartBall', () => cartTo(S.ball.x, S.ball.z, true)); on('menuBtn', showShade); on('mull', mulligan); on('okBtn', useOk); on('pickBtn', pickUp);
+  on('skipRide', skipRide); on('eatDone', () => { EAT.t = EAT_SEC; }); on('skipFlight', skipFlight); on('ready', enterAim); on('goBall', walkToBall); on('cartBall', () => cartTo(S.ball.x, S.ball.z, true)); on('warpBall', warpToBall); on('menuBtn', showShade); on('mull', mulligan); on('okBtn', useOk); on('pickBtn', pickUp);
   on('wcM', () => useRestroom('m')); on('wcW', () => useRestroom('w'));
   on('cancel', exitAim); on('clubBtn', () => { S.club = (S.club + 1) % 4; S.clubAuto = false; lastActKey = ''; clearChance('클럽을 바꿔서 캐디 찬스가 풀렸어요'); }); on('chanceBtn', caddieChance); on('lieBtn', toggleLie);
   const hold = (id, d) => { const el = $(id); if (!el) return; let iv = 0; const stop = () => clearInterval(iv); el.onpointerdown = e => { e.preventDefault(); iv = setInterval(() => { S.aimYaw += d * .012; }, 16); }; el.onpointerup = stop; el.onpointerleave = stop; el.onpointercancel = stop; };
@@ -965,6 +966,20 @@ function canStand(x, z) {
   for (const t of TREES) if (Math.hypot(x - t.x, z - t.z) < t.tr + .55) return false;
   if (x > RR.x - 2.7 && x < RR.x + 2.7 && z > RR.z - 3.9 && z < RR.z + 3.9) return false; // 화장실 건물
   return true;
+}
+// 공 있는 곳으로 순간이동 (뿅!)
+function warpToBall() {
+  if (S.mode !== 'walk' || S.ball.state !== 'rest') return;
+  const tg = aimTarget(), a = Math.atan2(tg[0] - S.ball.x, tg[1] - S.ball.z);
+  let tx = S.ball.x - Math.sin(a) * 1.4, tz = S.ball.z - Math.cos(a) * 1.4;
+  if (!canStand(tx, tz)) { tx = S.ball.x; tz = S.ball.z; }
+  me.moveT = null; S.mode = 'wait'; tone(1200, .12, 'sine', .12); tone(600, .18, 'sine', .1, .08);
+  fireworks(me.x, heightAt(me.x, me.z) + 1, me.z, 50); $('fade').classList.add('on');
+  setTimeout(() => {
+    me.x = tx; me.z = tz; me.yaw = a; cam.yaw = a; snapCam(); fireworks(tx, heightAt(tx, tz) + 1, tz, 50); me.jump = .6;
+    tone(600, .1, 'sine', .1); tone(1200, .16, 'sine', .12, .08);
+    setTimeout(() => { $('fade').classList.remove('on'); S.mode = 'walk'; lastActKey = ''; }, 120);
+  }, 260);
 }
 function walkToBall() {
   const tg = aimTarget(), a = Math.atan2(tg[0] - S.ball.x, tg[1] - S.ball.z);
@@ -1107,7 +1122,7 @@ function releaseCharge() {
   clearChance();
   shoot(S.power);
 }
-function chargePower() { const t = (performance.now() - S.chargeT) / 1000 * .75; const f = t % 2; return f < 1 ? f : 2 - f; }
+function chargePower() { const t = (performance.now() - S.chargeT) / 1000 * (S.buff === 'tteok' ? .5 : .75); const f = t % 2; return f < 1 ? f : 2 - f; }
 function launchVel(p, yaw, club, lie) {
   const c = CLUBS[club];
   let v = c.v * p * (S.buff === 'ramen' ? 1.2 : 1);
@@ -1440,6 +1455,7 @@ const EAT_LINES = {
   ramen: ['후루룩~', '국물이 끝내줘요', '골프장 컵라면은 9,000원의 맛', '면발 쫄깃!'],
   makgeolli: ['캬~!', '파전도 하나 시킬걸', '한 잔만 더…?', '얼굴이 화끈화끈'],
   odeng: ['호호, 뜨거워', '국물 리필 되나요?', '꼬치가 두 개 더 있었네', '속이 든든~'],
+  tteok: ['스읍… 맵다!', '하아 하아 물 주세요', '어묵도 들어있네', '정신이 번쩍 들어요'],
 };
 const EAT_SEC = 4.8, EAT = { on: false, t: 0, m: null, food: null, steam: null, step: -1, first: false };
 let ownerTag = null, ownerT = 0, ownerAv = null;
@@ -1475,6 +1491,14 @@ function makeFood(id) {
     add(new T.CylinderGeometry(.26, .26, .02, 20), ph(0xffffff), -.45, .01, .05);
     add(new T.CylinderGeometry(.22, .22, .045, 20), ph(0xd99a3a, { emissive: 0x3a1a00 }), -.45, .045, .05); // 파전
     for (let i = 0; i < 5; i++) add(new T.BoxGeometry(.18, .012, .025), ph(0x3f9a4e), -.45 + rand(-.1, .1), .07, .05 + rand(-.1, .1)).rotation.y = Math.random() * 3;
+  } else if (id === 'tteok') {
+    add(new T.CylinderGeometry(.3, .26, .06, 24), ph(0xffffff), 0, .03, 0);
+    const sauce = add(new T.CylinderGeometry(.25, .25, .03, 24), ph(0xd6301c, { emissive: 0x3a0800, shininess: 80 }), 0, .07, 0);
+    for (let i = 0; i < 9; i++) { const a = i / 9 * TAU + rand(-.2, .2), r = rand(.04, .19), t2 = add(new T.CylinderGeometry(.03, .03, .16, 8), ph(0xf2e6d8, { emissive: 0x3a1206 }), Math.cos(a) * r, .1, Math.sin(a) * r); t2.rotation.set(Math.PI / 2, 0, a); t2.material.color.setHex(0xe8573a); }
+    for (let i = 0; i < 3; i++) { const f = add(new T.BoxGeometry(.12, .02, .07), ph(0xd9a066), rand(-.12, .12), .11, rand(-.12, .12)); f.rotation.y = Math.random() * 3; }
+    const egg = add(new T.SphereGeometry(.06, 10, 8), ph(0xffffff), .1, .12, -.05); egg.scale.y = .8; add(new T.SphereGeometry(.035, 8, 6), ph(0xffc21a), .1, .155, -.04);
+    const fork = add(new T.CylinderGeometry(.008, .008, .32, 5), ph(0xd8b98a), -.2, .18, .1); fork.rotation.z = 1.1;
+    steamY = .12;
   } else if (id === 'odeng') {
     add(new T.CylinderGeometry(.1, .08, .22, 16), ph(0xfdfbf6), 0, .11, 0);
     const br = add(new T.CircleGeometry(.095, 16), ph(0xc9a46a), 0, .2, 0); br.rotation.x = -Math.PI / 2;
@@ -1497,7 +1521,7 @@ const sndSlurp = () => { const a = audio(), m = out(); if (!a || !m) return; noi
 const sndGulp = () => { tone(180, .12, 'sine', .2); tone(120, .14, 'sine', .18, .13); };
 const sndChew = () => { noise(.06, 1500, 2, .14); noise(.06, 1300, 2, .12, .14); };
 const sndKya = () => { const a = audio(), m = out(); if (!a || !m) return; const o = a.createOscillator(), g = a.createGain(); o.type = 'sawtooth'; o.frequency.setValueAtTime(500, a.currentTime); o.frequency.linearRampToValueAtTime(900, a.currentTime + .12); o.frequency.linearRampToValueAtTime(400, a.currentTime + .4); g.gain.setValueAtTime(.04, a.currentTime); g.gain.exponentialRampToValueAtTime(.001, a.currentTime + .45); o.connect(g).connect(m); o.start(); o.stop(a.currentTime + .46); };
-const EAT_SND = { carrot: sndGulp, ramen: sndSlurp, makgeolli: sndGulp, odeng: sndChew };
+const EAT_SND = { carrot: sndGulp, ramen: sndSlurp, makgeolli: sndGulp, odeng: sndChew, tteok: sndChew };
 const priceOf = m => +m.price.replace(/[^0-9]/g, '');
 function eatFood(m) {
   closeOverlay(); EAT.first = !S.buff; S.mode = 'eat'; lastActKey = ''; me.moveT = null;
