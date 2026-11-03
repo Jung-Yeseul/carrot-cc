@@ -1361,7 +1361,7 @@ function endRound() {
     <img class="story" src="${cardUrl}" alt="라운딩 결과 카드">
     <div class="btns">${IS_DEMO() ? '<p class="cs">미리보기에서는 저장이 안 돼요. 실제 사이트에서 저장·공유할 수 있어요.</p>' : `<a class="btn" href="${cardUrl}" download="carrot-cc-round.png">결과 카드 저장</a>${navigator.canShare ? '<button class="btn sub" type="button" id="cardShare">스토리에 공유</button>' : ''}`}</div>
     <div class="btns"><button class="btn sub" id="again">다시 라운딩</button><button class="btn sub" id="stroll">코스 산책하기</button></div>`);
-  if ($('cardShare')) $('cardShare').onclick = () => card.toBlob(async b => { if (!(await shareBlob(b, 'carrot-cc-round.png', `당근 CC ${tot}타! ${siteHost()}`))) toast('이 기기에서는 바로 공유가 안 돼요. 저장 후 올려 주세요', 2200); }, 'image/png');
+  if ($('cardShare')) $('cardShare').onclick = () => card.toBlob(async b => { if (!(await shareBlob(b, 'carrot-cc-round.png', `당근 CC ${tot}타! ${siteHost()} @ttanjit.lab`))) toast('이 기기에서는 바로 공유가 안 돼요. 저장 후 올려 주세요', 2200); }, 'image/png');
   $('again').onclick = () => { closeOverlay(); resetRound(true); };
   $('stroll').onclick = () => { closeOverlay(); S.mode = 'walk'; S.ballVis = false; S.ball.state = 'done'; lastActKey = ''; toast('천천히 둘러보세요. 오른쪽 위 스코어카드에서 새 라운딩을 시작할 수 있어요', 2800); showAgainInSheet(); };
 }
@@ -1580,7 +1580,7 @@ function recFrame() {
   g.fillStyle = 'rgba(255,255,255,.85)'; g.font = `600 24px "IBM Plex Sans KR",sans-serif`; g.textAlign = 'right'; g.fillText(`${S.hole + 1}번 홀 · ${S.strokes}타`, W - 34, 72); g.textAlign = 'start';
   gr = g.createLinearGradient(0, H - 190, 0, H); gr.addColorStop(0, 'rgba(10,20,12,0)'); gr.addColorStop(1, 'rgba(10,20,12,.75)'); g.fillStyle = gr; g.fillRect(0, H - 190, W, 190);
   g.textAlign = 'center'; g.fillStyle = '#fff'; g.font = `700 30px "IBM Plex Sans KR",sans-serif`; g.fillText(NET.nick || '당근 골퍼', W / 2, H - 98);
-  g.fillStyle = 'rgba(255,255,255,.8)'; g.font = `500 24px "IBM Plex Sans KR",sans-serif`; g.fillText(`${siteHost()} 에서 같이 쳐요`, W / 2, H - 56);
+  g.fillStyle = 'rgba(255,255,255,.8)'; g.font = `500 24px "IBM Plex Sans KR",sans-serif`; g.fillText(`${siteHost()} 에서 같이 쳐요 · @ttanjit.lab`, W / 2, H - 56);
   // 하이라이트 글자
   if (REC.ov) {
     const k = (performance.now() - REC.ov.t) / 1000;
@@ -1626,7 +1626,7 @@ function renderClips() {
   box.innerHTML = REC.clips.map((c, i) => `<div class="clip"><video src="${c.url}" muted playsinline loop preload="metadata" aria-label="${esc(c.title)} 영상"></video><div><div class="ct">${esc(c.title)}</div><div class="cs">${esc(c.sub)} · ${c.at.getHours()}:${String(c.at.getMinutes()).padStart(2, '0')}</div>
     <div class="btns">${IS_DEMO() ? '<span class="cs">미리보기에서는 저장이 안 돼요. 실제 사이트에서 저장할 수 있어요.</span>' : `<a class="btn" href="${c.url}" download="carrot-cc-${i + 1}.${c.ext}">영상 저장</a>${canShare ? `<button class="btn sub" type="button" data-share="${i}">공유</button>` : ''}`}</div></div></div>`).join('');
   box.querySelectorAll('video').forEach(v => { v.onmouseenter = () => v.play().catch(() => {}); v.onmouseleave = () => v.pause(); v.onclick = () => (v.paused ? v.play() : v.pause()).catch?.(() => {}); });
-  box.querySelectorAll('[data-share]').forEach(b => b.onclick = async () => { const c = REC.clips[+b.dataset.share]; if (!(await shareBlob(c.blob, `carrot-cc.${c.ext}`, `당근 CC에서 ${c.title}! ${siteHost()}`))) toast('이 기기에서는 바로 공유가 안 돼요. 영상 저장 후 올려 주세요', 2200); });
+  box.querySelectorAll('[data-share]').forEach(b => b.onclick = async () => { const c = REC.clips[+b.dataset.share]; if (!(await shareBlob(c.blob, `carrot-cc.${c.ext}`, `당근 CC에서 ${c.title}! ${siteHost()} @ttanjit.lab`))) toast('이 기기에서는 바로 공유가 안 돼요. 영상 저장 후 올려 주세요', 2200); });
 }
 $('clipBtn').onclick = () => { const s = $('clipSheet'); const open = s.hidden; closeSheets(); s.hidden = !open; $('clipBtn').setAttribute('aria-expanded', String(open)); $('clipBtn').classList.remove('new'); renderClips(); };
 $('clipClose').onclick = () => { $('clipSheet').hidden = true; $('clipBtn').setAttribute('aria-expanded', 'false'); };
@@ -1688,7 +1688,7 @@ function storyCard() {
     g.fillStyle = '#fff'; g.font = `700 34px "IBM Plex Sans KR",sans-serif`; g.textAlign = 'right'; let vv = v; while (g.measureText(vv).width > 560 && vv.length > 4) vv = vv.slice(0, -2); g.fillText(vv === v ? v : vv + '…', W - 80, y); g.textAlign = 'start';
   });
   // 아래
-  carrotIcon(g, W / 2, 1735, 3); g.textAlign = 'center'; g.fillStyle = '#fff'; g.font = `700 36px "IBM Plex Sans KR",sans-serif`; g.fillText('같이 치러 와요', W / 2, 1840);
+  carrotIcon(g, W / 2, 1735, 3); g.textAlign = 'center'; g.fillStyle = '#fff'; g.font = `700 36px "IBM Plex Sans KR",sans-serif`; g.fillText('같이 치러 와요 · @ttanjit.lab', W / 2, 1840);
   g.fillStyle = '#ffd166'; g.font = `600 34px "IBM Plex Mono",monospace`; g.fillText(siteHost(), W / 2, 1888); g.textAlign = 'start'; g.textBaseline = 'alphabetic';
   return c;
 }
