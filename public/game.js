@@ -788,7 +788,10 @@ function toast(t, ms = 1800) { const el = $('toast'); el.textContent = t; el.cla
 function feed(t) { const f = $('feed'); const d = document.createElement('div'); d.textContent = t; f.appendChild(d); while (f.children.length > 4) f.firstChild.remove(); setTimeout(() => d.remove(), 5100); }
 function overlay(html, soft) { const o = $('overlay'); o.className = 'overlay' + (soft ? ' soft' : ''); o.innerHTML = `<div class="card">${html}</div>`; o.hidden = false; }
 function closeOverlay() { $('overlay').hidden = true; clearInterval(shadeTimer); }
-$('cardBtn').onclick = () => { const s = $('cardSheet'); s.hidden = !s.hidden; $('peopleSheet').hidden = true; $('cardBtn').setAttribute('aria-expanded', String(!s.hidden)); };
+$('cardBtn').onclick = () => { const s = $('cardSheet'); s.hidden = !s.hidden; $('peopleSheet').hidden = true; $('cardBtn').setAttribute('aria-expanded', String(!s.hidden)); $('peopleBtn').setAttribute('aria-expanded', 'false'); };
+function closeSheets() { $('cardSheet').hidden = true; $('peopleSheet').hidden = true; $('cardBtn').setAttribute('aria-expanded', 'false'); $('peopleBtn').setAttribute('aria-expanded', 'false'); }
+$('cardClose').onclick = closeSheets;
+window.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheets(); });
 
 // ---- 같이 치는 사람: 누가 몇 번 홀 어디에 있는지 ----
 let focusId = 0;
@@ -823,7 +826,7 @@ function renderPeople() {
   $('peopleSub').textContent = NET.ch ? `${NET.ch}채널 · ${NET.others.size + 1}명이 같이 치고 있어요` : '지금은 혼자 라운딩 중이에요. 서버에 연결되면 같은 채널 사람들이 보여요.';
   const inp = $('inviteLink'); if (document.activeElement !== inp) inp.value = inviteURL();
 }
-$('peopleBtn').onclick = () => { const s = $('peopleSheet'); s.hidden = !s.hidden; $('cardSheet').hidden = true; $('peopleBtn').setAttribute('aria-expanded', String(!s.hidden)); renderPeople(); };
+$('peopleBtn').onclick = () => { const s = $('peopleSheet'); s.hidden = !s.hidden; $('cardSheet').hidden = true; $('cardBtn').setAttribute('aria-expanded', 'false'); $('peopleBtn').setAttribute('aria-expanded', String(!s.hidden)); renderPeople(); };
 $('peopleClose').onclick = () => { $('peopleSheet').hidden = true; $('peopleBtn').setAttribute('aria-expanded', 'false'); };
 $('inviteCopy').onclick = () => {
   const inp = $('inviteLink'), b = $('inviteCopy'); inp.value = inviteURL();
@@ -1150,12 +1153,12 @@ function canTravel() {
   return false;
 }
 $('goShadeBtn').onclick = () => {
-  if (!canTravel()) return;
+  closeSheets(); if (!canTravel()) return;
   if (Math.hypot(me.x - SHADE.x, me.z - SHADE.z) < 6) { showShade(); return; }
   closeOverlay(); cartTo(SHADE.x + rand(-2, 0), SHADE.z + rand(-1, 1), false, '배고프시죠? 그늘집으로 모실게요~', '오늘은 당근주스가 제일 잘 나가요!');
 };
 $('goWCBtn').onclick = () => {
-  if (!canTravel()) return;
+  closeSheets(); if (!canTravel()) return;
   if (Math.hypot(me.x - RR_DOORS.m[0], me.z - RR.z) < 5) { toast('바로 앞이에요! 남자/여자 화장실 버튼을 눌러주세요', 1600); return; }
   closeOverlay(); RIDE.rush = true; cartTo(RR_DOORS.m[0] + 1.6, (RR_DOORS.m[1] + RR_DOORS.w[1]) / 2, false, '급하시죠? 꽉 잡으세요, 밟습니다!', '거의 다 왔어요, 조금만 참으세요!');
 };
@@ -1384,7 +1387,7 @@ function resize() {
 function bindInput() {
   const el = renderer.domElement, ptrs = new Map(); let moved = 0, pinch = 0;
   el.addEventListener('pointerdown', e => {
-    audio(); el.focus({ preventScroll: true }); el.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); moved = ptrs.size > 1 ? 99 : 0; pinch = 0;
+    audio(); closeSheets(); el.focus({ preventScroll: true }); el.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); moved = ptrs.size > 1 ? 99 : 0; pinch = 0;
     if (S.mode === 'aim' && ptrs.size === 1 && !S.charge) { S.aimDrag = true; aimFromPointer(e); $('aimTip').classList.add('used'); } else S.aimDrag = false;
   });
   el.addEventListener('pointermove', e => {
