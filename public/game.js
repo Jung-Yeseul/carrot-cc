@@ -281,6 +281,7 @@ function exitToEntry() {
   $('app').hidden = true; $('lobby').hidden = false; running = false; setMaster(false);
 }
 $('toLobby').onclick = () => openGameMenu();
+$('exitBtn').onclick = () => openGameMenu();
 // ---- 닉네임 ----
 const NICK_RE = /^[가-힣a-zA-Z0-9 _]+$/;
 const NICK_BANNED = ['씨발', '시발', 'ㅅㅂ', '병신', 'ㅂㅅ', '개새', '좆', '지랄', '꺼져', '섹스', '자지', '보지', '니미', '애미', '애비', '느금', 'fuck', 'shit', 'sex', 'bitch', '관리자', '운영자', '운영진', 'admin', '캐디봇'];
@@ -1000,7 +1001,7 @@ function updActions() {
   if (S.mode === 'club' && !LB.lockerUI) {
     if (LB.zone === 'out') html = '<button class="act" id="clEnter">🚪 클럽하우스 입장</button>';
     else if (LB.zone === 'locker') html = '<button class="act" id="clDress">👕 옷 갈아입기</button><button class="act sub" id="clLobby">🏛️ 로비로</button>';
-    else html = '<button class="act sub" id="clLocker">👕 락커룸</button><button class="act sub" id="clRange">🏌️ 드라이빙 레인지</button><button class="act" id="clCourse">⛳ 1번 홀로</button>';
+    else html = '<button class="act sub" id="clLocker">👕 락커룸</button><button class="act sub" id="clRange">🏌️ 드라이빙 레인지</button><button class="act" id="clCourse">⛳ 티오프 하러 가기</button>';
   }
   if (S.mode === 'eat') html = '<button class="act sub" id="eatDone">다 먹었어요</button>';
   if (S.mode === 'flight') html = '<button class="act sub" id="skipFlight">공 멈춘 곳 바로 보기 ▸▸</button>';
@@ -2378,7 +2379,7 @@ function buildLobby() {
   const hang = (w, top, sub, x, y, z, ry) => { const s = plane(w, w * .26, new T.MeshLambertMaterial({ map: signTex(640, 166, top, sub) }), x, y, z, ry); return s; };
   hang(2.6, '락커룸', 'LOCKER ROOM', -9.76, 5.3, 0, Math.PI / 2);
   hang(2.6, '드라이빙 레인지', 'DRIVING RANGE', 9.76, 5.4, -4.5, -Math.PI / 2);
-  hang(2.6, '골프 코스 · 1번 홀', 'GOLF COURSE', 9.76, 5.4, 4.5, -Math.PI / 2);
+  hang(2.6, '스타트 하우스 · 티오프', 'START HOUSE', 9.76, 5.4, 4.5, -Math.PI / 2);
   hang(2.8, '정문', 'MAIN ENTRANCE', 0, 5.6, 9.76, Math.PI);
   hang(2.6, '로비', 'LOBBY', -10.24, 5.3, 0, -Math.PI / 2);
   // 오른쪽 출입구 너머: 밝은 바깥 풍경 + 황동 문틀
@@ -2480,7 +2481,7 @@ function lbShow(name, say, btns) {
 function openDesk(welcome) {
   LB.desk = 'open';
   lbShow('프론트 토끼 매니저', welcome ? `어서 오세요, ${NET.nick} 님! 당근 컨트리클럽입니다. 오늘은 무엇을 도와드릴까요?` : '어서 오세요! 당근 컨트리클럽입니다. 오늘은 무엇을 도와드릴까요?',
-    [['락커룸 안내', 'g-locker'], ['드라이빙 레인지 안내', 'g-range', 'sub'], ['골프 코스 안내', 'g-course', 'sub'], ['이름 바꾸기', 'nick', 'link']]);
+    [['락커룸 안내', 'g-locker'], ['드라이빙 레인지 안내', 'g-range', 'sub'], ['티오프(스타트 하우스) 안내', 'g-course', 'sub'], ['이름 바꾸기', 'nick', 'link']]);
   tone(1568, .4, 'sine', .08);
 }
 function closeDesk(snooze) { LB.desk = 'idle'; LB.welcome = null; if (snooze) LB.deskSnooze = true; if (!LB.lockerUI) $('lobbyUI').hidden = true; }
@@ -2490,9 +2491,11 @@ function lobbyAct(a) {
   const guide = (say, pts) => { lbShow('프론트 토끼 매니저', say, []); setTimeout(() => { closeDesk(true); walkPath(pts); }, 1100); };
   if (a === 'g-locker') guide('락커룸은 왼쪽 문이에요. 모셔다 드릴게요!', [[-5, 0], [-10, 0], [-13.5, -.8]]);
   else if (a === 'g-range') guide('드라이빙 레인지는 오른쪽 앞 문이에요. 문으로 들어가시면 바로 연습장이에요!', [[5.5, -2.6], [10.2, -4.5]]);
-  else if (a === 'g-course') guide('골프 코스는 오른쪽 뒤 문이에요. 1번 홀 단풍길로 이어져요!', [[5.5, 2.6], [10.2, 4.5]]);
+  else if (a === 'g-course') guide('스타트 하우스는 오른쪽 뒤 문이에요. 토끼 캐디가 티오프 준비하고 기다리고 있어요!', [[5.5, 2.6], [10.2, 4.5]]);
   else if (a === 'nick') { $('nick').click(); const iv = setInterval(() => { if ($('overlay').hidden) { clearInterval(iv); if (LB.desk === 'open') openDesk(false); } }, 300); }
   else if (a === 'lkdone') closeLocker();
+  else if (a === 'cd-ok') { caddieBye(); toast('나이스 샷 기대할게요!', 1400); }
+  else if (a === 'cd-guide') { caddieBye(); showGuide(S.hole); }
   else if (a === 'lklobby') { closeLocker(); walkPath([[-13, 0], [-9, 0], [-2, -2.2]]); }
 }
 let typeT = 0;
@@ -2539,7 +2542,7 @@ function goCourseDoor() {
   if (!roundHasProgress() && !saved) { if (S.scores.every(x => x != null)) resetRound(false); enterCourse(false); return; }
   const d = roundHasProgress() ? { hole: S.hole, strokes: S.strokes, sc: totalDiff(), done: S.scores.filter(x => x != null).length } : { hole: saved.hole, strokes: saved.strokes, sc: saved.scores.reduce((d, s, i) => s == null ? d : d + s - HOLES[i].par, 0), done: saved.scores.filter(x => x != null).length };
   me.x = LB.x + 7.6; me.yaw = -Math.PI / 2; cam.yaw = Math.PI / 2; LB.cam = null; lastActKey = '';
-  overlay(`<span class="eyebrow">골프 코스 입구</span><h2>다시 오셨군요! 이어서 라운딩하시겠어요?</h2>
+  overlay(`<span class="eyebrow">스타트 하우스</span><h2>다시 오셨군요! 이어서 라운딩하시겠어요?</h2>
     <p>${d.hole + 1}번 홀 · 이번 홀 ${d.strokes}타 · 합계 ${fmtDiff(d.sc)} (${d.done}/${HOLES.length}홀 완료)</p>
     <div class="btns col"><button class="btn" id="rcGo">이어서 라운딩하기</button><button class="btn sub" id="rcNew">새 라운딩 시작하기</button><button class="btn sub" id="rcBack">클럽하우스로 돌아가기</button></div>`);
   $('rcGo').onclick = () => { closeOverlay(); if (saved) applyRound(saved); enterCourse(true); };
@@ -2554,14 +2557,31 @@ function goCourseDoor() {
 function enterCourse(resume) {
   fadeTo(() => {
     setClubUI(false); updHud(); renderCard(); renderTix();
-    goFirstTee();
-    if (resume) toast(`${S.hole + 1}번 홀, ${S.strokes}타째부터 이어서 쳐요`, 2200);
+    goFirstTee(); caddieHello(resume);
   });
+}
+// 스타트 하우스: 토끼 캐디가 카트 옆에서 인사해요
+let helloCad = null;
+function caddieHello(resume) {
+  if (helloCad) { scene.remove(helloCad); helloCad = null; }
+  const a = me.yaw + Math.PI / 2, cx = me.x + Math.sin(a) * 1.6 + Math.sin(me.yaw) * 1.2, cz = me.z + Math.cos(a) * 1.6 + Math.cos(me.yaw) * 1.2;
+  helloCad = makeCaddie(); helloCad.position.set(cx, heightAt(cx, cz), cz); helloCad.rotation.y = Math.atan2(me.x - cx, me.z - cz); scene.add(helloCad); helloCad.userData.talk = 2;
+  cam.yaw = Math.atan2(cx - me.x, cz - me.z) - .6;
+  const n = HOLES[S.hole];
+  const say = resume ? `다시 오셨네요, ${NET.nick} 님! ${S.hole + 1}번 홀 ${S.strokes ? `공 있는 데서 ${S.strokes + 1}타째부터` : '티잉 구역에서'} 이어서 칠게요.`
+    : `안녕하세요, ${NET.nick} 님! 오늘 함께할 토끼 캐디예요. 여기가 티오프 장소예요. 첫 홀은 ${n.name}, PAR ${n.par}! 편하게 치세요~`;
+  lbShow('토끼 캐디', say, resume ? [['좋아요, 가요!', 'cd-ok']] : [['잘 부탁해요!', 'cd-ok'], ['오늘 코스 미리 보기', 'cd-guide', 'sub']]);
+  tone(988, .1, 'triangle', .08); tone(1318, .14, 'triangle', .08, .1);
+}
+function caddieBye() {
+  $('lobbyUI').hidden = true; clearInterval(typeT);
+  const c = helloCad; if (!c) return; helloCad = null; let k = 0;
+  const iv = setInterval(() => { k++; c.position.y += .05; c.scale.multiplyScalar(.93); if (k > 18) { clearInterval(iv); scene.remove(c); } }, 30);
 }
 function leaveCourse(where) {
   if (S.mode === 'aim') exitAim();
   if (S.mode !== 'walk') { toast(S.mode === 'ride' ? '카트에서 내린 뒤에 이동할 수 있어요' : '공이 멈춘 뒤에 이동할 수 있어요', 1600); return; }
-  closeOverlay(); saveRound(); keys.clear(); me.moveT = null;
+  closeOverlay(); saveRound(); keys.clear(); me.moveT = null; caddieBye();
   fadeTo(() => startClubAt(where));
 }
 
@@ -2593,11 +2613,11 @@ function openGameMenu() {
   const inCourse = !['club', 'range'].includes(S.mode);
   if (inCourse) overlay(`<span class="eyebrow">메뉴 · ${NET.ch ? NET.ch + '채널' : '혼자 라운딩'}</span><h2>${S.hole + 1}번 홀 · ${S.strokes}타째</h2>
     <p>합계 ${fmtDiff(totalDiff())} · ${S.scores.filter(x => x != null).length}/${HOLES.length}홀 완료. 클럽하우스에 다녀와도 지금 위치에서 이어서 칠 수 있어요.</p>
-    <div class="btns col"><button class="btn" id="gmGo">▶ 라운딩 계속하기</button><button class="btn sub" id="gmClub">🏛️ 클럽하우스로 돌아가기</button><button class="btn sub" id="gmGate">🚪 정문으로 나가기</button></div>
+    <div class="btns col"><button class="btn" id="gmGo">▶ 라운딩 계속하기</button><button class="btn sub" id="gmClub">🏛️ 클럽하우스 로비로</button><button class="btn sub" id="gmGate">🚪 정문으로 나가기</button></div>
     <button type="button" class="linkbtn" id="gmExit">입장 화면(채널 선택)으로 나가기</button>`);
   else overlay(`<span class="eyebrow">메뉴</span><h2>${S.mode === 'range' ? '드라이빙 레인지' : '클럽하우스'}</h2>
-    <p>${roundHasProgress() ? `진행 중인 라운딩: ${S.hole + 1}번 홀 · 합계 ${fmtDiff(totalDiff())}` : '골프 코스 1번 홀로 바로 갈 수 있어요.'}</p>
-    <div class="btns col"><button class="btn" id="gmGo">▶ 계속 둘러보기</button><button class="btn sub" id="gmCourse">⛳ 골프 코스로</button>${S.mode === 'range' ? '<button class="btn sub" id="gmLobby">🏛️ 로비로 돌아가기</button>' : ''}<button class="btn sub" id="gmGate">🚪 정문으로 나가기</button></div>
+    <p>${roundHasProgress() ? `진행 중인 라운딩: ${S.hole + 1}번 홀 · 합계 ${fmtDiff(totalDiff())}` : '스타트 하우스에서 캐디와 만나 티오프할 수 있어요.'}</p>
+    <div class="btns col"><button class="btn" id="gmGo">▶ 계속 둘러보기</button><button class="btn sub" id="gmCourse">⛳ 티오프 하러 가기</button>${S.mode === 'range' ? '<button class="btn sub" id="gmLobby">🏛️ 로비로 돌아가기</button>' : ''}<button class="btn sub" id="gmGate">🚪 정문으로 나가기</button></div>
     <button type="button" class="linkbtn" id="gmExit">입장 화면(채널 선택)으로 나가기</button>`);
   $('gmGo').onclick = closeOverlay;
   if ($('gmClub')) $('gmClub').onclick = () => leaveCourse('course');
@@ -2620,6 +2640,7 @@ function updateLobby(dt, t) {
   const sf = LB.staff; if (sf) { sf.userData.talk = Math.max(0, (sf.userData.talk || 0) - dt); sf.position.y = .55 + (sf.userData.talk > 0 ? Math.abs(Math.sin(t * 10)) * .06 : 0); sf.rotation.z = Math.sin(t * 1.5) * .04; }
   if (LB.statue) LB.statue.rotation.y = Math.sin(t * .4) * .25;
   $('app').classList.toggle('dlg', !$('lobbyUI').hidden);
+  if (helloCad) helloCad.position.y = heightAt(helloCad.position.x, helloCad.position.z) + Math.abs(Math.sin(t * 8)) * .06;
   if (!here) return;
   if (S.mode === 'cine') {
     const c = LB.cine; c.t += dt;
@@ -2678,7 +2699,7 @@ function goFirstTee() {
   if (S.ball.state === 'rest' && S.strokes > 0) { const a = Math.atan2(hole().cup[0] - S.ball.x, hole().cup[1] - S.ball.z); for (const r of [2, 3, 4.5]) { const x = S.ball.x - Math.sin(a) * r, z = S.ball.z - Math.cos(a) * r; if (canStand(x, z)) { me.x = x; me.z = z; break; } } me.yaw = a; cam.yaw = a; }
   snapCam(); lastActKey = '';
   sendPos(true);
-  setTimeout(() => { if (S.hole === 0 && S.strokes === 0 && $('overlay').hidden && S.mode === 'walk') showGuide(0); }, 900);
+  setTimeout(() => { if (S.hole === 0 && S.strokes === 0 && $('overlay').hidden && $('lobbyUI').hidden && S.mode === 'walk') showGuide(0); }, 900);
   setTimeout(() => $('help').classList.add('off'), window.innerWidth < 640 ? 7000 : 12000);
 }
 
