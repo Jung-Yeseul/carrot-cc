@@ -65,11 +65,11 @@ const ROLL = { green: [.9, .5], fairway: [1.5, 1.2], tee: [1.5, 1.2], path: [1.2
 const LIE = { green: '그린', fairway: '페어웨이', tee: '티잉 구역', path: '카트 도로', rough: '러프', sand: '벙커' };
 const EMOTES = ['나이스샷!', '굿 퍼팅', '아깝다~', '오잘공!', '당근이지!', '캐디님 감사']; // 서버 EMOTES 개수와 맞추기
 const MENU = [
-  { id: 'carrot', name: '갓 짠 당근주스', price: '12,000원', eff: 'OK권 2장 + 처음 먹으면 공이 날아갈 길이 미리 보여요.', chip: '당근주스: 궤적 미리보기', tix: [0, 2] },
-  { id: 'ramen', name: '그늘집 컵라면', price: '9,000원', eff: '멀리건 1장 + 처음 먹으면 비거리 +20%.', chip: '컵라면: 비거리 +20%', tix: [1, 0] },
-  { id: 'makgeolli', name: '막걸리 한 잔', price: '15,000원', eff: '멀리건 1장·OK권 1장 + 처음 먹으면 홀컵이 크게 보여요(손 떨림).', chip: '막걸리: 홀컵 크게, 손 떨림', tix: [1, 1] },
-  { id: 'odeng', name: '오뎅 꼬치', price: '11,000원', eff: '멀리건 2장. 동반자가 너그러워져요.', chip: '오뎅: 너그러운 동반자', tix: [2, 0] },
-  { id: 'tteok', name: '매운 떡볶이', price: '13,000원', eff: '멀리건 1장·OK권 1장 + 처음 먹으면 매워서 정신이 번쩍! 파워바가 천천히 움직여요.', chip: '떡볶이: 파워바 느리게', tix: [1, 1] },
+  { id: 'carrot', name: '갓 짠 당근주스', price: '12,000원', eff: 'OK권 2장·순간이동권 1장 + 처음 먹으면 공이 날아갈 길이 미리 보여요.', chip: '당근주스: 궤적 미리보기', tix: [0, 2, 1] },
+  { id: 'ramen', name: '그늘집 컵라면', price: '9,000원', eff: '멀리건 1장·순간이동권 2장 + 처음 먹으면 비거리 +20%.', chip: '컵라면: 비거리 +20%', tix: [1, 0, 2] },
+  { id: 'makgeolli', name: '막걸리 한 잔', price: '15,000원', eff: '멀리건 1장·OK권 1장·순간이동권 1장 + 처음 먹으면 홀컵이 크게 보여요(손 떨림).', chip: '막걸리: 홀컵 크게, 손 떨림', tix: [1, 1, 1] },
+  { id: 'odeng', name: '오뎅 꼬치', price: '11,000원', eff: '멀리건 2장·순간이동권 1장. 동반자가 너그러워져요.', chip: '오뎅: 너그러운 동반자', tix: [2, 0, 1] },
+  { id: 'tteok', name: '매운 떡볶이', price: '13,000원', eff: '멀리건 1장·OK권 1장·순간이동권 2장 + 처음 먹으면 매워서 정신이 번쩍! 파워바가 천천히 움직여요.', chip: '떡볶이: 파워바 느리게', tix: [1, 1, 2] },
 ];
 
 // ================= 지형 판정 =================
@@ -816,7 +816,7 @@ function clearOthers() { for (const id of [...NET.others.keys()]) removeOther(id
 const me = { x: 0, z: 0, yaw: 0, anim: 0, ph: 0, moveT: null, av: null, tag: null, swingT: 0, jump: 0 };
 const cam = { yaw: 0, aimYaw: 0, pitch: .38, dist: 13, mode: 'follow', tx: 0, ty: 0, tz: 0, px: 0, py: 10, pz: 0 };
 const S = { hole: 0, strokes: 0, scores: Array(HOLES.length).fill(null), buff: null, mulligans: 0, mode: 'walk', club: 0, clubAuto: true, aimYaw: 0,
-  charge: false, chargeT: 0, okTix: 0, zoneUsed: {}, st: null, shotChance: false, chance: 2, chanceT: null, chanceBusy: false, chanceHit: false, power: 0, prev: null, last: null, ball: { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, state: 'rest' }, ballVis: true, shadeSeen: false, shots: 0 };
+  charge: false, chargeT: 0, okTix: 0, zoneUsed: {}, st: null, shotChance: false, chance: 2, chanceT: null, chanceBusy: false, chanceHit: false, power: 0, warpTix: 0, prev: null, last: null, ball: { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, state: 'rest' }, ballVis: true, shadeSeen: false, shots: 0 };
 const keys = new Set();
 
 function getBest() { try { const v = localStorage.getItem('carrot-cc-best3d'); return v ? +v : null; } catch { return null; } }
@@ -975,7 +975,7 @@ function updActions() {
   let key;
   if (S.mode === 'aim') key = `aim${S.club}${S.chance}${S.chanceBusy ? 1 : 0}${S.readLie ? 1 : 0}`;
   const nearRR = Math.hypot(me.x - RR_DOORS.m[0], me.z - (RR_DOORS.m[1] + RR_DOORS.w[1]) / 2) < 5;
-  if (S.mode === 'walk') key = `walk${S.ball.state}${near}${inShade}${nearRR}${S.mulligans && S.prev ? 1 : 0}${okReady() ? 1 : 0}${S.okTix}${S.ballVis}`;
+  if (S.mode === 'walk') key = `walk${S.warpTix | 0}${S.ball.state}${near}${inShade}${nearRR}${S.mulligans && S.prev ? 1 : 0}${okReady() ? 1 : 0}${S.okTix}${S.ballVis}`;
   else if (S.mode !== 'aim') key = S.mode;
   if (S.mode === 'ride') key = 'ride';
   if (S.mode === 'range') key = `range${RG.club}`;
@@ -993,7 +993,7 @@ function updActions() {
   } else if (S.mode === 'walk') {
     if (S.ball.state === 'rest') {
       if (near) html += '<button class="act" id="ready">샷 준비 (E)</button>';
-      else html += '<button class="act" id="warpBall">공으로 순간이동</button><button class="act sub" id="goBall">걸어가기</button><button class="act sub" id="cartBall">카트</button>';
+      else html += `<button class="act" id="cartBall">카트</button><button class="act sub" id="goBall">걸어가기</button>${S.warpTix > 0 ? `<button class="act sub" id="warpBall">순간이동 (${S.warpTix})</button>` : ''}`;
     }
     if (inShade) html += '<button class="act" id="menuBtn">그늘집 메뉴판 보기</button>';
     if (nearRR) html += '<button class="act wc m" id="wcM">남자 화장실</button><button class="act wc w" id="wcW">여자 화장실</button>';
@@ -1042,6 +1042,9 @@ $('lbSkip') && ($('lbSkip').onclick = () => skipCine());
 // 공 있는 곳으로 순간이동 (뿅!)
 function warpToBall() {
   if (S.mode !== 'walk' || S.ball.state !== 'rest') return;
+  // 순간이동은 그늘집 음식으로 받은 순간이동권이 있을 때만
+  if (!(S.warpTix > 0)) { toast('순간이동권이 없어요. 그늘집에서 음식을 사 먹으면 받아요!', 2200); return; }
+  S.warpTix--; renderTix();
   const tg = aimTarget(), a = Math.atan2(tg[0] - S.ball.x, tg[1] - S.ball.z);
   let tx = S.ball.x - Math.sin(a) * 1.4, tz = S.ball.z - Math.cos(a) * 1.4;
   if (!canStand(tx, tz)) { tx = S.ball.x; tz = S.ball.z; }
@@ -1410,7 +1413,7 @@ function nextHoleCard(s) {
   const done = S.hole, n = HOLES[done + 1];
   const shade = done === 3 || (done === 5 && !S.mulligans && !S.okTix);
   overlay(`<span class="eyebrow">${done + 1}번 홀 ${s}타 (${fmtDiff(s - HOLES[done].par)}) · 합계 ${fmtDiff(totalDiff())}</span>
-    <h2>다음은 ${done + 2}번 홀, ${esc(n.name)}</h2><p class="evtag"><b>${HOLE_EV[n.ev][0]}</b> ${HOLE_EV[n.ev][1]}</p><p>PAR ${n.par}. ${shade ? '그늘집에 들러 보세요. 음식을 사 먹으면 멀리건·OK권을 받아요.' : '노란 점선이 공략 경로예요. 아래 T가 티, 위 깃발이 그린이에요.'}</p>
+    <h2>다음은 ${done + 2}번 홀, ${esc(n.name)}</h2><p class="evtag"><b>${HOLE_EV[n.ev][0]}</b> ${HOLE_EV[n.ev][1]}</p><p>PAR ${n.par}. ${shade ? '그늘집에 들러 보세요. 음식을 사 먹으면 멀리건·OK권·순간이동권을 받아요.' : '노란 점선이 공략 경로예요. 아래 T가 티, 위 깃발이 그린이에요.'}</p>
     <canvas class="guide-map" id="guideMap" width="560" height="500" aria-label="다음 홀 지도"></canvas>
     <p class="guide-tip"><b>토끼 캐디</b> ${esc(HOLE_TIPS[done + 1] || '')}</p>
     <div class="btns">${shade ? '<button class="btn" id="goShade">그늘집 들르기</button>' : ''}<button class="btn${shade ? ' sub' : ''}" id="goCart">카트 타고 티로</button><button class="btn sub" id="goWalk">걸어가기</button></div>`);
@@ -1465,7 +1468,7 @@ function renderCard() {
   $('sc').innerHTML = h + '<th>합계</th></tr>' + p + `<td>${TOTAL_PAR}</td></tr>` + s + `<td>${played.length ? tot : ''}</td></tr>`;
 }
 function resetRound(teleport) {
-  closeOverlay(); S.scores.fill(null); S.buff = null; S.mulligans = 0; S.okTix = 0; S.zoneUsed = {}; S.okHinted = false; S.crocDone = false; S.chance = CHANCE_MAX; S.spent = 0; renderSpent(); S.st = newStats(); S.hole = 0; S.strokes = 0; S.prev = null; S.last = null; S.mode = 'walk';
+  closeOverlay(); S.scores.fill(null); S.buff = null; S.mulligans = 0; S.okTix = 0; S.warpTix = 0; S.zoneUsed = {}; S.okHinted = false; S.crocDone = false; S.chance = CHANCE_MAX; S.spent = 0; renderSpent(); S.st = newStats(); S.hole = 0; S.strokes = 0; S.prev = null; S.last = null; S.mode = 'walk';
   $('buffChip').hidden = true;
   const t = HOLES[0].tee; Object.assign(S.ball, { x: t[0], y: 0, z: t[1], vx: 0, vy: 0, vz: 0, state: 'rest' }); S.ballVis = true;
   if (teleport) cartTo(t[0], t[1], true, '1번 홀로 다시 모실게요~', holeTalk(0));
@@ -1621,13 +1624,13 @@ function finishEat() {
   S.mode = 'walk'; lastActKey = ''; $('caddieTip').hidden = true;
   S.spent = (S.spent || 0) + priceOf(m); renderSpent(); S.st.menus.push(m.name.replace('갓 짠 ', '').replace('그늘집 ', ''));
   toast(`${m.price} 결제 완료 · 그늘집 가격은 원래 이래요`, 2200);
-  S.mulligans += m.tix[0]; S.okTix += m.tix[1]; renderTix(); setTimeout(() => toast(`${m.tix[0] ? `멀리건 ${m.tix[0]}장 ` : ''}${m.tix[1] ? `OK권 ${m.tix[1]}장 ` : ''}받았어요!`, 2000), 4600);
+  S.mulligans += m.tix[0]; S.okTix += m.tix[1]; S.warpTix += m.tix[2] || 0; renderTix(); setTimeout(() => toast(`${m.tix[0] ? `멀리건 ${m.tix[0]}장 ` : ''}${m.tix[1] ? `OK권 ${m.tix[1]}장 ` : ''}${m.tix[2] ? `순간이동권 ${m.tix[2]}장 ` : ''}받았어요!`, 2000), 4600);
   if (EAT.first) { S.buff = m.id; const c = $('buffChip'); c.textContent = m.chip; c.hidden = false; setTimeout(() => toast(`${m.chip} 효과가 생겼어요`, 2000), 2300); }
   if (m.id === 'makgeolli') { S.st.tipsy = true; me.tipsy = 60; setTimeout(() => toast('취기가 올라와요… 1분 동안 비틀비틀', 2000), EAT.first ? 4500 : 2300); }
   showBubble(me, ['배부르다~', '잘 먹었습니다!', '역시 그늘집은 비싸도 맛있어'][Math.random() * 3 | 0]);
   setTimeout(() => ownerSay('또 오세요~ 라운딩 끝나고도 열려 있어요'), 1200);
 }
-function renderTix() { const c = $('tixChip'); c.hidden = !(S.mulligans || S.okTix); c.textContent = `멀리건 ${S.mulligans} · OK권 ${S.okTix}`; lastActKey = ''; }
+function renderTix() { const c = $('tixChip'); c.hidden = !(S.mulligans || S.okTix || S.warpTix); c.textContent = `멀리건 ${S.mulligans} · OK권 ${S.okTix} · 순간이동 ${S.warpTix || 0}`; lastActKey = ''; }
 function renderSpent() { const el = $('spent'); if (!el) return; el.hidden = !S.spent; el.innerHTML = `오늘 그늘집에서 쓴 돈 <b>${(S.spent || 0).toLocaleString('ko-KR')}원</b>`; }
 
 // ================= 하이라이트 자동 녹화 (세로 9:16, 소리 포함) =================
@@ -2601,7 +2604,7 @@ function roundHasProgress() { const done = S.scores.filter(x => x != null).lengt
 function clearRound() { try { localStorage.removeItem(ROUND_KEY); } catch {} }
 function saveRound() {
   if (!roundHasProgress()) { if (S.scores.every(x => x != null)) clearRound(); return; }
-  const d = { v: 1, at: Date.now(), hole: S.hole, strokes: S.strokes, scores: S.scores.slice(), ball: { x: S.ball.x, z: S.ball.z }, ballVis: S.ballVis, buff: S.buff, mulligans: S.mulligans, okTix: S.okTix, chance: S.chance, spent: S.spent || 0, st: S.st, crocDone: !!S.crocDone, zoneUsed: S.zoneUsed || {} };
+  const d = { v: 1, at: Date.now(), hole: S.hole, strokes: S.strokes, scores: S.scores.slice(), ball: { x: S.ball.x, z: S.ball.z }, ballVis: S.ballVis, buff: S.buff, mulligans: S.mulligans, okTix: S.okTix, warpTix: S.warpTix || 0, chance: S.chance, spent: S.spent || 0, st: S.st, crocDone: !!S.crocDone, zoneUsed: S.zoneUsed || {} };
   try { localStorage.setItem(ROUND_KEY, JSON.stringify(d)); } catch {}
 }
 function loadRound() {
@@ -2610,7 +2613,7 @@ function loadRound() {
 function applyRound(d) {
   S.hole = clamp(d.hole | 0, 0, HOLES.length - 1); S.strokes = Math.max(0, d.strokes | 0); d.scores.forEach((v, i) => { S.scores[i] = v == null ? null : +v; });
   Object.assign(S.ball, { x: +d.ball.x || HOLES[S.hole].tee[0], z: +d.ball.z || HOLES[S.hole].tee[1], y: 0, vx: 0, vy: 0, vz: 0, state: 'rest' }); S.ballVis = d.ballVis !== false;
-  S.buff = d.buff || null; S.mulligans = d.mulligans | 0; S.okTix = d.okTix | 0; S.chance = d.chance ?? CHANCE_MAX; S.spent = d.spent || 0; S.st = d.st || newStats(); S.crocDone = !!d.crocDone; S.zoneUsed = d.zoneUsed || {}; S.prev = null; S.last = null;
+  S.buff = d.buff || null; S.mulligans = d.mulligans | 0; S.okTix = d.okTix | 0; S.warpTix = d.warpTix | 0; S.chance = d.chance ?? CHANCE_MAX; S.spent = d.spent || 0; S.st = d.st || newStats(); S.crocDone = !!d.crocDone; S.zoneUsed = d.zoneUsed || {}; S.prev = null; S.last = null;
   const m = S.buff && MENU.find(x => x.id === S.buff); $('buffChip').hidden = !m; if (m) $('buffChip').textContent = m.chip;
   renderSpent(); renderTix(); renderCard(); updHud();
 }
