@@ -2261,7 +2261,7 @@ function updateCritters(dt) {
 const LB = { x: 0, z: 520, built: false, staff: null, panels: null, doorK: 0, myLocker: null, floors: [], zone: 'out', desk: 'idle', deskSnooze: false, portalLock: false, welcome: null, cine: null, lockerUI: false, cam: null };
 const CL = {
   allow: [[-9.4, 9.4, -9.4, 9.4], [-10.7, -9.3, -1.3, 1.3], [-21.0, -10.6, -6.4, 6.4], [-1.6, 1.6, 9.3, 10.9], [-30, 30, 10.8, 44], [9.3, 10.5, -5.8, -3.2], [9.3, 10.5, 3.2, 5.8]],
-  block: [[-4.2, 4.2, -10, -4.2], [-7.8, -5.4, 3.0, 7.2], [5.4, 7.8, 3.0, 7.2], [-17.8, -14.2, .3, 1.7], [-21.0, -11.2, 5.5, 6.4], [-9.5, -4.5, 10.8, 12.6], [4.5, 9.5, 10.8, 12.6]],
+  block: [[-4.2, 4.2, -10, -4.2], [-9.4, -6.2, 3.6, 7.4], [6.2, 9.4, -1.9, 1.9], [-17.8, -14.2, .3, 1.7], [-21.0, -11.2, 5.5, 6.4], [-9.5, -4.5, 10.8, 12.6], [4.5, 9.5, 10.8, 12.6]],
   circles: [[-8.6, 8.6, .9], [8.6, 8.6, .9], [-8.6, -8.4, .9], [8.6, -8.4, .9], [0, 24, 2.7], [-3, 12.2, .65], [3, 12.2, .65]],
 };
 const inClub = (x, z) => Math.abs(z - LB.z) < 70 && Math.abs(x - LB.x) < 70;
@@ -2371,7 +2371,8 @@ function buildLobby() {
   const hof = new T.Mesh(new T.PlaneGeometry(2.6, 1.8), new T.MeshLambertMaterial({ map: textTexture(320, 220, (c, w, h) => { c.fillStyle = '#3d2a08'; c.fillRect(0, 0, w, h); c.fillStyle = '#e8c873'; c.fillRect(10, 10, w - 20, h - 20); c.fillStyle = '#3d2a08'; c.textAlign = 'center'; c.font = `400 38px ${FONT}`; c.fillText('명예의 전당', w / 2, 60); c.font = `400 26px ${FONT}`; c.fillText('HOLE IN ONE', w / 2, 100); c.font = `400 22px ${FONT}`; c.fillText('홀인원하면 이름이 올라가요', w / 2, 150); }) }));
   hof.position.set(6.3, 3, -9.78); g.add(hof);
   // 라운지: 소파, 티 테이블, 화분, 샹들리에
-  for (const x of [-6.6, 6.6]) { const so = new T.Group(); so.position.set(x, 0, 5.1); g.add(so); const base = new T.Mesh(new T.BoxGeometry(1.3, .5, 3.6), deep); base.position.y = .45; so.add(base); const back = new T.Mesh(new T.BoxGeometry(.32, 1, 3.6), deep); back.position.set(x < 0 ? -.55 : .55, .95, 0); so.add(back); for (const z of [-1.9, 1.9]) { const arm = new T.Mesh(new T.BoxGeometry(1.3, .75, .25), deep); arm.position.set(0, .6, z); so.add(arm); } const tb = new T.Mesh(new T.CylinderGeometry(.6, .6, .08, 18), new T.MeshLambertMaterial({ map: marbleT })); tb.position.set(x < 0 ? 1.4 : -1.4, .55, 0); so.add(tb); const tl = new T.Mesh(new T.CylinderGeometry(.06, .1, .5, 8), brass); tl.position.set(x < 0 ? 1.4 : -1.4, .27, 0); so.add(tl); }
+  // 소파는 출입구를 막지 않게: 왼쪽은 앞쪽 벽, 오른쪽은 두 출입구 사이 벽
+  for (const [x, sz] of [[-8.3, 5.5], [8.3, 0]]) { const so = new T.Group(); so.position.set(x, 0, sz); g.add(so); const base = new T.Mesh(new T.BoxGeometry(1.3, .5, 3.2), deep); base.position.y = .45; so.add(base); const back = new T.Mesh(new T.BoxGeometry(.32, 1, 3.2), deep); back.position.set(x < 0 ? -.55 : .55, .95, 0); so.add(back); for (const z of [-1.7, 1.7]) { const arm = new T.Mesh(new T.BoxGeometry(1.3, .75, .25), deep); arm.position.set(0, .6, z); so.add(arm); } const tb = new T.Mesh(new T.CylinderGeometry(.6, .6, .08, 18), new T.MeshLambertMaterial({ map: marbleT })); tb.position.set(x < 0 ? 1.4 : -1.4, .55, 0); so.add(tb); const tl = new T.Mesh(new T.CylinderGeometry(.06, .1, .5, 8), brass); tl.position.set(x < 0 ? 1.4 : -1.4, .27, 0); so.add(tl); }
   for (const [x, z] of [[-8.6, 8.6], [8.6, 8.6], [-8.6, -8.4], [8.6, -8.4]]) { add(new T.CylinderGeometry(.45, .35, .8, 12), mat(0xb5653a), x, .4, z, true); const lf = add(new T.IcosahedronGeometry(.9, 0), mat(0x3f8a3f, { flatShading: true }), x, 1.5, z, true); lf.scale.y = 1.3; }
   for (const [x, z] of [[-4, -1], [4, -1], [0, 5]]) { add(new T.SphereGeometry(.38, 12, 8), warm, x, 6.2, z); add(new T.CylinderGeometry(.02, .02, .8, 4), brass, x, 6.6, z); }
   for (const [x, z] of [[0, -1], [-16, 0]]) { const pl = new T.PointLight(0xffe2b0, .8, 22); pl.position.set(x, 5.6, z); g.add(pl); }
@@ -2429,8 +2430,8 @@ function startClubAt(where) {
   buildLobby(); closeOverlay(); setClubUI(true); $('power').hidden = true; landRing.visible = false;
   LB.lockerUI = false; LB.desk = 'idle'; LB.deskSnooze = false; LB.welcome = null; LB.portalLock = true; LB.cine = null; $('lobbyUI').hidden = true; $('lobbyUI').classList.remove('locker');
   if (where === 'outside') placeClub(0, 31, Math.PI);
-  else if (where === 'range') placeClub(7.6, -4.5, -Math.PI / 2, Math.PI / 2);
-  else if (where === 'course') placeClub(7.6, 4.5, -Math.PI / 2, Math.PI / 2);
+  else if (where === 'range') placeClub(7.6, -4.5, -Math.PI / 2, 2.25);
+  else if (where === 'course') placeClub(7.6, 4.5, -Math.PI / 2, .89);
   else if (where === 'gate') { placeClub(0, 5, 0); startCine('exit'); return; }
   else placeClub(0, 2, Math.PI);
   S.mode = 'club'; lastActKey = '';
@@ -2541,7 +2542,7 @@ function goCourseDoor() {
   const saved = !roundHasProgress() && loadRound();
   if (!roundHasProgress() && !saved) { if (S.scores.every(x => x != null)) resetRound(false); enterCourse(false); return; }
   const d = roundHasProgress() ? { hole: S.hole, strokes: S.strokes, sc: totalDiff(), done: S.scores.filter(x => x != null).length } : { hole: saved.hole, strokes: saved.strokes, sc: saved.scores.reduce((d, s, i) => s == null ? d : d + s - HOLES[i].par, 0), done: saved.scores.filter(x => x != null).length };
-  me.x = LB.x + 7.6; me.yaw = -Math.PI / 2; cam.yaw = Math.PI / 2; LB.cam = null; lastActKey = '';
+  me.x = LB.x + 7.6; me.yaw = -Math.PI / 2; cam.yaw = .89; LB.cam = null; lastActKey = '';
   overlay(`<span class="eyebrow">스타트 하우스</span><h2>다시 오셨군요! 이어서 라운딩하시겠어요?</h2>
     <p>${d.hole + 1}번 홀 · 이번 홀 ${d.strokes}타 · 합계 ${fmtDiff(d.sc)} (${d.done}/${HOLES.length}홀 완료)</p>
     <div class="btns col"><button class="btn" id="rcGo">이어서 라운딩하기</button><button class="btn sub" id="rcNew">새 라운딩 시작하기</button><button class="btn sub" id="rcBack">클럽하우스로 돌아가기</button></div>`);
