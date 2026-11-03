@@ -110,6 +110,10 @@ button{font-family:inherit}
 .tag .nm{font-size:11px;font-weight:600;color:#fff;background:rgba(12,22,15,.55);padding:1px 7px;border-radius:999px}
 .tag.me .nm{background:rgba(233,113,31,.85)}
 .tag .bub{font-size:13px;font-weight:600;background:#fffaf3;color:#1a2a1c;padding:4px 10px;border-radius:12px;box-shadow:0 4px 10px -4px rgba(0,0,0,.4)}
+.aimtip{position:absolute;left:0;top:0;transform:translate(-50%,-100%);background:rgba(12,22,15,.78);color:#ffd166;font-size:13px;font-weight:600;padding:6px 12px;border-radius:999px;white-space:nowrap;pointer-events:none;z-index:6;animation:nudge 1.6s ease-in-out infinite}
+.aimtip.used{color:#f6f3ea;opacity:.75}
+@keyframes nudge{0%,100%{margin-left:-6px}50%{margin-left:6px}}
+.tag.caddie .nm{background:rgba(46,122,63,.9)}
 .sheet{position:absolute;z-index:15;top:calc(12px + env(safe-area-inset-top,0px));right:calc(12px + env(safe-area-inset-right,0px));width:min(380px,calc(100% - 24px));max-height:calc(100% - 200px);overflow:auto;background:var(--surface);color:var(--fg);border-radius:16px;padding:16px;box-shadow:0 20px 40px -20px rgba(0,0,0,.6);display:flex;flex-direction:column;gap:10px}
 .sheet h3{font-family:var(--display);font-size:20px;font-weight:400;margin:0}
 .overlay{position:absolute;inset:0;z-index:25;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(10,20,13,.45)}
@@ -161,4 +165,4 @@ td.cur,th.cur{background:color-mix(in srgb,var(--leaf) 14%,transparent)}
   .hud.tr .who{display:none}
   .help{bottom:calc(120px + env(safe-area-inset-bottom,0px))}
 }
-@media (prefers-reduced-motion:reduce){.toast,.fade,.help{transition:none}.mascot{animation:none}}
+@media (prefers-reduced-motion:reduce){.toast,.fade,.help{transition:none}.mascot,.aimtip{animation:none}}
