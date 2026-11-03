@@ -185,6 +185,11 @@ td.cur,th.cur{background:color-mix(in srgb,var(--leaf) 14%,transparent)}
 .demo-note{color:var(--carrot);border:1px dashed var(--carrot);border-radius:10px;padding:8px 12px;max-width:none;font-size:12px;margin:0}
 .nogl{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center;color:var(--fg);background:var(--bg);z-index:40}
 @media (max-width:640px){
+  .hud.tr .ghost{padding:6px 10px;font-size:12px}
+  .hud.tr{top:calc(150px + env(safe-area-inset-top,0px));gap:6px}
+  .hud.tl{max-width:calc(100% - 24px)}
+  .feed{bottom:calc(175px + env(safe-area-inset-bottom,0px));max-width:62%}
+  .help{bottom:calc(175px + env(safe-area-inset-bottom,0px));font-size:11px;left:auto;right:12px;transform:none;max-width:60%;text-align:right}
   #minimap{width:104px;height:104px}
   .holecard{padding:6px 10px 6px 6px}
   .holeno{font-size:28px;min-width:38px}

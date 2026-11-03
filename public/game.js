@@ -876,14 +876,13 @@ function updActions() {
     if (inShade) html += '<button class="act" id="menuBtn">그늘집 메뉴판 보기</button>';
     if (nearRR) html += '<button class="act wc m" id="wcM">남자 화장실</button><button class="act wc w" id="wcW">여자 화장실</button>';
     if (S.mulligans && S.prev && S.ball.state === 'rest') html += `<button class="act sub" id="mull">멀리건 (${S.mulligans})</button>`;
-    if (!inShade && !nearRR) html += '<button class="act sub" id="restBtn">쉬러 가기</button>';
   }
   if (S.mode === 'ride') html = '<button class="act sub" id="skipRide">바로 내리기</button>';
   if (S.mode === 'flight') html = '<button class="act sub" id="skipFlight">공 멈춘 곳 바로 보기 ▸▸</button>';
   a.innerHTML = html;
   const on = (id, f) => { const el = $(id); if (el) el.onclick = f; };
   on('skipRide', skipRide); on('skipFlight', skipFlight); on('ready', enterAim); on('goBall', walkToBall); on('cartBall', () => cartTo(S.ball.x, S.ball.z, true)); on('menuBtn', showShade); on('mull', mulligan);
-  on('restBtn', restMenu); on('wcM', () => useRestroom('m')); on('wcW', () => useRestroom('w'));
+  on('wcM', () => useRestroom('m')); on('wcW', () => useRestroom('w'));
   on('cancel', exitAim); on('clubBtn', () => { S.club = (S.club + 1) % 4; S.clubAuto = false; lastActKey = ''; });
   const hold = (id, d) => { const el = $(id); if (!el) return; let iv = 0; const stop = () => clearInterval(iv); el.onpointerdown = e => { e.preventDefault(); iv = setInterval(() => { S.aimYaw += d * .012; }, 16); }; el.onpointerup = stop; el.onpointerleave = stop; el.onpointercancel = stop; };
   hold('aL', 1); hold('aR', -1);
@@ -1143,6 +1142,23 @@ function restMenu() {
   $('goEat').onclick = () => { closeOverlay(); cartTo(SHADE.x + rand(-2, 0), SHADE.z + rand(-1, 1), false, '배고프시죠? 그늘집으로 모실게요~', '오늘은 당근주스가 제일 잘 나가요!'); };
   $('goWC').onclick = () => { closeOverlay(); RIDE.rush = true; cartTo(RR_DOORS.m[0] + 1.6, (RR_DOORS.m[1] + RR_DOORS.w[1]) / 2, false, '급하시죠? 꽉 잡으세요, 밟습니다!', '거의 다 왔어요, 조금만 참으세요!'); };
 }
+// 오른쪽 위 [그늘집 가기] [화장실 가기]: 언제든 누르면 캐디가 바로 데려가요
+function canTravel() {
+  if (S.mode === 'aim') { exitAim(); return true; }
+  if (S.mode === 'walk') return true;
+  toast(S.mode === 'ride' ? '이미 카트 타고 가는 중이에요' : S.mode === 'restroom' ? '아직 화장실 안이에요' : '공이 멈추면 갈 수 있어요', 1400);
+  return false;
+}
+$('goShadeBtn').onclick = () => {
+  if (!canTravel()) return;
+  if (Math.hypot(me.x - SHADE.x, me.z - SHADE.z) < 6) { showShade(); return; }
+  closeOverlay(); cartTo(SHADE.x + rand(-2, 0), SHADE.z + rand(-1, 1), false, '배고프시죠? 그늘집으로 모실게요~', '오늘은 당근주스가 제일 잘 나가요!');
+};
+$('goWCBtn').onclick = () => {
+  if (!canTravel()) return;
+  if (Math.hypot(me.x - RR_DOORS.m[0], me.z - RR.z) < 5) { toast('바로 앞이에요! 남자/여자 화장실 버튼을 눌러주세요', 1600); return; }
+  closeOverlay(); RIDE.rush = true; cartTo(RR_DOORS.m[0] + 1.6, (RR_DOORS.m[1] + RR_DOORS.w[1]) / 2, false, '급하시죠? 꽉 잡으세요, 밟습니다!', '거의 다 왔어요, 조금만 참으세요!');
+};
 function useRestroom(kind) {
   if (S.mode !== 'walk') return;
   const door = RR_DOORS[kind]; S.mode = 'restroom'; me.moveT = null; lastActKey = '';
@@ -1624,7 +1640,8 @@ function enterGame() {
   updChannelBadge(); resize();
   sendPos(true);
   if (!running) { running = true; clock.getDelta(); requestAnimationFrame(frame); }
-  setTimeout(() => $('help').classList.add('off'), 12000);
+  if (window.innerWidth < 640) $('help').textContent = '드래그: 시점 · 땅 탭: 걷기 · 두 손가락: 확대';
+  setTimeout(() => $('help').classList.add('off'), window.innerWidth < 640 ? 7000 : 12000);
 }
 
 renderCard();
