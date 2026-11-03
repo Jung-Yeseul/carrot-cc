@@ -217,7 +217,9 @@ function onMsg(m) {
     case 'emo': { const o = NET.others.get(m.id); if (!o) return; showBubble(o, EMOTES[m.e]); o.jump = 1; break; }
     case 'res': {
       const name = m.one ? '홀인원' : ({ '-1': '버디', '-2': '이글', '-3': '알바트로스', '-4': '콘도르' })[m.d] || '파';
-      feed(`${m.nick} 님 ${m.h + 1}번 홀 ${name}!`); break;
+      feed(`${m.nick} 님 ${m.h + 1}번 홀 ${name}! 축하해 주세요`);
+      { const o = NET.others.get(m.id); if (o && built) { const y = heightAt(o.x, o.z) + 9, n = m.one ? 5 : m.d <= -2 ? 3 : 1; for (let i = 0; i < n; i++) rocket(o.x, y, o.z, i * 450); showBubble(o, `${name}!`); o.jump = 1; } }
+      break;
     }
   }
 }
@@ -1223,8 +1225,11 @@ function finishHole(prefix) {
   const h = hole(); const s = Math.min(S.strokes, h.par * 2); S.scores[S.hole] = s; renderCard();
   const name = scoreName(s, h.par); toast(prefix ? `${prefix} · ${name}` : name, 2200);
   if (s - h.par < 0 || s === 1) sendNet({ t: 'res', h: S.hole, d: Math.max(-4, s - h.par), one: s === 1 ? 1 : 0 });
-  if (s - h.par < 0) { me.jump = 1; showBubble(me, name); }
-  setTimeout(() => { cam.mode = 'follow'; if (S.hole === HOLES.length - 1) endRound(); else nextHoleCard(s); }, 1600);
+  const d = s - h.par, level = s === 1 ? 3 : d <= -2 ? 2 : d === -1 ? 1 : 0;
+  if (level) celebrate(level, s === 1 ? '홀인원!!!' : d <= -3 ? '알바트로스!!' : d === -2 ? '이글!!' : '버디!', `${S.hole + 1}번 홀 ${s}타 · ${fmtDiff(d)}`);
+  const go = () => { cam.mode = 'follow'; if (S.hole === HOLES.length - 1) endRound(); else nextHoleCard(s); };
+  const hi = S.hole;
+  setTimeout(() => { if (level === 3) showPlaque(hi, go); else go(); }, [1600, 3000, 3800, 5200][level]);
 }
 function nextHoleCard(s) {
   const done = S.hole, n = HOLES[done + 1];
@@ -1290,6 +1295,114 @@ function resetRound(teleport) {
   const t = HOLES[0].tee; Object.assign(S.ball, { x: t[0], y: 0, z: t[1], vx: 0, vy: 0, vz: 0, state: 'rest' }); S.ballVis = true;
   if (teleport) cartTo(t[0], t[1], true, '1번 홀로 다시 모실게요~', holeTalk(0));
   lastActKey = ''; updHud(); renderCard();
+}
+
+// ================= 축하 이벤트 (버디·이글·홀인원) =================
+const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const FIREWORKS = [];
+function fireworks(x, y, z, n = 140) {
+  if (!scene) return;
+  const cols = [0xff8a3d, 0xffd166, 0x78c587, 0xff6f91, 0x7fd3ff, 0xffffff], col = cols[Math.random() * cols.length | 0];
+  const pos = new Float32Array(n * 3), vel = [];
+  for (let i = 0; i < n; i++) {
+    pos[i * 3] = x; pos[i * 3 + 1] = y; pos[i * 3 + 2] = z;
+    const u = Math.random() * 2 - 1, th = Math.random() * TAU, r = Math.sqrt(1 - u * u), sp = 9 + Math.random() * 5;
+    vel.push(r * Math.cos(th) * sp, u * sp, r * Math.sin(th) * sp);
+  }
+  const g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(pos, 3));
+  const m = new T.Points(g, new T.PointsMaterial({ color: col, size: 6, sizeAttenuation: false, transparent: true, opacity: 1, depthWrite: false, blending: T.AdditiveBlending }));
+  m.frustumCulled = false; scene.add(m); FIREWORKS.push({ m, vel, t: 0 });
+  noise(.08, 900, .7, .25); tone(70, .5, 'sine', .25, .02);
+}
+function rocket(x, y, z, delay) {
+  setTimeout(() => { tone(400, .5, 'sine', .04); setTimeout(() => fireworks(x + rand(-4, 4), y + rand(-1, 3), z + rand(-4, 4)), 450); }, delay);
+}
+function updateFireworks(dt) {
+  for (let i = FIREWORKS.length - 1; i >= 0; i--) {
+    const f = FIREWORKS[i]; f.t += dt; const a = f.m.geometry.attributes.position.array;
+    for (let j = 0; j < f.vel.length; j += 3) { f.vel[j + 1] -= 7 * dt; f.vel[j] *= .985; f.vel[j + 1] *= .985; f.vel[j + 2] *= .985; a[j] += f.vel[j] * dt; a[j + 1] += f.vel[j + 1] * dt; a[j + 2] += f.vel[j + 2] * dt; }
+    f.m.geometry.attributes.position.needsUpdate = true; f.m.material.opacity = Math.max(0, 1 - f.t / 2.2);
+    if (f.t > 2.2) { scene.remove(f.m); f.m.geometry.dispose(); FIREWORKS.splice(i, 1); }
+  }
+}
+// 화면 색종이 (2D)
+let confettiOn = false;
+function confetti(count, rain) {
+  if (reduceMotion) return;
+  const c = $('fx'), g = c.getContext('2d'), dpr = Math.min(2, window.devicePixelRatio || 1);
+  c.width = c.clientWidth * dpr; c.height = c.clientHeight * dpr; const W = c.width, H = c.height;
+  const cols = ['#e9711f', '#ffd166', '#78c587', '#ff6f91', '#7fd3ff', '#ffffff', '#3f9a4e'];
+  const P = [];
+  for (let i = 0; i < count; i++) {
+    const left = i % 2 === 0, base = rain ? { x: Math.random() * W, y: -Math.random() * H * .6, vx: rand(-60, 60), vy: rand(80, 220) }
+      : { x: left ? -10 : W + 10, y: H * rand(.55, .85), vx: (left ? 1 : -1) * rand(380, 900) * dpr, vy: -rand(700, 1300) * dpr };
+    P.push({ ...base, w: rand(6, 12) * dpr, h: rand(8, 16) * dpr, r: Math.random() * 6, vr: rand(-10, 10), c: cols[i % cols.length], flip: Math.random() * 6, carrot: Math.random() < .12 });
+  }
+  let last = performance.now(), t = 0; confettiOn = true;
+  const step = now => {
+    const dt = Math.min(.05, (now - last) / 1000); last = now; t += dt; g.clearRect(0, 0, W, H);
+    let alive = 0;
+    for (const p of P) {
+      p.vy += 900 * dpr * dt * (rain ? .25 : 1); p.vx *= .99; p.vy = Math.min(p.vy, 420 * dpr); p.x += p.vx * dt; p.y += p.vy * dt; p.r += p.vr * dt; p.flip += dt * 8;
+      if (p.y < H + 40) alive++;
+      g.save(); g.translate(p.x, p.y); g.rotate(p.r); g.scale(1, Math.abs(Math.cos(p.flip)) + .15);
+      if (p.carrot) { g.fillStyle = '#f08a2f'; g.beginPath(); g.moveTo(-p.w * .6, -p.h * .5); g.lineTo(p.w * .6, -p.h * .5); g.lineTo(0, p.h * .9); g.fill(); g.fillStyle = '#3f9a4e'; g.fillRect(-p.w * .2, -p.h * .9, p.w * .4, p.h * .4); }
+      else { g.fillStyle = p.c; g.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); }
+      g.restore();
+    }
+    if (alive && t < 7) requestAnimationFrame(step); else { g.clearRect(0, 0, W, H); confettiOn = false; }
+  };
+  requestAnimationFrame(step);
+}
+function fanfare(level) {
+  const notes = level >= 3 ? [523, 659, 784, 1047, 784, 1047, 1319] : level === 2 ? [523, 659, 784, 1047, 1319] : [659, 784, 1047];
+  notes.forEach((f, i) => { tone(f, .28, 'triangle', .16, i * .13); tone(f / 2, .28, 'square', .04, i * .13); });
+  const end = notes.length * .13; tone(notes[notes.length - 1], .9, 'triangle', .14, end); tone(notes[notes.length - 1] * 1.5, .9, 'sine', .06, end);
+  if (level >= 2) { noise(2.2, 1400, .35, .12, .3); noise(1.8, 2600, .5, .08, .6); } // 환호성
+}
+function bigText(text, sub, cls, ms) {
+  const el = $('celebrate'); el.className = 'celebrate ' + cls;
+  el.innerHTML = `<div class="big">${[...text].map((ch, i) => `<span style="animation-delay:${i * 60}ms,${700 + i * 80}ms">${ch === ' ' ? '&nbsp;' : esc(ch)}</span>`).join('')}</div>${sub ? `<div class="sub">${esc(sub)}</div>` : ''}`;
+  el.hidden = false; clearTimeout(bigText.t); bigText.t = setTimeout(() => { el.hidden = true; }, ms);
+}
+// level: 1 버디, 2 이글·알바트로스, 3 홀인원
+function celebrate(level, name, sub) {
+  const h = hole(), cy = heightAt(h.cup[0], h.cup[1]);
+  me.jump = 1; me.spin = 1.1; showBubble(me, level >= 3 ? '내가 홀인원이라니!' : level === 2 ? '이글이다!!' : '버디!');
+  if (me.cart && me.cart.visible) caddieSay(level >= 3 ? '홀인원!!! 기념식수 하셔야겠어요!' : level === 2 ? '이글이요?! 오늘 날이네요!' : '나이스 버디~!', 3500);
+  fanfare(level);
+  bigText(name, sub, level >= 3 ? 'hio' : level === 2 ? 'eagle' : 'birdie', level >= 3 ? 4600 : level === 2 ? 3400 : 2600);
+  confetti(level >= 3 ? 260 : level === 2 ? 200 : 140, false);
+  if (level >= 3) setTimeout(() => confetti(220, true), 900);
+  const bursts = level >= 3 ? 9 : level === 2 ? 4 : 1;
+  for (let i = 0; i < bursts; i++) rocket(h.cup[0], cy + 11 + (i % 3) * 2, h.cup[1], i * (level >= 3 ? 420 : 520));
+}
+// 홀인원 기념패
+function plaqueCanvas(hi) {
+  const c = document.createElement('canvas'); c.width = 680; c.height = 480; const g = c.getContext('2d'), h = HOLES[hi];
+  const wood = g.createLinearGradient(0, 0, 680, 480); wood.addColorStop(0, '#6b4226'); wood.addColorStop(1, '#3f2614');
+  g.fillStyle = wood; g.fillRect(0, 0, 680, 480);
+  g.strokeStyle = 'rgba(255,255,255,.08)'; for (let y = 10; y < 480; y += 9) { g.beginPath(); g.moveTo(0, y); g.bezierCurveTo(200, y + 6, 480, y - 6, 680, y + 3); g.stroke(); }
+  const gold = g.createLinearGradient(0, 60, 0, 420); gold.addColorStop(0, '#f6e3a1'); gold.addColorStop(.5, '#d9b45a'); gold.addColorStop(1, '#b8902f');
+  g.fillStyle = gold; g.fillRect(60, 50, 560, 380); g.strokeStyle = '#8a6a1f'; g.lineWidth = 4; g.strokeRect(74, 64, 532, 352);
+  g.fillStyle = '#3d2a08'; g.textAlign = 'center';
+  g.font = `400 30px ${FONT}`; g.fillText('당근 컨트리클럽', 340, 118);
+  g.font = `700 70px ${FONT}`; g.fillText('HOLE IN ONE', 340, 196);
+  g.font = `400 46px ${FONT}`; g.fillText(NET.nick || '당근 골퍼', 340, 266);
+  const len = Math.round(routeOf(hi).reduce((a, p, j, r) => j ? a + Math.hypot(p[0] - r[j - 1][0], p[1] - r[j - 1][1]) : 0, 0) * M_PER_U);
+  g.font = `400 28px ${FONT}`; g.fillText(`${hi + 1}번 홀 ${h.name} · PAR ${h.par} · ${len}m`, 340, 320);
+  const d = new Date(); g.fillText(`${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`, 340, 362);
+  g.font = `400 22px ${FONT}`; g.fillText('위 골퍼의 홀인원을 축하하며 이 패를 드립니다', 340, 400);
+  // 귀퉁이 당근
+  for (const [x, y] of [[96, 96], [584, 96]]) { g.fillStyle = '#f08a2f'; g.beginPath(); g.moveTo(x - 12, y - 8); g.lineTo(x + 12, y - 8); g.lineTo(x, y + 22); g.fill(); g.fillStyle = '#3f9a4e'; g.fillRect(x - 4, y - 18, 8, 10); }
+  return c;
+}
+function showPlaque(hi, then) {
+  const c = plaqueCanvas(hi), url = c.toDataURL('image/png');
+  const canSave = !window.__CARROT_DEMO__;
+  overlay(`<span class="eyebrow">축하합니다</span><h2>홀인원 기념패</h2><img class="plaque" src="${url}" alt="${hi + 1}번 홀 홀인원 기념패"><p>평생 한 번 할까 말까 한 홀인원이에요. 화면을 캡처해서 자랑해 보세요!</p>
+    <div class="btns">${canSave ? `<a class="btn sub" id="plaqueSave" href="${url}" download="carrot-cc-hole-in-one.png">기념패 저장</a>` : ''}<button class="btn" type="button" id="plaqueNext">계속하기</button></div>`);
+  $('plaqueNext').onclick = () => { closeOverlay(); then(); }; $('plaqueNext').focus();
 }
 
 // ================= 동물 =================
@@ -1380,8 +1493,9 @@ function animateAvatar(av, o, dt, t) {
   o.ph += dt * (walking ? 11 : 2);
   const hop = walking ? Math.abs(Math.sin(o.ph)) * .28 : 0;
   if (o.jump > 0) o.jump = Math.max(0, o.jump - dt * 1.6);
+  if (o.spin > 0) o.spin = Math.max(0, o.spin - dt);
   const jy = o.jump > 0 ? Math.sin((1 - o.jump) * Math.PI) * .9 : 0;
-  av.position.set(o.x, heightAt(o.x, o.z) + hop + jy, o.z); av.rotation.set(0, o.yaw, 0);
+  av.position.set(o.x, heightAt(o.x, o.z) + hop + jy, o.z); av.rotation.set(0, o.yaw + (o.spin > 0 ? (1 - o.spin / 1.1) * TAU : 0), 0);
   const sq = walking ? 1 + Math.sin(o.ph * 2) * .04 : 1 + Math.sin(t * 2) * .015;
   av.scale.set(1 / Math.sqrt(sq), sq, 1 / Math.sqrt(sq));
   const club = av.userData.club;
@@ -1713,7 +1827,7 @@ function frame() {
     o.ball.visible = !!o.bv; o.ball.position.set(o.bx, heightAt(o.bx, o.bz) + .2, o.bz);
   }
 
-  updateLife(dt, t);
+  updateLife(dt, t); updateFireworks(dt);
   if (moveRing.material.opacity > 0) { moveRing.material.opacity = Math.max(0, moveRing.material.opacity - dt * 1.2); moveRing.scale.multiplyScalar(1 + dt * .8); }
   updateCamera(dt);
   renderer.render(scene, camera);
