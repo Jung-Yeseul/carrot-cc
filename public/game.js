@@ -194,6 +194,8 @@ function onMsg(m) {
       if (NET.wantCh && !$('app').hidden) sendNet({ t: 'join', ch: NET.wantCh });
       break;
     case 'lobby': setLive(m); break;
+    case 'hof': NET.hof = m; renderHof(); break;
+    case 'hofnew': if (m.id !== NET.id) feed(`${m.e.nick} 님이 ${m.e.h + 1}번 홀 홀인원! 명예의 전당 등극`); else toast('명예의 전당에 이름이 올라갔어요!', 2400); break;
     case 'nick': setNick(m.nick); saveNick(m.nick); nickDone(); break;
     case 'nickerr': nickError(m.msg); break;
     case 'rename': { const o = NET.others.get(m.id); if (!o) return; feed(`${o.nick} 님이 이름표를 ${m.nick}(으)로 바꿨어요`); o.nick = m.nick; if (o.tag) o.tag.querySelector('.nm').textContent = m.nick; break; }
@@ -684,7 +686,7 @@ function makeCroc(w, wy) {
     const eye = new T.Mesh(new T.SphereGeometry(.13, 8, 6), mat(0xe8d84a)); eye.position.set(s * .2, .26, .1); head.add(eye);
     const pu = new T.Mesh(new T.BoxGeometry(.03, .14, .05), mat(0x111111)); pu.position.set(s * .2, .27, .22); head.add(pu);
   }
-  g.position.set(w[0], wy - .1, w[1]); scene.add(g);
+  g.position.set(w[0], wy - .1, w[1]); g.userData.jaw = jaw; scene.add(g);
   return { g, jaw, w, wy, a: Math.random() * TAU, tx: w[0], tz: w[1], x: w[0], z: w[1], yaw: 0, y: -.04, state: 'swim', wait: 0, chomp: 0 };
 }
 function makeRabbit(p) {
@@ -735,7 +737,7 @@ function clearOthers() { for (const id of [...NET.others.keys()]) removeOther(id
 const me = { x: 0, z: 0, yaw: 0, anim: 0, ph: 0, moveT: null, av: null, tag: null, swingT: 0, jump: 0 };
 const cam = { yaw: 0, aimYaw: 0, pitch: .38, dist: 13, mode: 'follow', tx: 0, ty: 0, tz: 0, px: 0, py: 10, pz: 0 };
 const S = { hole: 0, strokes: 0, scores: Array(HOLES.length).fill(null), buff: null, mulligans: 0, mode: 'walk', club: 0, clubAuto: true, aimYaw: 0,
-  charge: false, chargeT: 0, chance: 2, chanceT: null, chanceBusy: false, chanceHit: false, power: 0, prev: null, last: null, ball: { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, state: 'rest' }, ballVis: true, shadeSeen: false, shots: 0 };
+  charge: false, chargeT: 0, st: null, shotChance: false, chance: 2, chanceT: null, chanceBusy: false, chanceHit: false, power: 0, prev: null, last: null, ball: { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, state: 'rest' }, ballVis: true, shadeSeen: false, shots: 0 };
 const keys = new Set();
 
 function getBest() { try { const v = localStorage.getItem('carrot-cc-best3d'); return v ? +v : null; } catch { return null; } }
@@ -1060,7 +1062,7 @@ function shoot(p) {
   const lie = surface(S.ball.x, S.ball.z);
   const v = launchVel(p, yaw, S.club, lie);
   S.prev = { x: S.ball.x, z: S.ball.z, strokes: S.strokes }; S.last = { x: S.ball.x, z: S.ball.z };
-  S.strokes++; S.shots++;
+  S.strokes++; S.shots++; S.shotChance = S.chanceHit; recStart();
   // 다운스윙: 올라간 채를 내려쳐요
   me.swingFrom = .2 + p * (S.club === 3 ? 1 : 2.8); me.swingT = .01; me.chargeP = 0; sndSwish();
   S.mode = 'swing'; S.aimDrag = false; $('power').hidden = true; aimArrow.visible = landRing.visible = pathLine.visible = ribbon.visible = false; $('aimTip').hidden = true;
@@ -1150,9 +1152,10 @@ function onBallEvent(e) {
     S.mode = 'wait'; S.ballVis = false; sndSplash(); splash(b.x, b.z);
     const eaten = crocEats(b.x, b.z);
     toast(eaten ? '악어가 공을 물어갔어요! 1벌타' : '퐁당! 해저드 1벌타', 2200);
+    if (eaten) { S.st.croc++; recMark('악어가 공을 물어감', `${S.hole + 1}번 홀 · 1벌타`); recStopIn(3200); } else { S.st.water++; recStopIn(1500); }
     setTimeout(() => penaltyReturn(), eaten ? 2200 : 1300);
   } else if (e === 'ob') {
-    S.mode = 'wait'; toast('OB! 1벌타'); setTimeout(() => penaltyReturn(), 1200);
+    S.mode = 'wait'; toast('OB! 1벌타'); S.st.ob++; recStopIn(1200); setTimeout(() => penaltyReturn(), 1200);
   } else if (e === 'sink') {
     S.mode = 'wait'; b.state = 'sinking'; b.x = h.cup[0]; b.z = h.cup[1]; sndCup();
     setTimeout(() => { S.ballVis = false; finishHole(''); }, 700);
@@ -1238,6 +1241,8 @@ function finishHole(prefix) {
   const name = scoreName(s, h.par); toast(prefix ? `${prefix} · ${name}` : name, 2200);
   if (s - h.par < 0 || s === 1) sendNet({ t: 'res', h: S.hole, d: Math.max(-4, s - h.par), one: s === 1 ? 1 : 0 });
   const d = s - h.par, level = s === 1 ? 3 : d <= -2 ? 2 : d === -1 ? 1 : 0;
+  if (level === 3) { S.st.hio++; sendNet({ t: 'hio', h: S.hole, c: S.shotChance ? 1 : 0 }); } else if (level === 2) S.st.eagle++; else if (level === 1) S.st.birdie++;
+  if (level) { recMark(s === 1 ? '홀인원' : d <= -3 ? '알바트로스' : d === -2 ? '이글' : '버디', `${S.hole + 1}번 홀 ${s}타 · ${fmtDiff(d)}`); recStopIn([0, 3200, 4200, 5600][level]); } else recStopIn(900);
   if (level) celebrate(level, s === 1 ? '홀인원!!!' : d <= -3 ? '알바트로스!!' : d === -2 ? '이글!!' : '버디!', `${S.hole + 1}번 홀 ${s}타 · ${fmtDiff(d)}`);
   const go = () => { cam.mode = 'follow'; if (S.hole === HOLES.length - 1) endRound(); else nextHoleCard(s); };
   const hi = S.hole;
@@ -1279,8 +1284,13 @@ function endRound() {
   const tot = S.scores.reduce((a, b) => a + b, 0), d = tot - TOTAL_PAR, best = getBest(), nb = best == null || tot < best;
   if (nb) setBest(tot);
   const line = d <= -3 ? '당근 CC 클럽 챔피언 감이에요.' : d <= 0 ? '오늘 샷감 좋네요.' : d <= 4 ? '무난한 라운딩이었어요.' : '다음엔 그늘집부터 들르세요.';
-  overlay(`${MASCOT}<span class="eyebrow">라운딩 완료 · ${esc(NET.nick)}</span><div class="big-num">${tot}타</div><h2>${fmtDiff(d)}</h2>
-    <p>PAR ${TOTAL_PAR} 기준. ${nb ? '새 베스트 기록이에요. ' : `베스트 ${best}타. `}${line}</p><div class="btns"><button class="btn" id="again">다시 라운딩</button><button class="btn sub" id="stroll">코스 산책하기</button></div>`);
+  const card = storyCard(), cardUrl = card.toDataURL('image/png');
+  overlay(`<span class="eyebrow">라운딩 완료 · ${esc(NET.nick)}</span><h2>${tot}타 · ${fmtDiff(d)}</h2>
+    <p>PAR ${TOTAL_PAR} 기준. ${nb ? '새 베스트 기록이에요. ' : `베스트 ${best}타. `}${line}</p>
+    <img class="story" src="${cardUrl}" alt="라운딩 결과 카드">
+    <div class="btns">${IS_DEMO() ? '<p class="cs">미리보기에서는 저장이 안 돼요. 실제 사이트에서 저장·공유할 수 있어요.</p>' : `<a class="btn" href="${cardUrl}" download="carrot-cc-round.png">결과 카드 저장</a>${navigator.canShare ? '<button class="btn sub" type="button" id="cardShare">스토리에 공유</button>' : ''}`}</div>
+    <div class="btns"><button class="btn sub" id="again">다시 라운딩</button><button class="btn sub" id="stroll">코스 산책하기</button></div>`);
+  if ($('cardShare')) $('cardShare').onclick = () => card.toBlob(async b => { if (!(await shareBlob(b, 'carrot-cc-round.png', `당근 CC ${tot}타! ${siteHost()}`))) toast('이 기기에서는 바로 공유가 안 돼요. 저장 후 올려 주세요', 2200); }, 'image/png');
   $('again').onclick = () => { closeOverlay(); resetRound(true); };
   $('stroll').onclick = () => { closeOverlay(); S.mode = 'walk'; S.ballVis = false; S.ball.state = 'done'; lastActKey = ''; toast('천천히 둘러보세요. 오른쪽 위 스코어카드에서 새 라운딩을 시작할 수 있어요', 2800); showAgainInSheet(); };
 }
@@ -1297,7 +1307,7 @@ function renderCard() {
   $('sc').innerHTML = h + '<th>합계</th></tr>' + p + `<td>${TOTAL_PAR}</td></tr>` + s + `<td>${played.length ? tot : ''}</td></tr>`;
 }
 function resetRound(teleport) {
-  closeOverlay(); S.scores.fill(null); S.buff = null; S.mulligans = 0; S.chance = CHANCE_MAX; S.spent = 0; renderSpent(); S.hole = 0; S.strokes = 0; S.prev = null; S.last = null; S.mode = 'walk';
+  closeOverlay(); S.scores.fill(null); S.buff = null; S.mulligans = 0; S.chance = CHANCE_MAX; S.spent = 0; renderSpent(); S.st = newStats(); S.hole = 0; S.strokes = 0; S.prev = null; S.last = null; S.mode = 'walk';
   $('buffChip').hidden = true;
   const t = HOLES[0].tee; Object.assign(S.ball, { x: t[0], y: 0, z: t[1], vx: 0, vy: 0, vz: 0, state: 'rest' }); S.ballVis = true;
   if (teleport) cartTo(t[0], t[1], true, '1번 홀로 다시 모실게요~', holeTalk(0));
@@ -1336,7 +1346,7 @@ function caddieChance() {
     for (let dy = -.05; dy <= .051; dy += .01) for (let dp = -.07; dp <= .071; dp += .014) { const p = clamp(c.p + dp, .05, 1); consider(c.yaw + dy, p, c.club, 1 / 100); }
     // 실제 샷과 같은 촘촘한 계산으로 한 번 더 확인
     const fin = simShot(best.yaw, best.p, best.club, 1 / 200); best.r = fin;
-    S.chanceBusy = false; S.chance--; S.club = best.club; S.clubAuto = false; S.aimYaw = best.yaw; cam.aimYaw = best.yaw;
+    S.chanceBusy = false; S.chance--; S.st.chance++; S.club = best.club; S.clubAuto = false; S.aimYaw = best.yaw; cam.aimYaw = best.yaw;
     S.chanceT = { yaw: best.yaw, p: best.p, club: best.club };
     const exp = fin.sink ? S.strokes + 1 : S.strokes + 2, nm = scoreName(exp, h.par).replace('!', '');
     const side = angDiff(base, best.yaw), dir = Math.abs(side) < .03 ? '핀 정면' : side > 0 ? '핀 왼쪽' : '핀 오른쪽';
@@ -1442,14 +1452,174 @@ function finishEat() {
   const m = EAT.m; scene.remove(EAT.food); EAT.food = null;
   me.seat = null; me.anim = 0; me.eating = false; me.x = SHADE.x - .6; me.z = SHADE.z + 2.6; me.yaw = 0; me.jump = .7; cam.yaw = Math.PI;
   S.mode = 'walk'; lastActKey = ''; $('caddieTip').hidden = true;
-  S.spent = (S.spent || 0) + priceOf(m); renderSpent();
+  S.spent = (S.spent || 0) + priceOf(m); renderSpent(); S.st.menus.push(m.name.replace('갓 짠 ', '').replace('그늘집 ', ''));
   toast(`${m.price} 결제 완료 · 그늘집 가격은 원래 이래요`, 2200);
   if (EAT.first) { S.buff = m.id; if (m.id === 'odeng') S.mulligans = 2; const c = $('buffChip'); c.textContent = m.chip; c.hidden = false; setTimeout(() => toast(`${m.chip} 효과가 생겼어요`, 2000), 2300); }
-  if (m.id === 'makgeolli') { me.tipsy = 60; setTimeout(() => toast('취기가 올라와요… 1분 동안 비틀비틀', 2000), EAT.first ? 4500 : 2300); }
+  if (m.id === 'makgeolli') { S.st.tipsy = true; me.tipsy = 60; setTimeout(() => toast('취기가 올라와요… 1분 동안 비틀비틀', 2000), EAT.first ? 4500 : 2300); }
   showBubble(me, ['배부르다~', '잘 먹었습니다!', '역시 그늘집은 비싸도 맛있어'][Math.random() * 3 | 0]);
   setTimeout(() => ownerSay('또 오세요~ 라운딩 끝나고도 열려 있어요'), 1200);
 }
 function renderSpent() { const el = $('spent'); if (!el) return; el.hidden = !S.spent; el.innerHTML = `오늘 그늘집에서 쓴 돈 <b>${(S.spent || 0).toLocaleString('ko-KR')}원</b>`; }
+
+// ================= 하이라이트 자동 녹화 (세로 9:16, 소리 포함) =================
+const REC = { canvas: null, g: null, rec: null, chunks: [], on: false, mark: null, stopAt: 0, t0: 0, ov: null, pending: false, clips: [], audioDest: null };
+const REC_RANK = { '홀인원': 5, '알바트로스': 4, '이글': 4, '악어한테 공 뺏김': 3, '악어가 공을 물어감': 3, '버디': 2, '고라니 출몰': 2, '멧돼지 출몰': 2, '까마귀가 공 가져감': 2, '거위 가족 행차': 1 };
+const canRecord = () => !!(window.MediaRecorder && HTMLCanvasElement.prototype.captureStream && renderer);
+function recMime() { for (const m of ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm']) { try { if (MediaRecorder.isTypeSupported(m)) return m; } catch {} } return ''; }
+function recStart() {
+  if (!canRecord()) return;
+  if (REC.on) { if (REC.mark) { REC.pending = true; REC.stopAt = performance.now(); } else { REC.discard = true; REC.pending = true; try { REC.rec.stop(); } catch {} } return; }
+  if (!REC.canvas) { REC.canvas = document.createElement('canvas'); REC.canvas.width = 720; REC.canvas.height = 1280; REC.g = REC.canvas.getContext('2d'); }
+  let stream; try { stream = REC.canvas.captureStream(30); } catch { return; }
+  try { const a = audio(), m = out(); if (a && m && a.createMediaStreamDestination) { if (!REC.audioDest) { REC.audioDest = a.createMediaStreamDestination(); m.connect(REC.audioDest); } const tr = REC.audioDest.stream.getAudioTracks()[0]; if (tr) stream.addTrack(tr); } } catch {}
+  const mime = recMime(); REC.chunks = [];
+  try { REC.rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: 4e6 } : undefined); } catch { try { REC.rec = new MediaRecorder(stream); } catch { return; } }
+  REC.rec.ondataavailable = e => { if (e.data && e.data.size) REC.chunks.push(e.data); };
+  REC.rec.onstop = () => {
+    const mark = REC.discard ? null : REC.mark; REC.on = false; REC.mark = null; REC.ov = null; REC.discard = false; $('recDot') && ($('recDot').hidden = true);
+    if (mark && REC.chunks.length) addClip(new Blob(REC.chunks, { type: (REC.rec.mimeType || mime || 'video/webm').split(';')[0] }), mark);
+    if (REC.pending) { REC.pending = false; recStart(); }
+  };
+  try { REC.rec.start(400); } catch { return; }
+  REC.on = true; REC.mark = null; REC.stopAt = 0; REC.t0 = performance.now(); REC.ov = null;
+}
+function recMark(title, sub) {
+  if (!REC.on) recStart(); if (!REC.on) return;
+  if (!REC.mark || (REC_RANK[title] || 0) >= (REC_RANK[REC.mark.title] || 0)) REC.mark = { title, sub: sub || '', at: new Date() };
+  REC.ov = { title, sub: sub || '', t: performance.now() }; REC.stopAt = 0;
+  const d = $('recDot'); if (d) d.hidden = false;
+}
+function recStopIn(ms) { if (REC.on && !REC.pending) REC.stopAt = performance.now() + ms; }
+function carrotIcon(g, x, y, s) { g.save(); g.translate(x, y); g.scale(s, s); g.fillStyle = '#3f9a4e'; g.beginPath(); g.ellipse(-3, -12, 2.4, 6, -.4, 0, TAU); g.ellipse(3, -12, 2.4, 6, .4, 0, TAU); g.ellipse(0, -13, 2.4, 6.5, 0, 0, TAU); g.fill(); g.fillStyle = '#f08a2f'; g.beginPath(); g.moveTo(-7, -7); g.quadraticCurveTo(0, -10, 7, -7); g.quadraticCurveTo(4, 4, 0, 16); g.quadraticCurveTo(-4, 4, -7, -7); g.fill(); g.restore(); }
+function recFrame() {
+  if (!REC.on) return;
+  const g = REC.g, W = 720, H = 1280, src = renderer.domElement, sw = src.width, sh = src.height;
+  const cw = Math.min(sw, sh * W / H), chh = cw * H / W, sx = (sw - cw) / 2, sy = Math.max(0, (sh - chh) / 2);
+  g.fillStyle = '#4c8b40'; g.fillRect(0, 0, W, H);
+  try { g.drawImage(src, sx, sy, cw, Math.min(sh, chh), 0, chh > sh ? (H - sh * W / cw) / 2 : 0, W, chh > sh ? sh * W / cw : H); } catch {}
+  const fx = $('fx'); if (fx && fx.width) { const fsc = fx.width / sw; try { g.drawImage(fx, sx * fsc, sy * fsc, cw * fsc, Math.min(sh, chh) * fsc, 0, 0, W, H); } catch {} }
+  // 위: 로고 / 아래: 주소
+  let gr = g.createLinearGradient(0, 0, 0, 170); gr.addColorStop(0, 'rgba(10,20,12,.7)'); gr.addColorStop(1, 'rgba(10,20,12,0)'); g.fillStyle = gr; g.fillRect(0, 0, W, 170);
+  carrotIcon(g, 52, 70, 2.2); g.fillStyle = '#ff9248'; g.font = `400 54px ${FONT}`; g.textBaseline = 'middle'; g.fillText('당근 CC', 88, 72);
+  g.fillStyle = 'rgba(255,255,255,.85)'; g.font = `600 24px "IBM Plex Sans KR",sans-serif`; g.textAlign = 'right'; g.fillText(`${S.hole + 1}번 홀 · ${S.strokes}타`, W - 34, 72); g.textAlign = 'start';
+  gr = g.createLinearGradient(0, H - 190, 0, H); gr.addColorStop(0, 'rgba(10,20,12,0)'); gr.addColorStop(1, 'rgba(10,20,12,.75)'); g.fillStyle = gr; g.fillRect(0, H - 190, W, 190);
+  g.textAlign = 'center'; g.fillStyle = '#fff'; g.font = `700 30px "IBM Plex Sans KR",sans-serif`; g.fillText(NET.nick || '당근 골퍼', W / 2, H - 98);
+  g.fillStyle = 'rgba(255,255,255,.8)'; g.font = `500 24px "IBM Plex Sans KR",sans-serif`; g.fillText(`${siteHost()} 에서 같이 쳐요`, W / 2, H - 56);
+  // 하이라이트 글자
+  if (REC.ov) {
+    const k = (performance.now() - REC.ov.t) / 1000;
+    if (k < 3.2) {
+      const sc = k < .35 ? .4 + k / .35 * .75 : 1.15 - Math.min(.15, (k - .35) * .5), al = k > 2.7 ? 1 - (k - 2.7) / .5 : 1;
+      g.save(); g.globalAlpha = Math.max(0, al); g.translate(W / 2, H * .3); g.scale(sc, sc); g.rotate(Math.sin(k * 6) * .03);
+      g.font = `400 120px ${FONT}`; g.lineJoin = 'round'; g.lineWidth = 16; g.strokeStyle = '#b8521a'; g.strokeText(REC.ov.title, 0, 0); g.fillStyle = REC.ov.title.includes('홀인원') ? '#fff6c8' : '#ffffff'; g.fillText(REC.ov.title, 0, 0);
+      if (REC.ov.sub) { g.font = `700 34px "IBM Plex Sans KR",sans-serif`; g.lineWidth = 8; g.strokeStyle = 'rgba(10,20,12,.8)'; g.strokeText(REC.ov.sub, 0, 92); g.fillStyle = '#fff'; g.fillText(REC.ov.sub, 0, 92); }
+      g.restore();
+    }
+  }
+  g.textAlign = 'start'; g.textBaseline = 'alphabetic';
+  const now = performance.now();
+  if (!REC.stopAt && !REC.mark && now - REC.t0 > 20000) REC.stopAt = now; // 아무 일 없으면 20초에서 끊기
+  if (now - REC.t0 > 30000 && !REC.stopAt) REC.stopAt = now;              // 길어도 30초
+  if (REC.stopAt && now >= REC.stopAt) { REC.stopAt = 0; try { REC.rec.stop(); } catch { REC.on = false; } }
+}
+const siteHost = () => (location.host && !/^(localhost|127\.|null)/.test(location.host) && !location.host.includes('claude') ? location.host : 'carrot-cc.onrender.com');
+const IS_DEMO = () => !!window.__CARROT_DEMO__;
+async function shareBlob(blob, name, text) {
+  try { const f = new File([blob], name, { type: blob.type }); if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f], text }); return true; } } catch {}
+  return false;
+}
+function addClip(blob, mark) {
+  const ext = blob.type.includes('mp4') ? 'mp4' : 'webm', url = URL.createObjectURL(blob);
+  REC.clips.unshift({ blob, url, ext, ...mark });
+  while (REC.clips.length > 6) URL.revokeObjectURL(REC.clips.pop().url);
+  const b = $('clipBtn'); b.hidden = false; $('clipN').textContent = REC.clips.length; b.classList.remove('new'); void b.offsetWidth; b.classList.add('new');
+  setTimeout(() => toast(`하이라이트 저장됨 · 오른쪽 위 [하이라이트]에서 볼 수 있어요`, 2400), 600);
+  renderClips();
+}
+function renderClips() {
+  const box = $('clips'); if (!box) return;
+  if (!REC.clips.length) { box.innerHTML = `<p class="empty">${canRecord() ? '아직 하이라이트가 없어요. 버디나 악어를 만나면 자동으로 녹화돼요.' : '이 브라우저는 영상 녹화를 지원하지 않아요. 크롬이나 사파리 최신 버전에서 열어 주세요.'}</p>`; return; }
+  const canShare = !!navigator.canShare && !IS_DEMO();
+  box.innerHTML = REC.clips.map((c, i) => `<div class="clip"><video src="${c.url}" muted playsinline loop preload="metadata" aria-label="${esc(c.title)} 영상"></video><div><div class="ct">${esc(c.title)}</div><div class="cs">${esc(c.sub)} · ${c.at.getHours()}:${String(c.at.getMinutes()).padStart(2, '0')}</div>
+    <div class="btns">${IS_DEMO() ? '<span class="cs">미리보기에서는 저장이 안 돼요. 실제 사이트에서 저장할 수 있어요.</span>' : `<a class="btn" href="${c.url}" download="carrot-cc-${i + 1}.${c.ext}">영상 저장</a>${canShare ? `<button class="btn sub" type="button" data-share="${i}">공유</button>` : ''}`}</div></div></div>`).join('');
+  box.querySelectorAll('video').forEach(v => { v.onmouseenter = () => v.play().catch(() => {}); v.onmouseleave = () => v.pause(); v.onclick = () => (v.paused ? v.play() : v.pause()).catch?.(() => {}); });
+  box.querySelectorAll('[data-share]').forEach(b => b.onclick = async () => { const c = REC.clips[+b.dataset.share]; if (!(await shareBlob(c.blob, `carrot-cc.${c.ext}`, `당근 CC에서 ${c.title}! ${siteHost()}`))) toast('이 기기에서는 바로 공유가 안 돼요. 영상 저장 후 올려 주세요', 2200); });
+}
+$('clipBtn').onclick = () => { const s = $('clipSheet'); const open = s.hidden; closeSheets(); s.hidden = !open; $('clipBtn').setAttribute('aria-expanded', String(open)); $('clipBtn').classList.remove('new'); renderClips(); };
+$('clipClose').onclick = () => { $('clipSheet').hidden = true; $('clipBtn').setAttribute('aria-expanded', 'false'); };
+
+// ================= 라운딩 결과 카드 (스토리용 1080×1920) =================
+function newStats() { return { croc: 0, crow: 0, animals: [], chance: 0, menus: [], birdie: 0, eagle: 0, hio: 0, tipsy: false, ob: 0, water: 0 }; }
+function roundTitle(st, d) {
+  if (st.hio) return '홀인원 레전드';
+  if (st.eagle) return '이글 사냥꾼';
+  if (st.croc >= 2) return '악어 전용 공 공급책';
+  if (st.tipsy) return '막걸리 골퍼';
+  if ((S.spent || 0) >= 30000) return '그늘집 VIP';
+  if (st.birdie >= 2) return '버디 수집가';
+  if (st.animals.length >= 3) return '당근 CC 동물 박사';
+  if (d <= 0) return '언더파 장인';
+  return '당근 CC 정회원';
+}
+function storyCard() {
+  const W = 1080, H = 1920, c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
+  const st = S.st || newStats(), tot = S.scores.reduce((a, b) => a + (b || 0), 0), d = tot - TOTAL_PAR;
+  let gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, '#2f6a35'); gr.addColorStop(1, '#1d3f22'); g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  g.save(); g.globalAlpha = .07; g.fillStyle = '#fff'; for (let y = 0; y < H; y += 120) g.fillRect(0, y, W, 60); g.restore();
+  g.fillStyle = 'rgba(255,255,255,.08)'; g.beginPath(); g.arc(W + 80, 260, 420, 0, TAU); g.fill();
+  carrotIcon(g, 110, 150, 4.2); g.fillStyle = '#ff9248'; g.font = `400 96px ${FONT}`; g.textBaseline = 'middle'; g.fillText('당근 CC', 180, 154);
+  g.fillStyle = 'rgba(255,255,255,.7)'; g.font = `600 30px "IBM Plex Mono",monospace`; g.fillText('ROUND REPORT', 186, 232);
+  const dt = new Date(); g.textAlign = 'right'; g.fillText(`${dt.getFullYear()}.${String(dt.getMonth() + 1).padStart(2, '0')}.${String(dt.getDate()).padStart(2, '0')}`, W - 80, 232); g.textAlign = 'start';
+  // 이름과 칭호
+  g.fillStyle = '#fff'; g.font = `400 84px ${FONT}`; g.fillText(NET.nick || '당근 골퍼', 80, 380);
+  const title = roundTitle(st, d); g.font = `700 36px "IBM Plex Sans KR",sans-serif`; const tw = g.measureText(title).width + 48;
+  g.fillStyle = '#ffd166'; g.beginPath(); g.roundRect ? g.roundRect(80, 432, tw, 64, 32) : g.rect(80, 432, tw, 64); g.fill(); g.fillStyle = '#3d2a08'; g.fillText(title, 104, 466);
+  // 큰 점수
+  g.fillStyle = '#fff'; g.font = `400 260px ${FONT}`; g.fillText(`${tot}`, 70, 680); const nw = g.measureText(`${tot}`).width;
+  g.font = `400 80px ${FONT}`; g.fillStyle = 'rgba(255,255,255,.8)'; g.fillText('타', 90 + nw, 720);
+  g.fillStyle = d <= 0 ? '#ffd166' : '#ff9248'; g.font = `400 120px ${FONT}`; g.textAlign = 'right'; g.fillText(fmtDiff(d).replace(' (이븐)', ''), W - 80, 690); g.textAlign = 'start';
+  g.fillStyle = 'rgba(255,255,255,.6)'; g.font = `500 30px "IBM Plex Sans KR",sans-serif`; g.textAlign = 'right'; g.fillText(`PAR ${TOTAL_PAR} 기준`, W - 80, 780); g.textAlign = 'start';
+  // 홀별 점수
+  const cw = (W - 160) / HOLES.length;
+  HOLES.forEach((h, i) => {
+    const x = 80 + i * cw, y = 840, sc = S.scores[i], dd = sc == null ? null : sc - h.par;
+    g.fillStyle = 'rgba(255,255,255,.1)'; g.beginPath(); g.roundRect ? g.roundRect(x + 8, y, cw - 16, 170, 22) : g.rect(x + 8, y, cw - 16, 170); g.fill();
+    g.textAlign = 'center'; g.fillStyle = 'rgba(255,255,255,.65)'; g.font = `600 28px "IBM Plex Sans KR",sans-serif`; g.fillText(`${i + 1}번 · PAR ${h.par}`, x + cw / 2, y + 42);
+    g.fillStyle = dd == null ? 'rgba(255,255,255,.4)' : dd < 0 ? '#ffd166' : '#fff'; g.font = `400 84px ${FONT}`; g.fillText(sc == null ? '-' : String(sc), x + cw / 2, y + 116);
+    if (dd != null && dd < 0) { g.strokeStyle = '#ffd166'; g.lineWidth = 5; g.beginPath(); g.arc(x + cw / 2, y + 112, 48, 0, TAU); g.stroke(); }
+    g.textAlign = 'start';
+  });
+  // 오늘의 기록
+  const lines = [];
+  const nice = [st.hio && `홀인원 ${st.hio}번`, st.eagle && `이글 ${st.eagle}개`, st.birdie && `버디 ${st.birdie}개`].filter(Boolean);
+  lines.push(['명장면', nice.length ? nice.join(' · ') : '오늘은 파 행진']);
+  lines.push(['악어에게 뺏긴 공', `${st.croc}개${st.croc >= 2 ? ' (악어 배부름)' : ''}`]);
+  lines.push(['그늘집에서 쓴 돈', `${(S.spent || 0).toLocaleString('ko-KR')}원${st.menus.length ? ` · ${st.menus.slice(0, 2).join(', ')}` : ''}`]);
+  lines.push(['만난 동물', st.animals.length ? st.animals.join(', ') : '조용한 하루']);
+  lines.push(['캐디 찬스', `${st.chance}번 사용${st.chance === 0 ? ' (실력파)' : ''}`]);
+  if (st.crow) lines.push(['까마귀가 옮긴 공', `${st.crow}개`]);
+  g.fillStyle = '#fff'; g.font = `400 52px ${FONT}`; g.fillText('오늘의 기록', 80, 1100);
+  lines.slice(0, 6).forEach(([k, v], i) => {
+    const y = 1180 + i * 92; g.fillStyle = 'rgba(255,255,255,.12)'; g.fillRect(80, y + 36, W - 160, 2);
+    g.fillStyle = 'rgba(255,255,255,.65)'; g.font = `500 32px "IBM Plex Sans KR",sans-serif`; g.fillText(k, 80, y);
+    g.fillStyle = '#fff'; g.font = `700 34px "IBM Plex Sans KR",sans-serif`; g.textAlign = 'right'; let vv = v; while (g.measureText(vv).width > 560 && vv.length > 4) vv = vv.slice(0, -2); g.fillText(vv === v ? v : vv + '…', W - 80, y); g.textAlign = 'start';
+  });
+  // 아래
+  carrotIcon(g, W / 2, 1735, 3); g.textAlign = 'center'; g.fillStyle = '#fff'; g.font = `700 36px "IBM Plex Sans KR",sans-serif`; g.fillText('같이 치러 와요', W / 2, 1840);
+  g.fillStyle = '#ffd166'; g.font = `600 34px "IBM Plex Mono",monospace`; g.fillText(siteHost(), W / 2, 1888); g.textAlign = 'start'; g.textBaseline = 'alphabetic';
+  return c;
+}
+
+// ================= 명예의 전당 =================
+function relTime(at) { const m = Math.round((Date.now() - at) / 60000); return m < 1 ? '방금' : m < 60 ? `${m}분 전` : m < 1440 ? `${Math.round(m / 60)}시간 전` : `${Math.round(m / 1440)}일 전`; }
+function renderHof() {
+  const h = NET.hof; if (!h) return;
+  document.querySelectorAll('.hofToday').forEach(e => e.textContent = h.today); document.querySelectorAll('.hofTotal').forEach(e => e.textContent = h.total);
+  const html = h.list.length ? h.list.slice(0, 20).map((e, i) => `<li><span class="rk">${i + 1}</span><span class="nm">${esc(e.nick)}<small>${(e.h | 0) + 1}번 홀${e.c ? ' · 캐디 찬스' : ''}</small></span><span class="tm">${relTime(e.at)}</span></li>`).join('')
+    : '<li class="empty">아직 아무도 없어요. 첫 주인공이 되어보세요!</li>';
+  document.querySelectorAll('.hof-list').forEach(e => e.innerHTML = html);
+}
+setInterval(renderHof, 30000);
 
 // ================= 축하 이벤트 (버디·이글·홀인원) =================
 const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1554,7 +1724,7 @@ function plaqueCanvas(hi) {
 function showPlaque(hi, then) {
   const c = plaqueCanvas(hi), url = c.toDataURL('image/png');
   const canSave = !window.__CARROT_DEMO__;
-  overlay(`<span class="eyebrow">축하합니다</span><h2>홀인원 기념패</h2><img class="plaque" src="${url}" alt="${hi + 1}번 홀 홀인원 기념패"><p>평생 한 번 할까 말까 한 홀인원이에요. 화면을 캡처해서 자랑해 보세요!</p>
+  overlay(`<span class="eyebrow">축하합니다</span><h2>홀인원 기념패</h2><img class="plaque" src="${url}" alt="${hi + 1}번 홀 홀인원 기념패"><p>평생 한 번 할까 말까 한 홀인원이에요.${NET.ch ? ' 명예의 전당에도 이름이 올라갔어요!' : ''} 하이라이트 영상도 자동으로 저장됐어요.</p>
     <div class="btns">${canSave ? `<a class="btn sub" id="plaqueSave" href="${url}" download="carrot-cc-hole-in-one.png">기념패 저장</a>` : ''}<button class="btn" type="button" id="plaqueNext">계속하기</button></div>`);
   $('plaqueNext').onclick = () => { closeOverlay(); then(); }; $('plaqueNext').focus();
 }
@@ -1581,11 +1751,11 @@ function crocSteal(c) {
 function updateSteal(c, dt) {
   const st = c.steal; st.t += dt; const [bx, bz] = st.ball, [ex, ez] = st.edge;
   const face = (x, z) => { c.yaw += angDiff(c.yaw, Math.atan2(x - c.x, z - c.z)) * Math.min(1, dt * 8); };
-  if (st.ph === 'look') { face(bx, bz); c.y = -.04 + Math.min(1, st.t) * .1; if (st.t > 1.2) { st.ph = 'crawl'; st.t = 0; toast('악어다!! 내 공!!', 1800); showBubble(me, '안돼 내 공!!'); me.jump = 1; sndChomp(); } }
+  if (st.ph === 'look') { face(bx, bz); c.y = -.04 + Math.min(1, st.t) * .1; if (st.t > 1.2) { st.ph = 'crawl'; st.t = 0; toast('악어다!! 내 공!!', 1800); recMark('악어한테 공 뺏김', `${S.hole + 1}번 홀 · 1벌타`); showBubble(me, '안돼 내 공!!'); me.jump = 1; sndChomp(); } }
   else if (st.ph === 'crawl') { face(bx, bz); const d = Math.hypot(bx - c.x, bz - c.z); if (d > 1.3) { const sp = 5 * dt; c.x += (bx - c.x) / d * sp; c.z += (bz - c.z) / d * sp; } else { st.ph = 'bite'; st.t = 0; } c.jaw.rotation.x = -Math.abs(Math.sin(st.t * 6)) * .35; }
   else if (st.ph === 'bite') { c.jaw.rotation.x = -Math.abs(Math.sin(st.t * 9)) * .7; if (st.t > .5 && S.ballVis) { S.ballVis = false; sndChomp(); } if (st.t > 1) { st.ph = 'back'; st.t = 0; } }
   else if (st.ph === 'back') { face(c.w[0], c.w[1]); const d = Math.hypot(ex - c.x, ez - c.z); if (d > .4) { const sp = 6 * dt; c.x += (ex - c.x) / d * sp; c.z += (ez - c.z) / d * sp; } else { st.ph = 'dive'; st.t = 0; splash(c.x, c.z); sndSplash(); } c.jaw.rotation.x = -.15; }
-  else if (st.ph === 'dive') { c.y -= dt * .8; c.jaw.rotation.x = 0; if (st.t > 1.4) { c.steal = null; c.state = 'dive'; toast('악어가 공을 훔쳐갔어요! 1벌타', 2200); setTimeout(() => { cam.mode = 'follow'; penaltyReturn(); }, 1400); } }
+  else if (st.ph === 'dive') { c.y -= dt * .8; c.jaw.rotation.x = 0; if (st.t > 1.4) { c.steal = null; c.state = 'dive'; S.st.croc++; recStopIn(1600); toast('악어가 공을 훔쳐갔어요! 1벌타', 2200); setTimeout(() => { cam.mode = 'follow'; penaltyReturn(); }, 1400); } }
   const onLand = Math.hypot(c.x - c.w[0], c.z - c.w[1]) > c.w[2] - .5;
   c.g.position.set(c.x, onLand ? heightAt(c.x, c.z) + .22 : c.wy - .06 + c.y, c.z); c.g.rotation.y = c.yaw;
 }
@@ -1690,13 +1860,17 @@ function makeBoar() {
   g.userData.legs = legs(g, dark, [-.25, .25], [-.45, .45], .4, .4, .07); g.userData.gait = 'trot';
   g.traverse(o => { if (o.isMesh) o.castShadow = true; }); return g;
 }
-function makeGoose(scale) {
-  const g = new T.Group(), white = mat(scale < 1 ? 0xf4e7a8 : 0xfafaf5), orange = mat(0xf08a2f), dark = mat(0x222222);
+function makeGoose(scale, duck) {
+  const baby = scale < 1;
+  const g = new T.Group(), white = mat(duck ? (baby ? 0xf6d65a : 0x8a6a48) : baby ? 0xf4e7a8 : 0xfafaf5), orange = mat(duck ? 0xf2b134 : 0xf08a2f), dark = mat(0x222222);
+  const headM = duck && !baby ? mat(0x1f7a4a, { emissive: 0x08301a }) : white;
   const body = new T.Mesh(new T.SphereGeometry(.3, 10, 8), white); body.scale.set(.8, .75, 1.2); body.position.y = .42; g.add(body);
-  const neck = new T.Mesh(new T.CylinderGeometry(.07, .09, .5, 8), white); neck.position.set(0, .78, .25); neck.rotation.x = -.15; g.add(neck);
-  const head = new T.Mesh(new T.SphereGeometry(.11, 8, 6), white); head.position.set(0, 1.04, .3); g.add(head);
-  const beak = new T.Mesh(new T.ConeGeometry(.05, .18, 6), orange); beak.rotation.x = Math.PI / 2; beak.position.set(0, 1.02, .46); g.add(beak);
-  for (const s of [-1, 1]) { const e = new T.Mesh(new T.SphereGeometry(.022, 5, 4), dark); e.position.set(s * .07, 1.07, .37); g.add(e); }
+  const neck = new T.Mesh(new T.CylinderGeometry(.07, .09, duck ? .3 : .5, 8), headM); neck.position.set(0, duck ? .68 : .78, .25); neck.rotation.x = -.15; g.add(neck);
+  if (duck && !baby) { const ring = new T.Mesh(new T.TorusGeometry(.085, .02, 5, 12), mat(0xffffff)); ring.rotation.x = Math.PI / 2; ring.position.set(0, .56, .25); g.add(ring); }
+  const head = new T.Mesh(new T.SphereGeometry(.11, 8, 6), headM); g.add(head);
+  const dy = duck ? -.2 : 0; head.position.set(0, 1.04 + dy, .3);
+  const beak = new T.Mesh(duck ? new T.BoxGeometry(.1, .04, .16) : new T.ConeGeometry(.05, .18, 6), orange); if (!duck) beak.rotation.x = Math.PI / 2; beak.position.set(0, 1.02 + dy, .44); g.add(beak);
+  for (const s of [-1, 1]) { const e = new T.Mesh(new T.SphereGeometry(.022, 5, 4), dark); e.position.set(s * .07, 1.07 + dy, .37); g.add(e); }
   g.userData.legs = legs(g, orange, [-.1, .1], [0], .2, .2, .025); g.userData.gait = 'waddle'; g.userData.body = body;
   g.scale.setScalar(scale); g.traverse(o => { if (o.isMesh) o.castShadow = true; }); return g;
 }
@@ -1714,9 +1888,10 @@ function makeCrow() {
 const sndGorani = () => { const a = audio(), m = out(); if (!a || !m) return; for (let i = 0; i < 2; i++) { const t0 = a.currentTime + i * .45, o = a.createOscillator(), g = a.createGain(); o.type = 'sawtooth'; o.frequency.setValueAtTime(700, t0); o.frequency.linearRampToValueAtTime(1500, t0 + .08); o.frequency.exponentialRampToValueAtTime(500, t0 + .38); g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(.08, t0 + .03); g.gain.exponentialRampToValueAtTime(.001, t0 + .4); o.connect(g).connect(m); o.start(t0); o.stop(t0 + .42); noise(.35, 2200, 1, .06, i * .45); } };
 const sndBoar = () => { for (let i = 0; i < 3; i++) { tone(85 + Math.random() * 20, .22, 'sawtooth', .12, i * .28); noise(.2, 300, 1, .15, i * .28); } };
 const sndHonk = (n = 3) => { for (let i = 0; i < n; i++) { tone(420, .14, 'square', .06, i * .3); tone(380, .12, 'sawtooth', .05, i * .3 + .05); } };
+const sndQuack = (n = 3) => { for (let i = 0; i < n; i++) { tone(640, .09, 'square', .05, i * .22); tone(560, .1, 'sawtooth', .04, i * .22 + .04); } };
 const sndCaw = () => { tone(520, .2, 'sawtooth', .06); tone(470, .22, 'sawtooth', .06, .3); };
 function spawnCritter() {
-  const pool = ['deer', 'boar', 'geese'].filter(k => k !== lastKind);
+  const pool = ['deer', 'boar', 'geese', 'ducks', 'croc'].filter(k => k !== lastKind);
   if (S.ball.state === 'rest' && S.ballVis && S.strokes > 0 && Math.hypot(me.x - S.ball.x, me.z - S.ball.z) > 18 && lastKind !== 'crow' && Math.random() < .35) pool.splice(0, pool.length, 'crow');
   const kind = pool[Math.random() * pool.length | 0]; lastKind = kind;
   const fx = Math.sin(cam.yaw), fz = Math.cos(cam.yaw), rx = -fz, rz = fx, side = Math.random() < .5 ? 1 : -1;
@@ -1725,18 +1900,30 @@ function spawnCritter() {
     c.position.set(sx, heightAt(sx, sz) + 14, sz); scene.add(c);
     CRITTERS.push({ kind, g: c, st: 'in', t: 0, sx, sz }); sndCaw(); return;
   }
-  // 고라니·멧돼지는 카메라와 나 사이를 휙 지나가서 깜짝 놀라게, 거위는 바로 앞을 천천히
-  const ahead = kind === 'geese' ? rand(3, 5) : rand(4, 6);
-  const cx = me.x + fx * ahead, cz = me.z + fz * ahead, half = kind === 'geese' ? 10 : kind === 'deer' ? 22 : 20;
+  // 내 앞 6~8m를 천천히 가로질러요. 가운데쯤에서 잠깐 멈춰 나를 쳐다봐요
+  const fam = kind === 'geese' || kind === 'ducks';
+  const ahead = rand(6, 8), cx = me.x + fx * ahead, cz = me.z + fz * ahead, half = fam ? 9 : kind === 'croc' ? 8 : 15;
   const from = [cx - rx * side * half, cz - rz * side * half], to = [cx + rx * side * half, cz + rz * side * half];
-  const n = kind === 'geese' ? 4 : 1, members = [];
-  for (let i = 0; i < n; i++) { const g = kind === 'deer' ? makeDeer() : kind === 'boar' ? makeBoar() : makeGoose(i ? .75 : 1.35); if (kind !== 'geese') g.scale.setScalar(1.3); scene.add(g); members.push({ g, lag: i * 1.3 }); }
-  const speed = kind === 'deer' ? 12 : kind === 'boar' ? 8 : 2.2;
-  CRITTERS.push({ kind, members, from, to, len: Math.hypot(to[0] - from[0], to[1] - from[1]), d: 0, speed, yaw: Math.atan2(to[0] - from[0], to[1] - from[1]), said: false, t: 0 });
+  const n = fam ? 5 : 1, members = [];
+  for (let i = 0; i < n; i++) {
+    const g = kind === 'deer' ? makeDeer() : kind === 'boar' ? makeBoar() : kind === 'croc' ? makeCroc([0, 0, 1], 0).g : makeGoose(i ? .7 : 1.35, kind === 'ducks');
+    if (kind === 'deer' || kind === 'boar') g.scale.setScalar(1.3); if (kind === 'croc') g.scale.setScalar(1.25);
+    scene.add(g); members.push({ g, lag: i * 1.15 });
+  }
+  const speed = { deer: 5, boar: 4, geese: 1.5, ducks: 1.8, croc: 1.1 }[kind];
+  const len = Math.hypot(to[0] - from[0], to[1] - from[1]);
+  CRITTERS.push({ kind, members, from, to, len, d: 0, speed, yaw: Math.atan2(to[0] - from[0], to[1] - from[1]), said: false, t: 0, pauseAt: len * .45, pause: { deer: 1.8, boar: 1.4, geese: 1.2, ducks: 1, croc: 2 }[kind], paused: 0 });
+  cam.focus = CRITTERS[CRITTERS.length - 1]; me.moveT = null; $('critterSkip').hidden = false; $('cine').hidden = false;
+  const nm = { deer: '고라니', boar: '멧돼지', geese: '거위 가족', ducks: '오리 가족', croc: '악어' }[kind]; if (!S.st.animals.includes(nm)) S.st.animals.push(nm);
+  recMark(fam ? `${nm} 행차` : `${nm} 출몰`, `${S.hole + 1}번 홀`);
+  if (kind === 'ducks') { sndQuack(); toast('오리 가족이 쪼르르~ 지나가요', 2400); setTimeout(() => showBubble(me, '귀여워…'), 1200); }
+  if (kind === 'croc') { sndChomp(); toast('악어가 산책 나왔어요!! 가만히 있어요', 2400); setTimeout(() => showBubble(me, '숨 참아…'), 800); }
   if (kind === 'deer') { sndGorani(); toast('앗! 고라니다!!', 1800); setTimeout(() => showBubble(me, '깜짝이야!!'), 300); me.jump = .8; }
   if (kind === 'boar') { sndBoar(); toast('멧돼지 출몰 주의!!', 1800); shakeT = 1.2; setTimeout(() => showBubble(me, '으악 멧돼지!'), 300); me.jump = 1; }
-  if (kind === 'geese') { sndHonk(); toast('거위 가족이 길을 건너요~ 잠깐 멈춤!', 2200); }
+  if (kind === 'geese') { sndHonk(); toast('거위 가족이 길을 건너요~ 잠깐 멈춤!', 2200); setTimeout(() => showBubble(me, '줄 서서 간다 ㅋㅋ'), 1500); }
 }
+function endFocus() { cam.focus = null; $('critterSkip').hidden = true; $('cine').hidden = true; }
+$('critterSkip').onclick = endFocus;
 function animLegs(g, ph, amp) { const L = g.userData.legs; if (!L) return; L.forEach((l, i) => { l.rotation.x = Math.sin(ph + (i % 2 ? Math.PI : 0) + (i > 1 ? Math.PI / 2 : 0)) * amp; }); }
 function updateCritters(dt) {
   if (!scene) return;
@@ -1754,24 +1941,32 @@ function updateCritters(dt) {
           c.drop = ok ? [nx, nz] : [S.ball.x, S.ball.z]; c.from = [S.ball.x, S.ball.z]; } }
       else if (c.st === 'grab') { const k = Math.min(1, c.t / 1.6); const x = c.from[0] + (c.drop[0] - c.from[0]) * k, z = c.from[1] + (c.drop[1] - c.from[1]) * k; g.position.set(x, heightAt(x, z) + .3 + Math.sin(k * Math.PI) * 3, z); g.rotation.y = Math.atan2(c.drop[0] - c.from[0], c.drop[1] - c.from[1]);
         if (k >= 1) { g.userData.held.visible = false; S.ball.x = c.drop[0]; S.ball.z = c.drop[1]; S.ballVis = true; guideKey = ''; c.st = 'out'; c.t = 0; sndCaw();
+          S.st.crow++; recMark('까마귀가 공 가져감', `${S.hole + 1}번 홀 · 무벌타`);
           toast(`까마귀가 공을 ${Math.round(Math.hypot(c.drop[0] - c.from[0], c.drop[1] - c.from[1]) * M_PER_U)}m 옮겨놨어요! (무벌타)`, 2400); showBubble(me, '야! 내 공!!'); lastActKey = ''; } }
-      else { g.position.y += dt * 6; g.position.x += Math.sin(g.rotation.y) * dt * 8; g.position.z += Math.cos(g.rotation.y) * dt * 8; if (c.t > 3) { scene.remove(g); CRITTERS.splice(i, 1); } }
+      else { g.position.y += dt * 6; g.position.x += Math.sin(g.rotation.y) * dt * 8; g.position.z += Math.cos(g.rotation.y) * dt * 8; if (c.t > 3) { scene.remove(g); CRITTERS.splice(i, 1); recStopIn(500); } }
       continue;
     }
-    c.d += c.speed * dt;
+    // 가운데쯤에서 잠깐 멈춰서 나를 쳐다봐요
+    let stopped = false;
+    if (c.d >= c.pauseAt && c.paused < c.pause) { c.paused += dt; stopped = true;
+      if (c.paused - dt <= 0) { if (c.kind === 'deer') { sndGorani(); showBubble(me, '눈 마주쳤어…'); } if (c.kind === 'boar') sndBoar(); if (c.kind === 'geese') sndHonk(2); if (c.kind === 'ducks') sndQuack(2); if (c.kind === 'croc') { sndChomp(); showBubble(me, '으아 입 벌렸다!'); } } }
+    else c.d += c.speed * dt;
     let alive = false;
     for (const m of c.members) {
       const d = c.d - m.lag; const k = d / c.len; m.g.visible = k > 0 && k < 1; if (k < 1) alive = true;
       const kk = clamp(k, 0, 1), x = c.from[0] + (c.to[0] - c.from[0]) * kk, z = c.from[1] + (c.to[1] - c.from[1]) * kk;
-      const ph = c.t * (c.kind === 'deer' ? 16 : c.kind === 'boar' ? 14 : 9) - m.lag;
-      const bob = c.kind === 'deer' ? Math.abs(Math.sin(ph)) * .55 : c.kind === 'boar' ? Math.abs(Math.sin(ph)) * .12 : 0;
-      m.g.position.set(x, heightAt(x, z) + bob, z); m.g.rotation.y = c.yaw;
+      const ph = stopped ? 0 : c.t * (c.kind === 'deer' ? 9 : c.kind === 'boar' ? 10 : c.kind === 'croc' ? 5 : 9) - m.lag;
+      const bob = stopped ? 0 : c.kind === 'deer' ? Math.abs(Math.sin(ph)) * .45 : c.kind === 'boar' ? Math.abs(Math.sin(ph)) * .12 : 0;
+      // 멈췄을 때는 내 쪽으로 고개를 돌려요
+      const look = stopped ? angDiff(c.yaw, Math.atan2(me.x - x, me.z - z)) * Math.min(1, c.paused * 2) * .8 : 0;
+      m.g.position.set(x, heightAt(x, z) + bob + (c.kind === 'croc' ? .2 : 0), z); m.g.rotation.y = c.yaw + look;
+      if (c.kind === 'croc') { const jaw = m.g.children.find(o => o.children && o.children.length > 3); m.g.rotation.z = stopped ? 0 : Math.sin(ph) * .06; if (m.g.userData.jaw) m.g.userData.jaw.rotation.x = stopped ? -Math.abs(Math.sin(c.paused * 5)) * .6 : 0; }
       if (c.kind === 'deer') m.g.rotation.x = Math.sin(ph) * .12;
-      if (c.kind === 'geese') m.g.rotation.z = Math.sin(ph) * .12;
+      if (c.kind === 'geese' || c.kind === 'ducks') m.g.rotation.z = stopped ? 0 : Math.sin(ph) * .14;
       animLegs(m.g, ph, c.kind === 'deer' ? .9 : c.kind === 'boar' ? .6 : .5);
     }
     if (c.kind === 'geese' && !c.said && c.d > c.len * .4) { c.said = true; sndHonk(2); if (me.cart && me.cart.visible) caddieSay('잠깐만요~ 거위 지나가요!', 2200); }
-    if (!alive) { for (const m of c.members) scene.remove(m.g); CRITTERS.splice(i, 1); }
+    if (!alive) { for (const m of c.members) scene.remove(m.g); CRITTERS.splice(i, 1); recStopIn(1200); if (cam.focus === c) endFocus(); }
   }
   if (shakeT > 0) shakeT = Math.max(0, shakeT - dt);
 }
@@ -1882,7 +2077,16 @@ function clickMove(e) {
 function snapCam() { const y = heightAt(me.x, me.z); cam.tx = me.x; cam.ty = y + 1.6; cam.tz = me.z; cam.px = me.x - Math.sin(cam.yaw) * cam.dist; cam.py = y + 6; cam.pz = me.z - Math.cos(cam.yaw) * cam.dist; }
 function updateCamera(dt) {
   let tx, ty, tz, px, py, pz;
-  if (cam.mode === 'steal' && cam.steal) {
+  const fc = cam.focus && (S.mode === 'walk' || S.mode === 'ride') ? cam.focus : null;
+  if (fc) {
+    // 동물이 지나가는 동안 그 장면에 카메라를 고정해요
+    const vis = fc.members.filter(m => m.g.visible); const P = vis.length ? vis : fc.members;
+    let fx = 0, fz = 0; for (const m of P) { fx += m.g.position.x; fz += m.g.position.z; } fx /= P.length; fz /= P.length;
+    const dx = fx - me.x, dz = fz - me.z, dl = Math.hypot(dx, dz) || 1;
+    tx = fx; tz = fz; ty = heightAt(fx, fz) + .7;
+    px = me.x - dx / dl * 3.5 + dz / dl * 1.5; pz = me.z - dz / dl * 3.5 - dx / dl * 1.5; py = heightAt(me.x, me.z) + 2.6;
+    cam.yaw = Math.atan2(dx, dz);
+  } else if (cam.mode === 'steal' && cam.steal) {
     const c = cam.steal; tx = c.tx; tz = c.tz; ty = heightAt(tx, tz) + .6; px = c.px; pz = c.pz; py = heightAt(px, pz) + 4.2;
   } else if (S.mode === 'eat') {
     // 먹는 동안은 테이블 맞은편에서 클로즈업
@@ -2053,6 +2257,7 @@ function frame() {
     if (keys.has('s') || keys.has('arrowdown')) { vx -= fx; vz -= fz; }
     if (keys.has('d') || keys.has('arrowright')) { vx += rx; vz += rz; }
     if (keys.has('a') || keys.has('arrowleft')) { vx -= rx; vz -= rz; }
+    if (cam.focus && (vx || vz)) { vx = vz = 0; }
     if (vx || vz) { me.moveT = null; $('help').classList.add('off'); }
     else if (me.moveT) { const dx = me.moveT[0] - me.x, dz = me.moveT[1] - me.z, d = Math.hypot(dx, dz); if (d < .25) me.moveT = null; else { vx = dx / d; vz = dz / d; } }
     const l = Math.hypot(vx, vz);
@@ -2137,6 +2342,7 @@ function frame() {
   if (moveRing.material.opacity > 0) { moveRing.material.opacity = Math.max(0, moveRing.material.opacity - dt * 1.2); moveRing.scale.multiplyScalar(1 + dt * .8); }
   updateCamera(dt);
   renderer.render(scene, camera);
+  recFrame();
 
   // 이름표
   const W = stage.clientWidth, H = stage.clientHeight;

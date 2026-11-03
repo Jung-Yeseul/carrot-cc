@@ -60,6 +60,12 @@
       <summary>채널 직접 고르기</summary>
       <div class="chgrid" id="chGrid"></div>
     </details>
+    <section class="hof" aria-labelledby="hofTitle">
+      <span class="eyebrow">HOLE IN ONE CHALLENGE</span>
+      <h2 id="hofTitle">명예의 전당</h2>
+      <p class="hof-sub">홀인원에 성공하면 이름이 여기 올라가요. 오늘 <b class="hofToday">0</b>명 성공 · 누적 <b class="hofTotal">0</b>명</p>
+      <ol class="hof-list"><li class="empty">아직 아무도 없어요. 첫 주인공이 되어보세요!</li></ol>
+    </section>
     <p class="fine">채팅은 없어요. 같은 채널 사람들이 코스를 걸어 다니는 게 보이고, 짧은 인사만 주고받을 수 있어요.</p>
     <button type="button" class="credit" data-credit>© 2026 Kaylee Jung · 만든 사람</button>
   </div>
@@ -87,13 +93,16 @@
     <div class="row"><span class="chbadge" id="chBadge">혼자 라운딩</span><button type="button" class="who" id="nick" title="이름표 바꾸기"></button></div>
     <div class="row"><button class="ghost" id="sound" aria-pressed="true">소리 켬</button><button class="ghost" id="cardBtn" aria-expanded="false">스코어카드</button></div>
     <div class="row"><button class="ghost" id="goShadeBtn">그늘집 가기</button><button class="ghost" id="goWCBtn">화장실 가기</button></div>
-    <button class="ghost people-btn" id="peopleBtn" aria-expanded="false">같이 치는 사람 <b id="peopleN">1</b></button>
+    <div class="row"><button class="ghost clip-btn" id="clipBtn" aria-expanded="false" hidden>하이라이트 <b id="clipN">0</b></button><button class="ghost people-btn" id="peopleBtn" aria-expanded="false">같이 치는 사람 <b id="peopleN">1</b></button></div>
     <canvas id="minimap" width="300" height="300" aria-label="이번 홀 지도"></canvas>
     <span class="mm-cap">지도를 누르면 크게 보여요</span>
   </div>
 
   <canvas class="fx" id="fx" aria-hidden="true"></canvas>
   <div class="celebrate" id="celebrate" aria-live="assertive" hidden></div>
+  <div class="cine" id="cine" hidden></div>
+  <button class="ghost critter-skip" id="critterSkip" hidden>계속 치기 ▸</button>
+  <div class="recdot" id="recDot" hidden><i></i>하이라이트 녹화 중</div>
   <div class="toast" id="toast" role="status"></div>
   <div class="feed" id="feed" aria-live="polite"></div>
 
@@ -108,6 +117,11 @@
   </div>
   <div class="help" id="help">드래그: 시점 돌리기 · 바닥 클릭: 그곳으로 걷기 · WASD/방향키: 걷기 · 휠: 확대</div>
 
+  <aside class="sheet" id="clipSheet" hidden>
+    <div class="sheet-head"><h3>하이라이트 영상</h3><button class="xbtn" id="clipClose" aria-label="하이라이트 닫기">✕</button></div>
+    <p class="sheet-sub">홀인원, 버디, 악어, 고라니 같은 순간을 자동으로 녹화해요. 세로 영상이라 릴스·스토리에 바로 올릴 수 있어요.</p>
+    <div class="clips" id="clips"></div>
+  </aside>
   <aside class="sheet" id="peopleSheet" hidden>
     <div class="sheet-head"><h3>같이 치는 사람</h3><button class="xbtn" id="peopleClose" aria-label="목록 닫기">✕</button></div>
     <p class="sheet-sub" id="peopleSub"></p>
@@ -122,6 +136,9 @@
     <div class="sc-wrap"><table id="sc"></table></div>
     <div class="legend">○ 버디 · ◎ 이글 · □ 보기 · ▣ 더블 보기 이상</div>
     <p class="spent" id="spent" hidden></p>
+    <h3>명예의 전당</h3>
+    <p class="hof-sub">오늘 <b class="hofToday">0</b>명 성공 · 누적 <b class="hofTotal">0</b>명</p>
+    <ol class="hof-list"><li class="empty">아직 아무도 없어요. 첫 주인공이 되어보세요!</li></ol>
     <button type="button" class="credit credit-sheet" data-credit>© 2026 Kaylee Jung · 만든 사람</button>
     <h3>플레이 방법</h3>
     <ul class="how">

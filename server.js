@@ -15,6 +15,18 @@ const MAX_TOTAL = Number(process.env.MAX_TOTAL) || CHANNELS * CAPACITY;
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const BOOT_VERSION = Date.now().toString(36);
 
+// ---- 명예의 전당 (홀인원 기록) ----
+// data/hof.json에 저장해요. Render 무료 플랜은 재배포·재시작 때 파일이 지워질 수 있어요.
+const HOF_FILE = path.join(__dirname, 'data', 'hof.json');
+let HOF = [];
+try { HOF = JSON.parse(fs.readFileSync(HOF_FILE, 'utf8')); if (!Array.isArray(HOF)) HOF = []; } catch { HOF = []; }
+function saveHof() { fs.mkdir(path.dirname(HOF_FILE), { recursive: true }, () => fs.writeFile(HOF_FILE, JSON.stringify(HOF.slice(-1000)), () => {})); }
+const kstDay = ts => new Date(ts + 9 * 3600e3).toISOString().slice(0, 10);
+function hofPayload() {
+  const today = kstDay(Date.now());
+  return { t: 'hof', today: HOF.filter(e => kstDay(e.at) === today).length, total: HOF.length, list: HOF.slice(-30).reverse() };
+}
+
 const ADJ = ['아삭한', '주황빛', '느긋한', '조용한', '바람같은', '침착한', '오늘도', '은은한', '흔들리는', '한가로운', '산뜻한', '나른한', '포근한', '단단한'];
 const NOUN = ['버디', '이글', '퍼터', '캐디', '티샷', '디봇', '당근', '파세이브', '그린', '페어웨이', '드라이버', '웨지', '티박스'];
 const COLORS = ['#f2c14e', '#f78154', '#5fad56', '#4d9de0', '#b07bd8', '#e15a97', '#3bc4b4', '#ffd166'];
@@ -34,6 +46,10 @@ const server = http.createServer((req, res) => {
   if (url.pathname === '/api/status') {
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
     return res.end(JSON.stringify(lobbyPayload()));
+  }
+  if (url.pathname === '/api/hof') {
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    return res.end(JSON.stringify(hofPayload()));
   }
   if (url.pathname === '/healthz') { res.writeHead(200); return res.end('ok'); }
 
@@ -111,6 +127,7 @@ wss.on('connection', (ws) => {
     tokens: 40, lastEmo: 0, strikes: 0, alive: true };
   sockets.add(p);
   send(ws, { ...lobbyPayload(), t: 'hello', id: p.id, nick: p.nick, color: p.color });
+  send(ws, hofPayload());
 
   ws.on('pong', () => { p.alive = true; });
   ws.on('message', (raw) => {
@@ -134,6 +151,18 @@ wss.on('connection', (ws) => {
         break;
       }
       case 'leave': leaveChannel(p); break;
+      case 'hio': {
+        // 홀인원 신고: 채널 안에서만, 1분에 한 번
+        if (!p.ch) return;
+        const h = int(m.h, 0, HOLES - 1), now = Date.now();
+        if (h === null || now - (p.lastHio || 0) < 60000) return;
+        p.lastHio = now;
+        const e = { nick: p.nick, h, at: now, c: m.c ? 1 : 0 };
+        HOF.push(e); saveHof();
+        const news = JSON.stringify({ t: 'hofnew', e, id: p.id }), board = JSON.stringify(hofPayload());
+        for (const q of sockets) { send(q.ws, news); send(q.ws, board); }
+        break;
+      }
       case 'nick': {
         const now = Date.now(); if (now - (p.lastNick || 0) < 3000) return send(ws, { t: 'nickerr', msg: '잠시 후에 다시 바꿔 주세요.' });
         const r = cleanNick(m.name); if (r.err) return send(ws, { t: 'nickerr', msg: r.err });
