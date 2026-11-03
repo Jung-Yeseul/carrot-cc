@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>당근 컨트리클럽</title>
+<meta name="description" content="말없이 공만 치다 가는 온라인 골프장. 설치 없이 들어와서 당근 캐릭터로 코스를 걸어 다니며 4홀 돌고, 그늘집에서 쉬었다 가세요.">
+<meta name="theme-color" content="#e9711f">
+<meta property="og:type" content="website">
+<meta property="og:title" content="당근 컨트리클럽, 잠깐 치고 가요">
+<meta property="og:description" content="말없이 공만 치다 가는 온라인 골프장. 당근주스 파는 그늘집도 있어요.">
+<meta property="og:image" content="/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="당근 CC">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<link rel="stylesheet" href="/style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+<!-- 입장 화면 -->
+<main class="lobby" id="lobby">
+  <div class="lobby-inner">
+    <svg class="mascot" viewBox="0 0 160 210" aria-hidden="true">
+      <g fill="#3f9a4e"><path d="M80 64C70 42 62 22 67 8c12 10 18 30 15 56z"/><path d="M79 66C60 52 42 46 30 32c20-3 40 9 52 30z"/><path d="M81 66c18-16 34-22 48-32-18-6-38 6-50 28z"/></g>
+      <path fill="#f08a2f" d="M36 78c0-18 88-18 88 0 0 36-26 86-40 120-2 6-6 6-8 0C62 164 36 114 36 78z"/>
+      <path fill="#d96d1a" opacity=".45" d="M112 74c8 6 10 14 7 26-6 28-20 58-32 86 9-34 22-68 25-112z"/>
+      <g stroke="#c95f14" stroke-width="3" stroke-linecap="round" fill="none"><path d="M46 118h12M104 134H92M60 160h10M96 170h-8"/></g>
+      <path fill="#fff" stroke="#e3d8c6" stroke-width="1.5" d="M42 74q38-18 76 0v7Q80 66 42 81z"/>
+      <path fill="#fff" stroke="#e3d8c6" stroke-width="1.5" d="M98 76q26-3 36 8-16-1-34 0z"/>
+      <circle cx="66" cy="98" r="6" fill="#2a1a10"/><circle cx="94" cy="98" r="6" fill="#2a1a10"/>
+      <circle cx="68" cy="96" r="2" fill="#fff"/><circle cx="96" cy="96" r="2" fill="#fff"/>
+      <ellipse cx="55" cy="110" rx="7" ry="4" fill="#ff6f7d" opacity=".55"/><ellipse cx="105" cy="110" rx="7" ry="4" fill="#ff6f7d" opacity=".55"/>
+      <path d="M72 110q8 8 16 0" stroke="#2a1a10" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <path d="M121 114 147 188" stroke="#7d847c" stroke-width="4" stroke-linecap="round"/>
+      <path d="M141 186h17a4 4 0 0 1 0 8h-19z" fill="#a3aaa2"/>
+      <path d="M117 106q12 4 5 12" stroke="#f08a2f" stroke-width="8" stroke-linecap="round" fill="none"/>
+    </svg>
+    <p class="eyebrow">CARROT COUNTRY CLUB · EST. 2026</p>
+    <h1 class="brand-big">당근 CC<small>당근 컨트리클럽</small></h1>
+    <p class="tagline">말없이 공만 치다 가는 골프장. 당근이 되어 코스를 걷고, 그늘집에서 쉬었다 가세요.</p>
+    <div class="live"><span class="dot" id="liveDot"></span><span id="liveText">클럽하우스 문 여는 중</span></div>
+    <div class="you">오늘 이름표 <b id="lobbyNick">받는 중</b></div>
+    <button class="btn big" id="teeUp">티업하기</button>
+    <details class="chpick">
+      <summary>채널 직접 고르기</summary>
+      <div class="chgrid" id="chGrid"></div>
+    </details>
+    <p class="fine">채팅은 없어요. 같은 채널 사람들이 코스를 걸어 다니는 게 보이고, 짧은 인사만 주고받을 수 있어요.</p>
+  </div>
+</main>
+
+<!-- 게임 화면 (3D) -->
+<div class="app" id="app" hidden>
+  <div class="stage" id="stage">
+    <div class="tags" id="tags" aria-hidden="true"></div>
+  </div>
+  <div class="fade" id="fade"></div>
+
+  <div class="hud tl">
+    <button class="brand" id="toLobby" title="클럽하우스로 나가기"><svg viewBox="0 0 40 52" aria-hidden="true"><g fill="#3f9a4e"><path d="M20 16C17 9 16 4 17 1c3 3 5 8 4 15z"/><path d="M19 17c-5-3-9-5-12-9 5 0 9 3 13 8z"/><path d="M21 17c4-4 8-6 12-8-5-1-9 2-13 7z"/></g><path fill="#f08a2f" d="M8 22c0-6 24-6 24 0 0 10-7 22-11 29-1 1-2 1-3 0-4-7-10-19-10-29z"/><circle cx="16" cy="26" r="1.8" fill="#2a1a10"/><circle cx="24" cy="26" r="1.8" fill="#2a1a10"/></svg>당근 CC</button>
+    <div class="holecard">
+      <div class="holeno" id="holeNo">1</div>
+      <div class="holemeta"><span class="nm" id="holeName"></span><span class="pr" id="holePar"></span><span class="pr" id="holeDist"></span></div>
+      <div class="count"><b id="strokes">0</b><span>타</span></div>
+    </div>
+    <span class="chip" id="buffChip" hidden></span>
+  </div>
+
+  <div class="hud tr">
+    <div class="row"><span class="chbadge" id="chBadge">혼자 라운딩</span><span class="who" id="nick"></span></div>
+    <div class="row"><button class="ghost" id="sound" aria-pressed="true">소리 켬</button><button class="ghost" id="cardBtn" aria-expanded="false">스코어카드</button></div>
+    <canvas id="minimap" width="300" height="300" aria-label="코스 지도"></canvas>
+  </div>
+
+  <div class="toast" id="toast" role="status"></div>
+  <div class="feed" id="feed" aria-live="polite"></div>
+
+  <div class="hud bottom">
+    <div class="power" id="power" hidden><div class="bar"><i id="pow"></i></div><span id="powLabel">드라이버</span></div>
+    <div class="actions" id="actions"></div>
+    <div class="emotewrap">
+      <button class="ghost emotoggle" id="emoToggle" aria-expanded="false">인사</button>
+      <div class="emotes" id="emotes" aria-label="인사 보내기"></div>
+    </div>
+  </div>
+  <div class="help" id="help">드래그: 시점 돌리기 · 바닥 클릭: 그곳으로 걷기 · WASD/방향키: 걷기 · 휠: 확대</div>
+
+  <aside class="sheet" id="cardSheet" hidden>
+    <h3>스코어카드</h3>
+    <div class="sc-wrap"><table id="sc"></table></div>
+    <div class="legend">○ 버디 · ◎ 이글 · □ 보기 · ▣ 더블 보기 이상</div>
+    <h3>플레이 방법</h3>
+    <ul class="how">
+      <li>공 근처로 걸어가서 <b>샷 준비</b>를 누르면 클럽이 자동으로 골라져요.</li>
+      <li>드래그나 ◀ ▶로 방향을 맞추고, <b>스윙 버튼을 누르고 있다가</b> 원하는 파워에서 떼세요. (스페이스바도 돼요)</li>
+      <li>러프는 덜 날아가고, 벙커는 공이 박혀요. 그린에서는 퍼터로 바뀌어요.</li>
+      <li>연못에 빠지면 <b>악어</b>가 공을 물어가요. 1벌타. 코스 밖은 OB 1벌타.</li>
+      <li>홀컵 가까이 붙이면 <b>OK</b> 컨시드, 더블파가 되면 <b>양파</b>로 픽업.</li>
+      <li>코스 가운데 <b>그늘집</b>에 걸어 들어가면 메뉴판이 나와요. 한 번 고르면 끝까지 효과가 있어요.</li>
+    </ul>
+  </aside>
+  <div class="overlay" id="overlay" hidden></div>
+</div>
+
+<script src="/game.js"></script>
+</body>
+</html>
