@@ -116,6 +116,11 @@ button{font-family:inherit}
 @keyframes ptblink{50%{background:rgba(255,209,102,.8)}}
 .caddietip{max-width:min(440px,92%);background:#fffaf3;color:#1a2a1c;border-radius:14px;padding:8px 14px;font-size:13px;line-height:1.45;box-shadow:0 8px 20px -10px rgba(0,0,0,.5);position:relative}
 .caddietip b{color:#2e7a3f}
+.eatbar{display:block;height:6px;border-radius:999px;background:#eadfcb;margin-top:6px;overflow:hidden}
+.eatbar i{display:block;height:100%;background:linear-gradient(90deg,#78c587,#e9711f);width:0}
+.spent{margin:0;font-size:12px;color:var(--muted)}
+.spent b{color:var(--gold);font-family:var(--mono)}
+.tag.owner .nm{background:rgba(94,61,36,.92)}
 .caddietip::after{content:"";position:absolute;left:50%;bottom:-6px;transform:translateX(-50%) rotate(45deg);width:12px;height:12px;background:#fffaf3}
 .act.chance{background:#2e7a3f;color:#fff;box-shadow:0 4px 0 #1b4d27}
 .act.chance:disabled{opacity:.45}

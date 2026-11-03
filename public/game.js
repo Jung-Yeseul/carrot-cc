@@ -342,7 +342,7 @@ function paintGround() {
 
 // ---- 당근 캐릭터 ----
 function makeCarrot(visor) {
-  const g = new T.Group();
+  const g = new T.Group(), cheeks = [];
   const orange = mat(0xf08a2f, { emissive: 0x8a3a00 }), dark = mat(0x2a1a10), leaf = mat(0x3f9a4e, { emissive: 0x123a12 }), white = mat(0xffffff), vis = mat(new T.Color(visor), { emissive: new T.Color(visor).multiplyScalar(.25) });
   const body = new T.Mesh(new T.ConeGeometry(.6, 1.7, 16), orange); body.rotation.x = Math.PI; body.position.y = 1.05; body.castShadow = true; g.add(body);
   const top = new T.Mesh(new T.SphereGeometry(.6, 16, 8, 0, TAU, 0, Math.PI / 2), orange); top.position.y = 1.9; top.scale.y = .4; top.castShadow = true; g.add(top);
@@ -352,7 +352,7 @@ function makeCarrot(visor) {
   for (const s of [-1, 1]) {
     const e = new T.Mesh(new T.SphereGeometry(.075, 10, 8), dark); e.position.set(s * .19, 1.62, .47); g.add(e);
     const hl = new T.Mesh(new T.SphereGeometry(.025, 6, 6), white); hl.position.set(s * .19 + .025, 1.65, .54); g.add(hl);
-    const ck = new T.Mesh(new T.SphereGeometry(.09, 8, 6), mat(0xff8a8a)); ck.scale.set(1, .55, .4); ck.position.set(s * .32, 1.48, .4); g.add(ck);
+    const ck = new T.Mesh(new T.SphereGeometry(.09, 8, 6), mat(0xff8a8a)); ck.scale.set(1, .55, .4); ck.position.set(s * .32, 1.48, .4); g.add(ck); cheeks.push(ck);
   }
   const mouth = new T.Mesh(new T.TorusGeometry(.07, .018, 6, 12, Math.PI), dark); mouth.position.set(0, 1.5, .46); mouth.rotation.z = Math.PI; g.add(mouth);
   const band = new T.Mesh(new T.CylinderGeometry(.6, .6, .13, 18, 1, true), vis); band.position.y = 1.82; band.material.side = T.DoubleSide; g.add(band);
@@ -362,7 +362,7 @@ function makeCarrot(visor) {
   const shaft = new T.Mesh(new T.CylinderGeometry(.025, .025, 1.25, 6), mat(0x8a918a)); shaft.position.y = -.62; club.add(shaft);
   const head = new T.Mesh(new T.BoxGeometry(.12, .1, .26), mat(0x5d635d)); head.position.set(0, -1.25, .08); club.add(head);
   club.rotation.set(.15, 0, .2);
-  g.userData = { club, body: [body, top] };
+  g.userData = { club, body: [body, top], cheeks };
   return g;
 }
 function makeCaddie() {
@@ -634,7 +634,11 @@ function buildShadeHouse() {
   const menu = new T.Mesh(new T.PlaneGeometry(1.2, 1.6), new T.MeshLambertMaterial({ map: menuT })); menu.position.set(2.6, 1.3, 4.6); menu.rotation.x = -.15; g.add(menu);
   const easel = new T.Mesh(new T.BoxGeometry(1.3, .08, .08), dark); easel.position.set(2.6, .45, 4.65); g.add(easel);
   for (const x of [-3.6, 3.6]) { const lan = new T.Mesh(new T.SphereGeometry(.28, 12, 8), new T.MeshLambertMaterial({ color: 0xffa64d, emissive: 0xff7a1a, emissiveIntensity: .7 })); lan.position.set(x, 3.3, 3.5); g.add(lan); }
+  // 그늘집 사장님 (앞치마 두른 토끼)
+  ownerAv = makeCaddie(); ownerAv.position.set(2.3, .45, -1.7); ownerAv.rotation.y = Math.atan2(-3.4, 1.7); g.add(ownerAv);
+  const apron = new T.Mesh(new T.PlaneGeometry(.5, .55), mat(0xfaf6ee, { side: T.DoubleSide })); apron.position.set(0, .55, .37); ownerAv.add(apron);
   scene.add(g);
+  ownerTag = makeTag('그늘집 사장님', false); ownerTag.classList.add('owner');
 }
 function pictogram(kind) {
   return textTexture(200, 200, (c, w, h) => {
@@ -907,10 +911,11 @@ function updActions() {
     if (S.mulligans && S.prev && S.ball.state === 'rest') html += `<button class="act sub" id="mull">멀리건 (${S.mulligans})</button>`;
   }
   if (S.mode === 'ride') html = '<button class="act sub" id="skipRide">바로 내리기</button>';
+  if (S.mode === 'eat') html = '<button class="act sub" id="eatDone">다 먹었어요</button>';
   if (S.mode === 'flight') html = '<button class="act sub" id="skipFlight">공 멈춘 곳 바로 보기 ▸▸</button>';
   a.innerHTML = html;
   const on = (id, f) => { const el = $(id); if (el) el.onclick = f; };
-  on('skipRide', skipRide); on('skipFlight', skipFlight); on('ready', enterAim); on('goBall', walkToBall); on('cartBall', () => cartTo(S.ball.x, S.ball.z, true)); on('menuBtn', showShade); on('mull', mulligan);
+  on('skipRide', skipRide); on('eatDone', () => { EAT.t = EAT_SEC; }); on('skipFlight', skipFlight); on('ready', enterAim); on('goBall', walkToBall); on('cartBall', () => cartTo(S.ball.x, S.ball.z, true)); on('menuBtn', showShade); on('mull', mulligan);
   on('wcM', () => useRestroom('m')); on('wcW', () => useRestroom('w'));
   on('cancel', exitAim); on('clubBtn', () => { S.club = (S.club + 1) % 4; S.clubAuto = false; lastActKey = ''; clearChance('클럽을 바꿔서 캐디 찬스가 풀렸어요'); }); on('chanceBtn', caddieChance);
   const hold = (id, d) => { const el = $(id); if (!el) return; let iv = 0; const stop = () => clearInterval(iv); el.onpointerdown = e => { e.preventDefault(); iv = setInterval(() => { S.aimYaw += d * .012; }, 16); }; el.onpointerup = stop; el.onpointerleave = stop; el.onpointercancel = stop; };
@@ -1172,20 +1177,20 @@ function restMenu() {
     <div class="btns"><button class="btn" id="goEat">그늘집 (배고파요)</button><button class="btn" id="goWC">화장실 (급해요)</button></div>
     <button class="btn sub" id="restNo">괜찮아요</button>`, true);
   $('restNo').onclick = closeOverlay;
-  $('goEat').onclick = () => { closeOverlay(); cartTo(SHADE.x + rand(-2, 0), SHADE.z + rand(-1, 1), false, '배고프시죠? 그늘집으로 모실게요~', '오늘은 당근주스가 제일 잘 나가요!'); };
+  $('goEat').onclick = () => { closeOverlay(); cartTo(SHADE.x + rand(-1, 1), SHADE.z + 5.3, false, '배고프시죠? 그늘집으로 모실게요~', '오늘은 당근주스가 제일 잘 나가요!'); };
   $('goWC').onclick = () => { closeOverlay(); RIDE.rush = true; cartTo(RR_DOORS.m[0] + 1.6, (RR_DOORS.m[1] + RR_DOORS.w[1]) / 2, false, '급하시죠? 꽉 잡으세요, 밟습니다!', '거의 다 왔어요, 조금만 참으세요!'); };
 }
 // 오른쪽 위 [그늘집 가기] [화장실 가기]: 언제든 누르면 캐디가 바로 데려가요
 function canTravel() {
   if (S.mode === 'aim') { exitAim(); return true; }
   if (S.mode === 'walk') return true;
-  toast(S.mode === 'ride' ? '이미 카트 타고 가는 중이에요' : S.mode === 'restroom' ? '아직 화장실 안이에요' : '공이 멈추면 갈 수 있어요', 1400);
+  toast(S.mode === 'ride' ? '이미 카트 타고 가는 중이에요' : S.mode === 'restroom' ? '아직 화장실 안이에요' : S.mode === 'eat' ? '먹는 중이에요. 다 먹고 가요~' : '공이 멈추면 갈 수 있어요', 1400);
   return false;
 }
 $('goShadeBtn').onclick = () => {
   closeSheets(); if (!canTravel()) return;
   if (Math.hypot(me.x - SHADE.x, me.z - SHADE.z) < 6) { showShade(); return; }
-  closeOverlay(); cartTo(SHADE.x + rand(-2, 0), SHADE.z + rand(-1, 1), false, '배고프시죠? 그늘집으로 모실게요~', '오늘은 당근주스가 제일 잘 나가요!');
+  closeOverlay(); cartTo(SHADE.x + rand(-1, 1), SHADE.z + 5.3, false, '배고프시죠? 그늘집으로 모실게요~', '오늘은 당근주스가 제일 잘 나가요!');
 };
 $('goWCBtn').onclick = () => {
   closeSheets(); if (!canTravel()) return;
@@ -1249,7 +1254,7 @@ function nextHoleCard(s) {
   S.mode = 'walk'; lastActKey = ''; updHud(); renderCard(); bindGuide(S.hole);
   $('goCart').onclick = () => { closeOverlay(); cartTo(t[0], t[1], true, '다음 홀로 모실게요~', holeTalk(S.hole)); };
   $('goWalk').onclick = () => { closeOverlay(); walkToBall(); };
-  if (shade) $('goShade').onclick = () => { closeOverlay(); cartTo(SHADE.x + rand(-2, 0), SHADE.z + rand(-1, 1), false, '그늘집으로 모실게요~', '당근주스가 진짜 맛있어요. 꼭 드셔보세요!'); };
+  if (shade) $('goShade').onclick = () => { closeOverlay(); cartTo(SHADE.x + rand(-1, 1), SHADE.z + 5.3, false, '그늘집으로 모실게요~', '당근주스가 진짜 맛있어요. 꼭 드셔보세요!'); };
 }
 let shadeTimer = 0;
 function shadeNames() {
@@ -1264,12 +1269,7 @@ function showShade() {
     <div class="shade-now" id="shadeNow">${shadeNames()}</div><button class="btn sub" id="shadeClose">그냥 구경만 할게요</button>`);
   shadeTimer = setInterval(() => { const el = $('shadeNow'); if (el) el.innerHTML = shadeNames(); }, 1500);
   $('shadeClose').onclick = closeOverlay;
-  document.querySelectorAll('.menu button').forEach(b => b.onclick = () => {
-    const m = MENU.find(x => x.id === b.dataset.id);
-    if (S.buff) { closeOverlay(); toast(`${m.name} 냠냠`); me.jump = 1; showBubble(me, ['배부르다~', '역시 그늘집은 비싸도 맛있어', '잘 먹었습니다!'][Math.random() * 3 | 0]); sndEat(); return; }
-    S.buff = m.id; if (m.id === 'odeng') S.mulligans = 2; sndEat();
-    const c = $('buffChip'); c.textContent = m.chip; c.hidden = false; closeOverlay(); toast(`${m.name} 냠냠`); me.jump = 1; showBubble(me, '잘 먹었습니다!'); lastActKey = '';
-  });
+  document.querySelectorAll('.menu button').forEach(b => b.onclick = () => { eatFood(MENU.find(x => x.id === b.dataset.id)); });
   document.querySelector('.menu button').focus();
 }
 const MASCOT = document.querySelector('.lobby .mascot').outerHTML;
@@ -1295,7 +1295,7 @@ function renderCard() {
   $('sc').innerHTML = h + '<th>합계</th></tr>' + p + `<td>${TOTAL_PAR}</td></tr>` + s + `<td>${played.length ? tot : ''}</td></tr>`;
 }
 function resetRound(teleport) {
-  closeOverlay(); S.scores.fill(null); S.buff = null; S.mulligans = 0; S.chance = CHANCE_MAX; S.hole = 0; S.strokes = 0; S.prev = null; S.last = null; S.mode = 'walk';
+  closeOverlay(); S.scores.fill(null); S.buff = null; S.mulligans = 0; S.chance = CHANCE_MAX; S.spent = 0; renderSpent(); S.hole = 0; S.strokes = 0; S.prev = null; S.last = null; S.mode = 'walk';
   $('buffChip').hidden = true;
   const t = HOLES[0].tee; Object.assign(S.ball, { x: t[0], y: 0, z: t[1], vx: 0, vy: 0, vz: 0, state: 'rest' }); S.ballVis = true;
   if (teleport) cartTo(t[0], t[1], true, '1번 홀로 다시 모실게요~', holeTalk(0));
@@ -1350,6 +1350,104 @@ function showCaddieTip(html) { const el = $('caddieTip'); el.innerHTML = html; e
 function clearChance(msg) {
   if (!S.chanceT) return; S.chanceT = null; $('powTarget').hidden = true; $('caddieTip').hidden = true; if (msg) toast(msg, 1400);
 }
+
+// ================= 그늘집에서 먹기 =================
+const EAT_LINES = {
+  carrot: ['쭈욱~', '눈이 맑아진다!', '당근은 역시 당근주스', '핀이 또렷하게 보여요'],
+  ramen: ['후루룩~', '국물이 끝내줘요', '골프장 컵라면은 9,000원의 맛', '면발 쫄깃!'],
+  makgeolli: ['캬~!', '파전도 하나 시킬걸', '한 잔만 더…?', '얼굴이 화끈화끈'],
+  odeng: ['호호, 뜨거워', '국물 리필 되나요?', '꼬치가 두 개 더 있었네', '속이 든든~'],
+};
+const EAT_SEC = 4.8, EAT = { on: false, t: 0, m: null, food: null, steam: null, step: -1, first: false };
+let ownerTag = null, ownerT = 0, ownerAv = null;
+function ownerSay(text, ms = 3200) { if (!ownerTag) return; const b = ownerTag.querySelector('.bub'); b.textContent = text; b.hidden = false; clearTimeout(ownerT); ownerT = setTimeout(() => { b.hidden = true; }, ms); }
+function steamPuff(n) {
+  const g = new T.BufferGeometry(), a = new Float32Array(n * 3); g.setAttribute('position', new T.BufferAttribute(a, 3));
+  const p = new T.Points(g, new T.PointsMaterial({ color: 0xffffff, size: 10, sizeAttenuation: false, transparent: true, opacity: .55, depthWrite: false }));
+  p.userData.seed = Array.from({ length: n }, () => [rand(-.06, .06), Math.random(), rand(-.06, .06)]); p.frustumCulled = false; return p;
+}
+function makeFood(id) {
+  const g = new T.Group(), ph = (c, o = {}) => new T.MeshPhongMaterial({ color: c, shininess: 30, ...o });
+  const add = (geo, m, x, y, z) => { const o = new T.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = true; g.add(o); return o; };
+  let steamY = 0;
+  if (id === 'carrot') {
+    add(new T.CylinderGeometry(.13, .11, .36, 18, 1, true), ph(0xffffff, { transparent: true, opacity: .3, side: T.DoubleSide, shininess: 90 }), 0, .18, 0);
+    add(new T.CylinderGeometry(.12, .1, .3, 18), ph(0xf0861f, { emissive: 0x6a2a00 }), 0, .15, 0);
+    const st = add(new T.CylinderGeometry(.013, .013, .5, 6), ph(0xd2442c), .04, .36, 0); st.rotation.z = -.28;
+    const c = makeMiniCarrot(.55); c.position.set(-.1, .3, 0); c.rotation.z = .5; g.add(c);
+  } else if (id === 'ramen') {
+    add(new T.CylinderGeometry(.17, .12, .32, 20), ph(0xfdfbf6), 0, .16, 0);
+    add(new T.CylinderGeometry(.172, .158, .1, 20, 1, true), ph(0xd2442c, { side: T.DoubleSide }), 0, .21, 0);
+    const n = add(new T.CircleGeometry(.155, 20), ph(0xe8c46a, { emissive: 0x3a2a00 }), 0, .31, 0); n.rotation.x = -Math.PI / 2;
+    for (let i = 0; i < 7; i++) { const a = i / 7 * TAU; add(new T.TorusGeometry(.04, .012, 5, 10), ph(0xf0d27a), Math.cos(a) * .08, .32, Math.sin(a) * .08).rotation.x = Math.PI / 2; }
+    for (const z of [-.03, .03]) { const c = add(new T.CylinderGeometry(.008, .008, .55, 6), ph(0x8a5a35), .05, .36, z); c.rotation.z = Math.PI / 2 - .15; }
+    const lid = add(new T.PlaneGeometry(.3, .3), ph(0xfdfbf6, { side: T.DoubleSide }), -.12, .42, -.08); lid.rotation.set(-.6, 0, .4);
+    steamY = .35;
+  } else if (id === 'makgeolli') {
+    add(new T.CylinderGeometry(.2, .13, .14, 22), ph(0xd9b45a, { shininess: 100, specular: 0xffffff }), 0, .07, 0);
+    const lq = add(new T.CircleGeometry(.185, 22), ph(0xf6f1e4), 0, .135, 0); lq.rotation.x = -Math.PI / 2;
+    add(new T.CylinderGeometry(.15, .17, .32, 18), ph(0xd9b45a, { shininess: 100, specular: 0xffffff }), .42, .16, 0);
+    const sp = add(new T.CylinderGeometry(.02, .035, .2, 8), ph(0xd9b45a), .6, .26, 0); sp.rotation.z = -1;
+    add(new T.SphereGeometry(.05, 8, 6), ph(0xd9b45a), .42, .35, 0);
+    add(new T.CylinderGeometry(.26, .26, .02, 20), ph(0xffffff), -.45, .01, .05);
+    add(new T.CylinderGeometry(.22, .22, .045, 20), ph(0xd99a3a, { emissive: 0x3a1a00 }), -.45, .045, .05); // 파전
+    for (let i = 0; i < 5; i++) add(new T.BoxGeometry(.18, .012, .025), ph(0x3f9a4e), -.45 + rand(-.1, .1), .07, .05 + rand(-.1, .1)).rotation.y = Math.random() * 3;
+  } else if (id === 'odeng') {
+    add(new T.CylinderGeometry(.1, .08, .22, 16), ph(0xfdfbf6), 0, .11, 0);
+    const br = add(new T.CircleGeometry(.095, 16), ph(0xc9a46a), 0, .2, 0); br.rotation.x = -Math.PI / 2;
+    for (let k = 0; k < 3; k++) {
+      const sk = new T.Group(); sk.position.set(.3 + k * .14, .05, -.05 + k * .05); sk.rotation.set(0, k * .4, .9); g.add(sk);
+      const stick = new T.Mesh(new T.CylinderGeometry(.008, .008, .7, 5), ph(0xd8b98a)); stick.position.y = .2; sk.add(stick);
+      for (let j = 0; j < 4; j++) { const f = new T.Mesh(new T.BoxGeometry(.16, .07, .03), ph(0xc8925a, { emissive: 0x2a1400 })); f.position.set(j % 2 ? .04 : -.04, .1 + j * .08, 0); f.rotation.z = j % 2 ? .4 : -.4; sk.add(f); }
+    }
+    steamY = .24;
+  }
+  if (steamY) { const s = steamPuff(18); s.position.y = steamY; s.userData.h = .7; g.add(s); g.userData.steam = s; }
+  return g;
+}
+function updateSteam(s, dt) {
+  const a = s.geometry.attributes.position.array, seed = s.userData.seed;
+  seed.forEach((q, i) => { q[1] = (q[1] + dt * .45) % 1; a[i * 3] = q[0] + Math.sin(q[1] * 9 + i) * .04; a[i * 3 + 1] = q[1] * s.userData.h; a[i * 3 + 2] = q[2]; });
+  s.geometry.attributes.position.needsUpdate = true; s.material.opacity = .45;
+}
+const sndSlurp = () => { const a = audio(), m = out(); if (!a || !m) return; noise(.35, 900, 2, .18); const o = a.createOscillator(), g = a.createGain(); o.frequency.setValueAtTime(300, a.currentTime); o.frequency.exponentialRampToValueAtTime(900, a.currentTime + .3); g.gain.setValueAtTime(.05, a.currentTime); g.gain.exponentialRampToValueAtTime(.001, a.currentTime + .32); o.connect(g).connect(m); o.start(); o.stop(a.currentTime + .33); };
+const sndGulp = () => { tone(180, .12, 'sine', .2); tone(120, .14, 'sine', .18, .13); };
+const sndChew = () => { noise(.06, 1500, 2, .14); noise(.06, 1300, 2, .12, .14); };
+const sndKya = () => { const a = audio(), m = out(); if (!a || !m) return; const o = a.createOscillator(), g = a.createGain(); o.type = 'sawtooth'; o.frequency.setValueAtTime(500, a.currentTime); o.frequency.linearRampToValueAtTime(900, a.currentTime + .12); o.frequency.linearRampToValueAtTime(400, a.currentTime + .4); g.gain.setValueAtTime(.04, a.currentTime); g.gain.exponentialRampToValueAtTime(.001, a.currentTime + .45); o.connect(g).connect(m); o.start(); o.stop(a.currentTime + .46); };
+const EAT_SND = { carrot: sndGulp, ramen: sndSlurp, makgeolli: sndGulp, odeng: sndChew };
+const priceOf = m => +m.price.replace(/[^0-9]/g, '');
+function eatFood(m) {
+  closeOverlay(); EAT.first = !S.buff; S.mode = 'eat'; lastActKey = ''; me.moveT = null;
+  const sx = SHADE.x - .6 + rand(-.5, .5), seat = new T.Vector3(sx, SHADE_LV + .62, SHADE.z + 1.35);
+  me.x = seat.x; me.z = seat.z; me.yaw = Math.PI; me.seat = seat; me.seatPitch = 0; me.anim = 4; me.eating = true;
+  const food = makeFood(m.id); food.position.set(sx, SHADE_LV + 1.33, SHADE.z + .3); food.rotation.y = rand(-.4, .4); scene.add(food);
+  Object.assign(EAT, { on: true, t: 0, m, food, step: -1 });
+  ownerSay(`${m.name} 나왔습니다~ 맛있게 드세요!`); tone(880, .06, 'sine', .08); tone(1320, .1, 'sine', .08, .08);
+  showCaddieTip(`<b>그늘집</b> ${esc(m.name)} 먹는 중…<span class="eatbar"><i id="eatPow"></i></span>`);
+}
+function updateEat(dt, t) {
+  if (!EAT.on) return;
+  EAT.t += dt; const k = Math.min(1, EAT.t / EAT_SEC), lines = EAT_LINES[EAT.m.id];
+  const step = Math.floor(EAT.t / 1.15);
+  if (step !== EAT.step && step < lines.length) { EAT.step = step; showBubble(me, lines[step]); (EAT_SND[EAT.m.id] || sndChew)(); if (EAT.m.id === 'makgeolli' && step === 0) setTimeout(sndKya, 250); }
+  const sc = 1 - k * .65; EAT.food.scale.setScalar(sc);
+  if (EAT.food.userData.steam) updateSteam(EAT.food.userData.steam, dt);
+  const bar = $('eatPow'); if (bar) bar.style.width = (k * 100) + '%';
+  if (k >= 1) finishEat();
+}
+function finishEat() {
+  if (!EAT.on) return; EAT.on = false;
+  const m = EAT.m; scene.remove(EAT.food); EAT.food = null;
+  me.seat = null; me.anim = 0; me.eating = false; me.x = SHADE.x - .6; me.z = SHADE.z + 2.6; me.yaw = 0; me.jump = .7; cam.yaw = Math.PI;
+  S.mode = 'walk'; lastActKey = ''; $('caddieTip').hidden = true;
+  S.spent = (S.spent || 0) + priceOf(m); renderSpent();
+  toast(`${m.price} 결제 완료 · 그늘집 가격은 원래 이래요`, 2200);
+  if (EAT.first) { S.buff = m.id; if (m.id === 'odeng') S.mulligans = 2; const c = $('buffChip'); c.textContent = m.chip; c.hidden = false; setTimeout(() => toast(`${m.chip} 효과가 생겼어요`, 2000), 2300); }
+  if (m.id === 'makgeolli') { me.tipsy = 60; setTimeout(() => toast('취기가 올라와요… 1분 동안 비틀비틀', 2000), EAT.first ? 4500 : 2300); }
+  showBubble(me, ['배부르다~', '잘 먹었습니다!', '역시 그늘집은 비싸도 맛있어'][Math.random() * 3 | 0]);
+  setTimeout(() => ownerSay('또 오세요~ 라운딩 끝나고도 열려 있어요'), 1200);
+}
+function renderSpent() { const el = $('spent'); if (!el) return; el.hidden = !S.spent; el.innerHTML = `오늘 그늘집에서 쓴 돈 <b>${(S.spent || 0).toLocaleString('ko-KR')}원</b>`; }
 
 // ================= 축하 이벤트 (버디·이글·홀인원) =================
 const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1541,6 +1639,7 @@ function animateAvatar(av, o, dt, t) {
   av.rotation.order = 'YXZ';
   if (o.anim === 4 && o.seat) { // 카트에 앉아 있어요
     av.position.copy(o.seat); av.rotation.set(o.seatPitch || 0, o.yaw, 0); av.scale.setScalar(.82);
+    if (o.eating) { av.position.y += Math.abs(Math.sin(t * 9)) * .05; av.rotation.x = -.12 + Math.sin(t * 9) * .07; }
     av.userData.club.rotation.set(.15, 0, .2); return;
   }
   const walking = o.anim === 1, aiming = o.anim === 2;
@@ -1548,8 +1647,10 @@ function animateAvatar(av, o, dt, t) {
   const hop = walking ? Math.abs(Math.sin(o.ph)) * .28 : 0;
   if (o.jump > 0) o.jump = Math.max(0, o.jump - dt * 1.6);
   if (o.spin > 0) o.spin = Math.max(0, o.spin - dt);
+  if (o.tipsy > 0) o.tipsy = Math.max(0, o.tipsy - dt);
+  const ch = av.userData.cheeks; if (ch) { const tp = o.tipsy > 0; for (const c of ch) { c.scale.set(tp ? 1.6 : 1, tp ? .8 : .55, .4); c.material.color.setHex(tp ? 0xff3b5c : 0xff8a8a); } }
   const jy = o.jump > 0 ? Math.sin((1 - o.jump) * Math.PI) * .9 : 0;
-  av.position.set(o.x, heightAt(o.x, o.z) + hop + jy, o.z); av.rotation.set(0, o.yaw + (o.spin > 0 ? (1 - o.spin / 1.1) * TAU : 0), 0);
+  av.position.set(o.x, heightAt(o.x, o.z) + hop + jy, o.z); av.rotation.set(0, o.yaw + (o.spin > 0 ? (1 - o.spin / 1.1) * TAU : 0), o.tipsy > 0 ? Math.sin(t * 2.6) * .14 : 0);
   const sq = walking ? 1 + Math.sin(o.ph * 2) * .04 : 1 + Math.sin(t * 2) * .015;
   av.scale.set(1 / Math.sqrt(sq), sq, 1 / Math.sqrt(sq));
   const club = av.userData.club;
@@ -1639,7 +1740,11 @@ function clickMove(e) {
 function snapCam() { const y = heightAt(me.x, me.z); cam.tx = me.x; cam.ty = y + 1.6; cam.tz = me.z; cam.px = me.x - Math.sin(cam.yaw) * cam.dist; cam.py = y + 6; cam.pz = me.z - Math.cos(cam.yaw) * cam.dist; }
 function updateCamera(dt) {
   let tx, ty, tz, px, py, pz;
-  if (S.mode === 'aim' || S.mode === 'swing') {
+  if (S.mode === 'eat') {
+    // 먹는 동안은 테이블 맞은편에서 클로즈업
+    tx = me.x; ty = SHADE_LV + 1.55; tz = SHADE.z + .8;
+    px = me.x + 1.3; py = SHADE_LV + 2.25; pz = SHADE.z - 1.9; cam.yaw = Math.PI;
+  } else if (S.mode === 'aim' || S.mode === 'swing') {
     if (!S.aimDrag) cam.aimYaw += angDiff(cam.aimYaw, S.aimYaw) * Math.min(1, dt * 3);
     const f = [Math.sin(cam.aimYaw), Math.cos(cam.aimYaw)], by = heightAt(S.ball.x, S.ball.z);
     const ahead = S.club === 3 ? 6 : 14;
@@ -1683,7 +1788,7 @@ function sendPos(force) {
   const yaw = ((me.yaw % TAU) + TAU) % TAU;
   const bv = S.ballVis && S.ball.state === 'rest' ? 1 : 0;
   const dn = S.scores.filter(x => x != null).length;
-  const msg = { t: 'pos', h: S.hole, x: Math.round(me.x * 10), z: Math.round(me.z * 10), r: Math.round(yaw * 10), a: me.anim, bx: Math.round(S.ball.x * 10), bz: Math.round(S.ball.z * 10), bv, st: Math.min(40, S.strokes), sc: clamp(totalDiff(), -40, 99), dn };
+  const msg = { t: 'pos', h: S.hole, x: Math.round(me.x * 10), z: Math.round(me.z * 10), r: Math.round(yaw * 10), a: S.mode === 'eat' ? 0 : me.anim, bx: Math.round(S.ball.x * 10), bz: Math.round(S.ball.z * 10), bv, st: Math.min(40, S.strokes), sc: clamp(totalDiff(), -40, 99), dn };
   const key = `${msg.h},${msg.x},${msg.z},${msg.r},${msg.a},${msg.bx},${msg.bz},${bv},${msg.st},${msg.sc},${dn}`, now = performance.now();
   if (!force && key === NET.lastSent && now - NET.lastSentT < 4000) return;
   NET.lastSent = key; NET.lastSentT = now; sendNet(msg);
@@ -1795,7 +1900,7 @@ function frame() {
   const dt = Math.min(clock.getDelta(), .05), t = clock.elapsedTime;
 
   // 내 이동
-  if (S.mode !== 'ride') me.anim = 0;
+  if (S.mode !== 'ride' && S.mode !== 'eat') me.anim = 0;
   if (S.mode === 'walk' || S.mode === 'wait' || (S.mode === 'flight' && me.swingT === 0)) {
     let vx = 0, vz = 0;
     const fx = Math.sin(cam.yaw), fz = Math.cos(cam.yaw), rx = -fz, rz = fx;
@@ -1807,7 +1912,7 @@ function frame() {
     else if (me.moveT) { const dx = me.moveT[0] - me.x, dz = me.moveT[1] - me.z, d = Math.hypot(dx, dz); if (d < .25) me.moveT = null; else { vx = dx / d; vz = dz / d; } }
     const l = Math.hypot(vx, vz);
     if (l > 0) {
-      vx /= l; vz /= l; const sp = 6.5 * dt;
+      vx /= l; vz /= l; if (me.tipsy > 0) { const w = Math.sin(performance.now() / 260) * .55; const nx = vx - vz * w, nz = vz + vx * w, nl = Math.hypot(nx, nz); vx = nx / nl; vz = nz / nl; } const sp = 6.5 * dt;
       const nx = me.x + vx * sp, nz = me.z + vz * sp;
       if (canStand(nx, nz)) { me.x = nx; me.z = nz; } else if (canStand(nx, me.z)) me.x = nx; else if (canStand(me.x, nz)) me.z = nz; else me.moveT = null;
       me.yaw += angDiff(me.yaw, Math.atan2(vx, vz)) * Math.min(1, dt * 12); me.anim = 1;
@@ -1860,7 +1965,7 @@ function frame() {
 
   // 그늘집에 처음 들어오면 메뉴 안내
   const inShade = Math.hypot(me.x - SHADE.x, me.z - SHADE.z) < 6;
-  if (inShade && !S.shadeSeen && S.mode === 'walk') { S.shadeSeen = true; toast('그늘집이에요. 메뉴판을 볼 수 있어요', 2000); }
+  if (inShade && !S.shadeSeen && S.mode === 'walk') { S.shadeSeen = true; toast('그늘집이에요. 메뉴판을 볼 수 있어요', 2000); ownerSay(['어서 오세요~ 당근 CC 그늘집입니다!', '오늘 당근주스 갓 짰어요~', '컵라면 물 올려둘까요?'][Math.random() * 3 | 0]); }
   if (!inShade) S.shadeSeen = false;
 
   // 다른 사람
@@ -1883,7 +1988,7 @@ function frame() {
     o.ball.visible = !!o.bv; o.ball.position.set(o.bx, heightAt(o.bx, o.bz) + .2, o.bz);
   }
 
-  updateLife(dt, t); updateFireworks(dt);
+  updateLife(dt, t); updateFireworks(dt); updateEat(dt, t);
   if (moveRing.material.opacity > 0) { moveRing.material.opacity = Math.max(0, moveRing.material.opacity - dt * 1.2); moveRing.scale.multiplyScalar(1 + dt * .8); }
   updateCamera(dt);
   renderer.render(scene, camera);
@@ -1898,6 +2003,8 @@ function frame() {
   };
   place(me.tag, me.x, (me.anim === 4 && me.seat ? me.seat.y + 2.4 : heightAt(me.x, me.z) + 3) + (me.jump > 0 ? .9 : 0), me.z);
   for (const o of NET.others.values()) if (o.tag) place(o.tag, o.x, o.anim === 4 && o.seat ? o.seat.y + 2.4 : heightAt(o.x, o.z) + 3, o.z);
+  if (ownerTag) { if (Math.hypot(me.x - SHADE.x, me.z - SHADE.z) < 30) place(ownerTag, SHADE.x + 2.3, SHADE_LV + 3.1, SHADE.z - 1.7); else ownerTag.style.display = 'none'; }
+  if (ownerAv) ownerAv.rotation.z = Math.sin(performance.now() / 600) * .04;
   if (ballBeacon.visible) { ballTag.querySelector('.nm').textContent = `${S.strokes === 0 ? '티잉 구역 · ' : ''}내 공 · ${Math.round(ballFar * M_PER_U)}m`; place(ballTag, S.ball.x, S.ball.y + 2.6, S.ball.z); } else ballTag.style.display = 'none';
   if (me.cart && me.cart.visible) { const v = new T.Vector3(.38, 3.1, -.3); me.cart.localToWorld(v); place(caddieTag, v.x, v.y, v.z); } else caddieTag.style.display = 'none';
   if (S.mode === 'aim' && aimTipPos) { const tip = $('aimTip'); tip.hidden = false; place(tip, aimTipPos[0], aimTipPos[1], aimTipPos[2]); } else $('aimTip').hidden = true;
