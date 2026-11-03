@@ -16,21 +16,45 @@ const angDiff = (a, b) => Math.atan2(Math.sin(b - a), Math.cos(b - a));
 const MAP = 120;          // 코스는 -120 ~ 120
 const M_PER_U = 3;
 const G = 18;             // 중력
+// 홀마다 테마(ev)가 있어요
 const HOLES = [
-  { name: '단풍길', par: 3, tee: [-60, 85], cup: [-62, 30], green: 9, fair: [[-60, 85], [-62, 30]], fw: 12,
+  { name: '단풍길', ev: 'warm', par: 3, tee: [-60, 85], cup: [-62, 30], green: 9, fair: [[-60, 85], [-62, 30]], fw: 12,
     sand: [[-52, 36, 3.5], [-71, 40, 3]], water: [] },
-  { name: '악어 연못', par: 4, tee: [-45, 10], cup: [25, -55], green: 10, fair: [[-45, 10], [-20, -25], [25, -55]], fw: 13,
-    sand: [[34, -48, 3.5], [-28, -32, 3]], water: [[-6, -12, 10]] },
-  { name: '당근밭', par: 3, tee: [55, -25], cup: [70, 28], green: 9, fair: [[55, -25], [70, 28]], fw: 11,
+  { name: '당근밭', ev: 'rabbit', par: 3, tee: [55, -25], cup: [70, 28], green: 9, fair: [[55, -25], [70, 28]], fw: 11,
     sand: [[62, 21, 3], [79, 34, 3]], water: [] },
-  { name: '클럽하우스 가는 길', par: 4, tee: [60, 75], cup: [-15, 70], green: 10, fair: [[60, 75], [25, 92], [-15, 70]], fw: 13,
+  { name: '악어 연못', ev: 'croc', par: 4, tee: [-45, 10], cup: [25, -55], green: 10, fair: [[-45, 10], [-20, -25], [25, -55]], fw: 13,
+    sand: [[34, -48, 3.5], [-28, -32, 3]], water: [[-6, -12, 10]] },
+  { name: '바람의 언덕', ev: 'wind', wind: [0, -3.2], par: 4, tee: [60, 75], cup: [-15, 70], green: 10, fair: [[60, 75], [25, 92], [-15, 70]], fw: 13,
     sand: [[-5, 63, 3.5]], water: [[26, 68, 8]] },
+  { name: '보물찾기', ev: 'zones', par: 3, tee: [-85, 95], cup: [-95, 40], green: 9, fair: [[-85, 95], [-95, 40]], fw: 13,
+    sand: [[-86, 44, 3]], water: [],
+    zones: [{ t: 'jump', x: -88.5, z: 76, r: 4 }, { t: 'gold', x: -86.5, z: 64, r: 3.5 }, { t: 'box', x: -96, z: 57, r: 3.5 }] },
+  { name: '오리 연못', ev: 'duck', par: 4, tee: [-95, 15], cup: [-70, -85], green: 10, fair: [[-95, 15], [-95, -45], [-70, -85]], fw: 13,
+    sand: [[-78, -78, 3]], water: [[-84, -18, 7]] },
+  { name: '멧돼지 숲', ev: 'boar', par: 3, tee: [-55, -90], cup: [0, -95], green: 9, fair: [[-55, -90], [0, -95]], fw: 10,
+    sand: [[-6, -88, 3]], water: [] },
+  { name: '까마귀 언덕', ev: 'crow', par: 4, tee: [40, -95], cup: [92, -45], green: 10, fair: [[40, -95], [88, -85], [92, -45]], fw: 13,
+    sand: [[84, -50, 3.5]], water: [] },
+  { name: '갤러리 홀', ev: 'gallery', par: 4, tee: [92, -15], cup: [90, 58], green: 11, fair: [[92, -15], [90, 58]], fw: 14,
+    sand: [[82, 50, 3.5], [98, 50, 3]], water: [] },
 ];
+const HOLE_EV = {
+  warm: ['몸풀기 홀', '천천히 감 잡는 홀이에요. 특별한 이벤트는 없어요.'],
+  rabbit: ['토끼 도우미 홀', '공이 러프에 멈추면 토끼가 핀 쪽으로 공을 밀어줄 때가 있어요.'],
+  croc: ['악어 홀', '연못에 악어가 세 마리! 물가 근처에 공이 멈추면 무조건 훔쳐가요.'],
+  wind: ['바람 홀', '언덕 위라 바람이 세게 불어요. 공이 바람에 밀려요.'],
+  zones: ['보물찾기 홀', '페어웨이 위 트램펄린·황금 당근·물음표 상자를 맞혀 보세요!'],
+  duck: ['오리 홀', '연못에 오리 가족이 살아요. 공이 빠져도 오리가 건져다 줘요(무벌타).'],
+  boar: ['멧돼지 홀', '숲에 멧돼지가 살아요. 공을 툭 차고 지나갈 수 있어요.'],
+  crow: ['까마귀 홀', '까마귀들이 공을 노려요. 공에서 눈을 떼지 마세요!'],
+  gallery: ['갤러리 홀', '마지막 홀! 갤러리가 지켜보고 있어요. 넣으면 큰 박수를 받아요.'],
+};
 const TOTAL_PAR = HOLES.reduce((a, h) => a + h.par, 0);
 const SHADE = { x: 6, z: 32 };   // 그늘집 위치
 const RR = { x: -9, z: 31 };     // 화장실 위치 (문은 동쪽, 그늘집 쪽을 봐요)
 const RR_DOORS = { m: [-5.9, 29.5], w: [-5.9, 32.5] };
-const PATHS = [[[-62, 30], [-58, 18], [-45, 10]], [[25, -55], [42, -42], [55, -25]], [[70, 28], [64, 52], [60, 75]], [[-15, 70], [-2, 50], [6, 32]], [[6, 32], [-20, 22], [-45, 10]], [[6, 32], [36, 10], [55, -25]], [[-60, 85], [-38, 76], [-15, 70]]];
+const PATHS = [[[-62, 30], [-58, 18], [-45, 10]], [[25, -55], [42, -42], [55, -25]], [[70, 28], [64, 52], [60, 75]], [[-15, 70], [-2, 50], [6, 32]], [[6, 32], [-20, 22], [-45, 10]], [[6, 32], [36, 10], [55, -25]], [[-60, 85], [-38, 76], [-15, 70]],
+  [[-38, 76], [-60, 97], [-85, 102]], [[-95, 40], [-102, 28], [-95, 15]], [[-62, 30], [-80, 30], [-95, 40]], [[-70, -85], [-62, -92], [-55, -90]], [[0, -95], [20, -102], [40, -95]], [[25, -55], [30, -80], [40, -95]], [[92, -45], [100, -30], [92, -15]], [[90, 58], [75, 70], [60, 75]], [[70, 28], [84, 0], [92, -15]], [[-45, 10], [-75, -5], [-95, 15]]];
 const CLUBS = [
   { name: '드라이버', loft: .55, v: 27.4 },
   { name: '아이언', loft: .70, v: 22.6 },
@@ -41,10 +65,10 @@ const ROLL = { green: [.9, .5], fairway: [1.5, 1.2], tee: [1.5, 1.2], path: [1.2
 const LIE = { green: '그린', fairway: '페어웨이', tee: '티잉 구역', path: '카트 도로', rough: '러프', sand: '벙커' };
 const EMOTES = ['나이스샷!', '굿 퍼팅', '아깝다~', '오잘공!', '당근이지!', '캐디님 감사']; // 서버 EMOTES 개수와 맞추기
 const MENU = [
-  { id: 'carrot', name: '갓 짠 당근주스', price: '12,000원', eff: '눈이 밝아져요. 공이 날아갈 길이 미리 보여요.', chip: '당근주스: 궤적 미리보기' },
-  { id: 'ramen', name: '그늘집 컵라면', price: '9,000원', eff: '든든해서 힘이 나요. 비거리 +20%.', chip: '컵라면: 비거리 +20%' },
-  { id: 'makgeolli', name: '막걸리 한 잔', price: '15,000원', eff: '홀컵이 두 배로 크게 보여요. 대신 손이 살짝 떨려요.', chip: '막걸리: 홀컵 크게, 손 떨림' },
-  { id: 'odeng', name: '오뎅 꼬치', price: '11,000원', eff: '동반자가 너그러워져요. 멀리건 2장.', chip: '오뎅: 멀리건 2장' },
+  { id: 'carrot', name: '갓 짠 당근주스', price: '12,000원', eff: 'OK권 2장 + 처음 먹으면 공이 날아갈 길이 미리 보여요.', chip: '당근주스: 궤적 미리보기', tix: [0, 2] },
+  { id: 'ramen', name: '그늘집 컵라면', price: '9,000원', eff: '멀리건 1장 + 처음 먹으면 비거리 +20%.', chip: '컵라면: 비거리 +20%', tix: [1, 0] },
+  { id: 'makgeolli', name: '막걸리 한 잔', price: '15,000원', eff: '멀리건 1장·OK권 1장 + 처음 먹으면 홀컵이 크게 보여요(손 떨림).', chip: '막걸리: 홀컵 크게, 손 떨림', tix: [1, 1] },
+  { id: 'odeng', name: '오뎅 꼬치', price: '11,000원', eff: '멀리건 2장. 동반자가 너그러워져요.', chip: '오뎅: 너그러운 동반자', tix: [2, 0] },
 ];
 
 // ================= 지형 판정 =================
@@ -536,7 +560,7 @@ function build() {
     wm.rotation.x = -Math.PI / 2; wm.position.set(w[0], wy, w[1]); scene.add(wm);
     for (let i = 0; i < 14; i++) { const a = i / 14 * TAU + R() * .3; const r = new T.Mesh(new T.DodecahedronGeometry(.5 + R() * .5, 0), mat(0x8a8a80, { flatShading: true })); r.position.set(w[0] + Math.cos(a) * (w[2] + .3), wy + .1, w[1] + Math.sin(a) * (w[2] + .3)); r.scale.y = .5; scene.add(r); }
     for (let i = 0; i < 8; i++) { const a = R() * TAU; const reed = new T.Mesh(new T.ConeGeometry(.06, 1.4 + R(), 4), mat(0x6f8f3a)); reed.position.set(w[0] + Math.cos(a) * (w[2] - .4), wy + .5, w[1] + Math.sin(a) * (w[2] - .4)); scene.add(reed); }
-    CROCS.push(makeCroc(w, wy));
+    CROCS.push(makeCroc(w, wy)); if (h.ev === 'croc') { CROCS.push(makeCroc(w, wy)); CROCS.push(makeCroc(w, wy)); }
   }));
 
   // 홀: 깃발, 컵, 티 마커, 안내판
@@ -579,7 +603,7 @@ function build() {
     lg.computeVertexNormals();
     const lm = new T.Mesh(lg, lipMat); lm.rotation.x = -Math.PI / 2; lm.position.set(sd[0], 0, sd[1]); lm.receiveShadow = true; scene.add(lm);
   }
-  buildShadeHouse(); buildRestroom();
+  buildShadeHouse(); buildRestroom(); buildDucks(); buildZones(); buildGallery();
   // 그늘집 옆에 세워둔 카트
   for (const [ox, oz, ry] of [[9.5, -2.5, .2], [10.5, 1.5, -.1]]) { const c = makeCart(false); c.position.set(SHADE.x + ox, SHADE_LV, SHADE.z + oz); c.rotation.y = ry; scene.add(c); }
   // 내가 타는 카트 (토끼 캐디가 운전)
@@ -737,7 +761,7 @@ function clearOthers() { for (const id of [...NET.others.keys()]) removeOther(id
 const me = { x: 0, z: 0, yaw: 0, anim: 0, ph: 0, moveT: null, av: null, tag: null, swingT: 0, jump: 0 };
 const cam = { yaw: 0, aimYaw: 0, pitch: .38, dist: 13, mode: 'follow', tx: 0, ty: 0, tz: 0, px: 0, py: 10, pz: 0 };
 const S = { hole: 0, strokes: 0, scores: Array(HOLES.length).fill(null), buff: null, mulligans: 0, mode: 'walk', club: 0, clubAuto: true, aimYaw: 0,
-  charge: false, chargeT: 0, st: null, shotChance: false, chance: 2, chanceT: null, chanceBusy: false, chanceHit: false, power: 0, prev: null, last: null, ball: { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, state: 'rest' }, ballVis: true, shadeSeen: false, shots: 0 };
+  charge: false, chargeT: 0, okTix: 0, zoneUsed: {}, st: null, shotChance: false, chance: 2, chanceT: null, chanceBusy: false, chanceHit: false, power: 0, prev: null, last: null, ball: { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, state: 'rest' }, ballVis: true, shadeSeen: false, shots: 0 };
 const keys = new Set();
 
 function getBest() { try { const v = localStorage.getItem('carrot-cc-best3d'); return v ? +v : null; } catch { return null; } }
@@ -876,12 +900,17 @@ $('emotes').querySelectorAll('button').forEach(b => b.onclick = () => {
   const all = $('emotes').querySelectorAll('button'); all.forEach(x => x.disabled = true); setTimeout(() => all.forEach(x => x.disabled = false), 900);
 });
 
+function windText() {
+  const h = hole(); if (!h.wind) return '';
+  const d = [h.cup[0] - h.tee[0], h.cup[1] - h.tee[1]], L = Math.hypot(...d), side = (h.wind[0] * d[1] - h.wind[1] * d[0]) / L, along = (h.wind[0] * d[0] + h.wind[1] * d[1]) / L;
+  return ` · 바람 ${Math.abs(side) > Math.abs(along) ? (side > 0 ? '→' : '←') : along > 0 ? '뒷바람' : '맞바람'} ${Math.hypot(...h.wind).toFixed(1)}m/s`;
+}
 function updHud() {
   const h = hole();
   $('holeNo').textContent = S.hole + 1; $('holeName').textContent = h.name;
   $('holePar').textContent = `PAR ${h.par} · ${S.strokes}타 쳤어요`;
   const lie = LIE[surface(S.ball.x, S.ball.z)] || '';
-  $('holeDist').textContent = `핀까지 ${Math.round(distToCup() * M_PER_U)}m · ${lie}`;
+  $('holeDist').textContent = `핀까지 ${Math.round(distToCup() * M_PER_U)}m · ${lie}${windText()}`;
   $('strokes').textContent = S.strokes;
 }
 let lastActKey = '';
@@ -891,7 +920,7 @@ function updActions() {
   let key;
   if (S.mode === 'aim') key = `aim${S.club}${S.chance}${S.chanceBusy ? 1 : 0}${S.readLie ? 1 : 0}`;
   const nearRR = Math.hypot(me.x - RR_DOORS.m[0], me.z - (RR_DOORS.m[1] + RR_DOORS.w[1]) / 2) < 5;
-  if (S.mode === 'walk') key = `walk${S.ball.state}${near}${inShade}${nearRR}${S.mulligans && S.prev ? 1 : 0}`;
+  if (S.mode === 'walk') key = `walk${S.ball.state}${near}${inShade}${nearRR}${S.mulligans && S.prev ? 1 : 0}${okReady() ? 1 : 0}${S.okTix}${S.ballVis}`;
   else if (S.mode !== 'aim') key = S.mode;
   if (S.mode === 'ride') key = 'ride';
   if (key === lastActKey) return; lastActKey = key;
@@ -912,13 +941,15 @@ function updActions() {
     if (inShade) html += '<button class="act" id="menuBtn">그늘집 메뉴판 보기</button>';
     if (nearRR) html += '<button class="act wc m" id="wcM">남자 화장실</button><button class="act wc w" id="wcW">여자 화장실</button>';
     if (S.mulligans && S.prev && S.ball.state === 'rest') html += `<button class="act sub" id="mull">멀리건 (${S.mulligans})</button>`;
+    if (okReady()) html += `<button class="act" id="okBtn">OK 받기 (OK권 ${S.okTix})</button>`;
+    if (S.ball.state === 'rest' && S.ballVis) html += '<button class="act sub" id="pickBtn">홀아웃</button>';
   }
   if (S.mode === 'ride') html = '<button class="act sub" id="skipRide">바로 내리기</button>';
   if (S.mode === 'eat') html = '<button class="act sub" id="eatDone">다 먹었어요</button>';
   if (S.mode === 'flight') html = '<button class="act sub" id="skipFlight">공 멈춘 곳 바로 보기 ▸▸</button>';
   a.innerHTML = html;
   const on = (id, f) => { const el = $(id); if (el) el.onclick = f; };
-  on('skipRide', skipRide); on('eatDone', () => { EAT.t = EAT_SEC; }); on('skipFlight', skipFlight); on('ready', enterAim); on('goBall', walkToBall); on('cartBall', () => cartTo(S.ball.x, S.ball.z, true)); on('menuBtn', showShade); on('mull', mulligan);
+  on('skipRide', skipRide); on('eatDone', () => { EAT.t = EAT_SEC; }); on('skipFlight', skipFlight); on('ready', enterAim); on('goBall', walkToBall); on('cartBall', () => cartTo(S.ball.x, S.ball.z, true)); on('menuBtn', showShade); on('mull', mulligan); on('okBtn', useOk); on('pickBtn', pickUp);
   on('wcM', () => useRestroom('m')); on('wcW', () => useRestroom('w'));
   on('cancel', exitAim); on('clubBtn', () => { S.club = (S.club + 1) % 4; S.clubAuto = false; lastActKey = ''; clearChance('클럽을 바꿔서 캐디 찬스가 풀렸어요'); }); on('chanceBtn', caddieChance); on('lieBtn', toggleLie);
   const hold = (id, d) => { const el = $(id); if (!el) return; let iv = 0; const stop = () => clearInterval(iv); el.onpointerdown = e => { e.preventDefault(); iv = setInterval(() => { S.aimYaw += d * .012; }, 16); }; el.onpointerup = stop; el.onpointerleave = stop; el.onpointercancel = stop; };
@@ -943,7 +974,7 @@ function walkToBall() {
 }
 // 카트: 토끼 캐디가 운전하고 나는 옆자리. 카트 도로를 따라 달려요
 const RIDE = { x: 0, z: 0, yaw: 0, sp: 0, pts: [], i: 0, dest: null, face: null, mid: '', midSaid: false, total: 0 };
-const HOLE_TIPS = ['그린 앞 양쪽 벙커만 조심하세요.', '오른쪽에 악어 연못 있어요. 왼쪽으로 꺾이는 데까지 끊어 가세요.', '그린 양옆에 벙커가 있어요. 짧게 치면 안전해요.', '그린 쪽으로 바로 치면 오른쪽 악어 연못에 빠져요. 왼쪽으로 돌아가세요.'];
+const HOLE_TIPS = ['그린 앞 양쪽 벙커만 조심하세요.', '그린 양옆에 벙커가 있어요. 러프에 가면 토끼가 도와줄지도요.', '오른쪽에 악어 연못 있어요. 왼쪽으로 꺾이는 데까지 끊어 가세요.', '그린 쪽으로 바로 치면 오른쪽 연못에 빠져요. 바람도 계산하세요!', '트램펄린은 공을 튕겨주고, 황금 당근은 캐디 찬스를 줘요. 상자는 열어봐야 알아요.', '오리 연못은 빠져도 괜찮아요. 꺾이는 데까지 똑바로 가세요.', '페어웨이가 좁아요. 숲에 들어가면 멧돼지 조심!', '까마귀가 많아요. 그린까지 빨리 가는 게 상책이에요.', '마지막 홀이에요. 갤러리 앞에서 멋지게 마무리하세요!'];
 const holeTalk = i => `${i + 1}번 홀 ${HOLES[i].name}, PAR ${HOLES[i].par}이에요. ${HOLE_TIPS[i] || ''}`;
 const ballTalk = () => `남은 거리 ${Math.round(distToCup() * M_PER_U)}m예요. ${CLUBS[autoClub()].name} 잡으시면 될 것 같아요.`;
 let caddieT = 0;
@@ -1105,7 +1136,7 @@ function shoot(p) {
 }
 function mulligan() {
   if (!(S.mulligans > 0 && S.prev && S.mode === 'walk')) return;
-  Object.assign(S.ball, { x: S.prev.x, y: 0, z: S.prev.z, vx: 0, vy: 0, vz: 0, state: 'rest' }); S.strokes = S.prev.strokes; S.prev = null; S.mulligans--;
+  Object.assign(S.ball, { x: S.prev.x, y: 0, z: S.prev.z, vx: 0, vy: 0, vz: 0, state: 'rest' }); S.strokes = S.prev.strokes; S.prev = null; S.mulligans--; renderTix();
   toast('멀리건! 없던 샷으로'); cartTo(S.ball.x, S.ball.z, true); updHud(); lastActKey = '';
 }
 
@@ -1114,6 +1145,7 @@ const GRAV_ROLL = .55;
 function stepBall(b, dt, sim) {
   const h = hole();
   if (b.state === 'fly') {
+    if (h.wind) { b.vx += h.wind[0] * dt; b.vz += h.wind[1] * dt; }
     b.vy -= G * dt; b.x += b.vx * dt; b.y += b.vy * dt; b.z += b.vz * dt;
     if (!b.tree) for (const t of TREES) {
       const dx = b.x - t.x, dz = b.z - t.z;
@@ -1175,6 +1207,7 @@ function predict(p) {
 
 function onBallEvent(e) {
   const h = hole(), b = S.ball;
+  if (e === 'water' && h.ev === 'duck') { duckRescue(); updHud(); return; }
   if (e === 'water') {
     S.mode = 'wait'; S.ballVis = false; sndSplash(); splash(b.x, b.z);
     const eaten = crocEats(b.x, b.z);
@@ -1188,10 +1221,11 @@ function onBallEvent(e) {
     setTimeout(() => { S.ballVis = false; finishHole(''); }, 700);
   } else if (e === 'stop') {
     const s = surface(b.x, b.z), d = distToCup();
-    if (s === 'green' && d < 1.1) { S.strokes++; S.mode = 'wait'; finishHole('OK! 컨시드'); return; }
+    if (s === 'green' && d < 1.6 && !S.okTix && !S.okHinted) { S.okHinted = true; setTimeout(() => toast('OK 거리인데 OK권이 없어요. 그늘집에서 사 먹으면 받아요!', 2400), 900); }
     if (S.strokes >= h.par * 2) { S.mode = 'wait'; finishHole('양파! 픽업'); return; }
     const thief = crocNear(b.x, b.z);
-    if (thief && Math.random() < .6) { crocSteal(thief); return; }
+    if (thief && (h.ev === 'croc' || Math.random() < .6)) { crocSteal(thief); return; }
+    if (holeStopEvent(s)) return;
     toast(`${LIE[s]} · 핀까지 ${Math.round(d * M_PER_U)}m`, 1600);
     S.mode = 'wait'; setTimeout(() => { S.mode = 'walk'; cam.mode = 'follow'; lastActKey = ''; updActions(); }, 250);
   }
@@ -1253,6 +1287,15 @@ function useRestroom(kind) {
     $('wcOut').onclick = leave;
   }, 450);
 }
+function okReady() { return S.okTix > 0 && S.ball.state === 'rest' && S.ballVis && surface(S.ball.x, S.ball.z) === 'green' && distToCup() < 1.6; }
+function useOk() { if (!okReady() || S.mode !== 'walk') return; S.okTix--; renderTix(); S.strokes++; S.mode = 'wait'; showBubble(me, 'OK 감사합니다~'); finishHole('OK! 컨시드'); }
+function pickUp() {
+  if (S.mode !== 'walk') return;
+  overlay(`<span class="eyebrow">${S.hole + 1}번 홀 · PAR ${hole().par}</span><h2>이 홀은 여기까지 할까요?</h2><p>홀아웃하면 이 홀은 <b>더블파(${hole().par * 2}타)</b>로 기록되고 다음 홀로 넘어가요.</p>
+    <div class="btns"><button class="btn" id="pickYes">홀아웃할게요</button><button class="btn sub" id="pickNo">계속 칠게요</button></div>`, true);
+  $('pickNo').onclick = closeOverlay;
+  $('pickYes').onclick = () => { closeOverlay(); S.strokes = hole().par * 2; S.mode = 'wait'; S.ballVis = false; showBubble(me, '다음 홀에서 만회!'); finishHole('홀아웃'); };
+}
 function penaltyReturn() {
   S.strokes++; Object.assign(S.ball, { x: S.last.x, y: 0, z: S.last.z, vx: 0, vy: 0, vz: 0, state: 'rest' }); S.ballVis = true;
   if (S.strokes >= hole().par * 2) { finishHole('양파! 픽업'); return; }
@@ -1270,6 +1313,7 @@ function finishHole(prefix) {
   const d = s - h.par, level = s === 1 ? 3 : d <= -2 ? 2 : d === -1 ? 1 : 0;
   if (level === 3) { S.st.hio++; sendNet({ t: 'hio', h: S.hole, c: S.shotChance ? 1 : 0 }); } else if (level === 2) S.st.eagle++; else if (level === 1) S.st.birdie++;
   if (level) { recMark(s === 1 ? '홀인원' : d <= -3 ? '알바트로스' : d === -2 ? '이글' : '버디', `${S.hole + 1}번 홀 ${s}타 · ${fmtDiff(d)}`); recStopIn([0, 3200, 4200, 5600][level]); } else recStopIn(900);
+  if (h.ev === 'gallery') { galleryCheer(true); if (!level) { confetti(160, false); toast('갤러리: 와아아~~ 수고하셨습니다!', 2200); } }
   if (level) celebrate(level, s === 1 ? '홀인원!!!' : d <= -3 ? '알바트로스!!' : d === -2 ? '이글!!' : '버디!', `${S.hole + 1}번 홀 ${s}타 · ${fmtDiff(d)}`);
   const go = () => { cam.mode = 'follow'; if (S.hole === HOLES.length - 1) endRound(); else nextHoleCard(s); };
   const hi = S.hole;
@@ -1277,13 +1321,13 @@ function finishHole(prefix) {
 }
 function nextHoleCard(s) {
   const done = S.hole, n = HOLES[done + 1];
-  const shade = done === 1 && !S.buff;
+  const shade = done === 3 || (done === 5 && !S.mulligans && !S.okTix);
   overlay(`<span class="eyebrow">${done + 1}번 홀 ${s}타 (${fmtDiff(s - HOLES[done].par)}) · 합계 ${fmtDiff(totalDiff())}</span>
-    <h2>다음은 ${done + 2}번 홀, ${esc(n.name)}</h2><p>PAR ${n.par}. ${shade ? '전반이 끝났어요. 그늘집에 들러 쉬었다 가도 돼요.' : '노란 점선이 공략 경로예요. 아래 T가 티, 위 깃발이 그린이에요.'}</p>
+    <h2>다음은 ${done + 2}번 홀, ${esc(n.name)}</h2><p class="evtag"><b>${HOLE_EV[n.ev][0]}</b> ${HOLE_EV[n.ev][1]}</p><p>PAR ${n.par}. ${shade ? '그늘집에 들러 보세요. 음식을 사 먹으면 멀리건·OK권을 받아요.' : '노란 점선이 공략 경로예요. 아래 T가 티, 위 깃발이 그린이에요.'}</p>
     <canvas class="guide-map" id="guideMap" width="560" height="500" aria-label="다음 홀 지도"></canvas>
     <p class="guide-tip"><b>토끼 캐디</b> ${esc(HOLE_TIPS[done + 1] || '')}</p>
     <div class="btns">${shade ? '<button class="btn" id="goShade">그늘집 들르기</button>' : ''}<button class="btn${shade ? ' sub' : ''}" id="goCart">카트 타고 티로</button><button class="btn sub" id="goWalk">걸어가기</button></div>`);
-  S.hole = done + 1; S.strokes = 0; S.prev = null; S.last = null;
+  S.hole = done + 1; S.strokes = 0; S.prev = null; S.last = null; S.zoneUsed = {}; S.okHinted = false;
   const t = HOLES[S.hole].tee; Object.assign(S.ball, { x: t[0], y: 0, z: t[1], vx: 0, vy: 0, vz: 0, state: 'rest' }); S.ballVis = true;
   S.mode = 'walk'; lastActKey = ''; updHud(); renderCard(); bindGuide(S.hole);
   $('goCart').onclick = () => { closeOverlay(); cartTo(t[0], t[1], true, '다음 홀로 모실게요~', holeTalk(S.hole)); };
@@ -1326,7 +1370,7 @@ function renderCard() {
   const cell = (s, i) => { if (s == null) return ''; const d = s - HOLES[i].par; const k = d <= -2 ? 'e' : d === -1 ? 'b' : d === 1 ? 'bo' : d >= 2 ? 'db' : ''; return `<span class="mk ${k}">${s}</span>`; };
   let h = '<tr><th class="rl">HOLE</th>', p = '<tr><td class="rl">PAR</td>', s = '<tr><td class="rl">타수</td>';
   HOLES.forEach((ho, i) => {
-    if (i === 2) { h += '<th class="shade-col">쉼</th>'; p += '<td class="shade-col" rowspan="2">그늘집</td>'; }
+    if (i === 4) { h += '<th class="shade-col">쉼</th>'; p += '<td class="shade-col" rowspan="2">그늘집</td>'; }
     const cur = i === S.hole && S.scores[i] == null ? ' class="cur"' : '';
     h += `<th${cur}>${i + 1}</th>`; p += `<td>${ho.par}</td>`; s += `<td${cur}>${cell(S.scores[i], i)}</td>`;
   });
@@ -1334,7 +1378,7 @@ function renderCard() {
   $('sc').innerHTML = h + '<th>합계</th></tr>' + p + `<td>${TOTAL_PAR}</td></tr>` + s + `<td>${played.length ? tot : ''}</td></tr>`;
 }
 function resetRound(teleport) {
-  closeOverlay(); S.scores.fill(null); S.buff = null; S.mulligans = 0; S.chance = CHANCE_MAX; S.spent = 0; renderSpent(); S.st = newStats(); S.hole = 0; S.strokes = 0; S.prev = null; S.last = null; S.mode = 'walk';
+  closeOverlay(); S.scores.fill(null); S.buff = null; S.mulligans = 0; S.okTix = 0; S.zoneUsed = {}; S.okHinted = false; S.chance = CHANCE_MAX; S.spent = 0; renderSpent(); S.st = newStats(); S.hole = 0; S.strokes = 0; S.prev = null; S.last = null; S.mode = 'walk';
   $('buffChip').hidden = true;
   const t = HOLES[0].tee; Object.assign(S.ball, { x: t[0], y: 0, z: t[1], vx: 0, vy: 0, vz: 0, state: 'rest' }); S.ballVis = true;
   if (teleport) cartTo(t[0], t[1], true, '1번 홀로 다시 모실게요~', holeTalk(0));
@@ -1481,11 +1525,13 @@ function finishEat() {
   S.mode = 'walk'; lastActKey = ''; $('caddieTip').hidden = true;
   S.spent = (S.spent || 0) + priceOf(m); renderSpent(); S.st.menus.push(m.name.replace('갓 짠 ', '').replace('그늘집 ', ''));
   toast(`${m.price} 결제 완료 · 그늘집 가격은 원래 이래요`, 2200);
-  if (EAT.first) { S.buff = m.id; if (m.id === 'odeng') S.mulligans = 2; const c = $('buffChip'); c.textContent = m.chip; c.hidden = false; setTimeout(() => toast(`${m.chip} 효과가 생겼어요`, 2000), 2300); }
+  S.mulligans += m.tix[0]; S.okTix += m.tix[1]; renderTix(); setTimeout(() => toast(`${m.tix[0] ? `멀리건 ${m.tix[0]}장 ` : ''}${m.tix[1] ? `OK권 ${m.tix[1]}장 ` : ''}받았어요!`, 2000), 4600);
+  if (EAT.first) { S.buff = m.id; const c = $('buffChip'); c.textContent = m.chip; c.hidden = false; setTimeout(() => toast(`${m.chip} 효과가 생겼어요`, 2000), 2300); }
   if (m.id === 'makgeolli') { S.st.tipsy = true; me.tipsy = 60; setTimeout(() => toast('취기가 올라와요… 1분 동안 비틀비틀', 2000), EAT.first ? 4500 : 2300); }
   showBubble(me, ['배부르다~', '잘 먹었습니다!', '역시 그늘집은 비싸도 맛있어'][Math.random() * 3 | 0]);
   setTimeout(() => ownerSay('또 오세요~ 라운딩 끝나고도 열려 있어요'), 1200);
 }
+function renderTix() { const c = $('tixChip'); c.hidden = !(S.mulligans || S.okTix); c.textContent = `멀리건 ${S.mulligans} · OK권 ${S.okTix}`; lastActKey = ''; }
 function renderSpent() { const el = $('spent'); if (!el) return; el.hidden = !S.spent; el.innerHTML = `오늘 그늘집에서 쓴 돈 <b>${(S.spent || 0).toLocaleString('ko-KR')}원</b>`; }
 
 // ================= 하이라이트 자동 녹화 (세로 9:16, 소리 포함) =================
@@ -1503,8 +1549,11 @@ function recStart() {
   try { REC.rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: 4e6 } : undefined); } catch { try { REC.rec = new MediaRecorder(stream); } catch { return; } }
   REC.rec.ondataavailable = e => { if (e.data && e.data.size) REC.chunks.push(e.data); };
   REC.rec.onstop = () => {
+    clearTimeout(REC.watch);
     const mark = REC.discard ? null : REC.mark; REC.on = false; REC.mark = null; REC.ov = null; REC.discard = false; $('recDot') && ($('recDot').hidden = true);
-    if (mark && REC.chunks.length) addClip(new Blob(REC.chunks, { type: (REC.rec.mimeType || mime || 'video/webm').split(';')[0] }), mark);
+    const size = REC.chunks.reduce((a, c) => a + c.size, 0);
+    if (mark && size < 4000) toast('이 화면에서는 영상 녹화가 안 됐어요. 크롬·사파리 최신 버전의 실제 사이트에서 해 보세요', 3000);
+    else if (mark && REC.chunks.length) addClip(new Blob(REC.chunks, { type: (REC.rec.mimeType || mime || 'video/webm').split(';')[0] }), mark);
     if (REC.pending) { REC.pending = false; recStart(); }
   };
   try { REC.rec.start(400); } catch { return; }
@@ -1513,8 +1562,8 @@ function recStart() {
 function recMark(title, sub) {
   if (!REC.on) recStart(); if (!REC.on) return;
   if (!REC.mark || (REC_RANK[title] || 0) >= (REC_RANK[REC.mark.title] || 0)) REC.mark = { title, sub: sub || '', at: new Date() };
-  REC.ov = { title, sub: sub || '', t: performance.now() }; REC.stopAt = 0;
-  const d = $('recDot'); if (d) d.hidden = false;
+  REC.ov = { title, sub: sub || '', t: performance.now() }; REC.stopAt = 0; REC.lastMark = performance.now();
+  const d = $('recDot'); if (d) { d.hidden = false; d.querySelector('span').textContent = `'${REC.mark.title}' 녹화 중`; }
 }
 function recStopIn(ms) { if (REC.on && !REC.pending) REC.stopAt = performance.now() + ms; }
 function carrotIcon(g, x, y, s) { g.save(); g.translate(x, y); g.scale(s, s); g.fillStyle = '#3f9a4e'; g.beginPath(); g.ellipse(-3, -12, 2.4, 6, -.4, 0, TAU); g.ellipse(3, -12, 2.4, 6, .4, 0, TAU); g.ellipse(0, -13, 2.4, 6.5, 0, 0, TAU); g.fill(); g.fillStyle = '#f08a2f'; g.beginPath(); g.moveTo(-7, -7); g.quadraticCurveTo(0, -10, 7, -7); g.quadraticCurveTo(4, 4, 0, 16); g.quadraticCurveTo(-4, 4, -7, -7); g.fill(); g.restore(); }
@@ -1547,7 +1596,11 @@ function recFrame() {
   const now = performance.now();
   if (!REC.stopAt && !REC.mark && now - REC.t0 > 20000) REC.stopAt = now; // 아무 일 없으면 20초에서 끊기
   if (now - REC.t0 > 30000 && !REC.stopAt) REC.stopAt = now;              // 길어도 30초
-  if (REC.stopAt && now >= REC.stopAt) { REC.stopAt = 0; try { REC.rec.stop(); } catch { REC.on = false; } }
+  if (REC.mark && !REC.stopAt && now - REC.lastMark > 7000) REC.stopAt = now; // 장면이 끝났는데 멈춤 신호가 없으면 7초 뒤 저장
+  if (REC.mark && REC.stopAt) { const d = $('recDot'); if (d) d.querySelector('span').textContent = `'${REC.mark.title}' 저장까지 ${Math.max(0, Math.ceil((REC.stopAt - now) / 1000))}초`; }
+  if (REC.stopAt && now >= REC.stopAt) { REC.stopAt = 0; const hadMark = !!REC.mark; try { REC.rec.stop(); } catch { REC.on = false; }
+    if (hadMark) { const d = $('recDot'); if (d) d.querySelector('span').textContent = '영상 만드는 중…'; }
+    clearTimeout(REC.watch); REC.watch = setTimeout(() => { if (!REC.on) return; REC.on = false; REC.mark = null; $('recDot').hidden = true; if (hadMark) toast('영상 저장에 실패했어요. 이 브라우저에서는 녹화가 안 될 수 있어요', 2800); }, 15000); }
 }
 const siteHost = () => (location.host && !/^(localhost|127\.|null)/.test(location.host) && !location.host.includes('claude') ? location.host : 'carrot-cc.onrender.com');
 const IS_DEMO = () => !!window.__CARROT_DEMO__;
@@ -1560,7 +1613,10 @@ function addClip(blob, mark) {
   REC.clips.unshift({ blob, url, ext, ...mark });
   while (REC.clips.length > 6) URL.revokeObjectURL(REC.clips.pop().url);
   const b = $('clipBtn'); b.hidden = false; $('clipN').textContent = REC.clips.length; b.classList.remove('new'); void b.offsetWidth; b.classList.add('new');
-  setTimeout(() => toast(`하이라이트 저장됨 · 오른쪽 위 [하이라이트]에서 볼 수 있어요`, 2400), 600);
+  // 저장됐다는 걸 영상 썸네일과 함께 보여줘요
+  const pop = $('clipPop'); pop.innerHTML = `<video src="${url}" muted autoplay loop playsinline></video><div><b>하이라이트 저장 완료</b><span>${esc(mark.title)} · ${(blob.size / 1e6).toFixed(1)}MB</span><button type="button" class="btn" id="clipPopOpen">보기·저장</button></div><button type="button" class="xbtn" id="clipPopX" aria-label="닫기">✕</button>`;
+  pop.hidden = false; clearTimeout(addClip.t); addClip.t = setTimeout(() => { pop.hidden = true; }, 7000);
+  $('clipPopX').onclick = () => { pop.hidden = true; }; $('clipPopOpen').onclick = () => { pop.hidden = true; $('clipBtn').click(); };
   renderClips();
 }
 function renderClips() {
@@ -1610,10 +1666,10 @@ function storyCard() {
   const cw = (W - 160) / HOLES.length;
   HOLES.forEach((h, i) => {
     const x = 80 + i * cw, y = 840, sc = S.scores[i], dd = sc == null ? null : sc - h.par;
-    g.fillStyle = 'rgba(255,255,255,.1)'; g.beginPath(); g.roundRect ? g.roundRect(x + 8, y, cw - 16, 170, 22) : g.rect(x + 8, y, cw - 16, 170); g.fill();
-    g.textAlign = 'center'; g.fillStyle = 'rgba(255,255,255,.65)'; g.font = `600 28px "IBM Plex Sans KR",sans-serif`; g.fillText(`${i + 1}번 · PAR ${h.par}`, x + cw / 2, y + 42);
-    g.fillStyle = dd == null ? 'rgba(255,255,255,.4)' : dd < 0 ? '#ffd166' : '#fff'; g.font = `400 84px ${FONT}`; g.fillText(sc == null ? '-' : String(sc), x + cw / 2, y + 116);
-    if (dd != null && dd < 0) { g.strokeStyle = '#ffd166'; g.lineWidth = 5; g.beginPath(); g.arc(x + cw / 2, y + 112, 48, 0, TAU); g.stroke(); }
+    g.fillStyle = 'rgba(255,255,255,.1)'; g.beginPath(); g.roundRect ? g.roundRect(x + 4, y, cw - 8, 170, 18) : g.rect(x + 4, y, cw - 8, 170); g.fill();
+    g.textAlign = 'center'; g.fillStyle = 'rgba(255,255,255,.65)'; g.font = `600 26px "IBM Plex Sans KR",sans-serif`; g.fillText(`${i + 1}H`, x + cw / 2, y + 36); g.font = `500 20px "IBM Plex Sans KR",sans-serif`; g.fillText(`P${h.par}`, x + cw / 2, y + 156);
+    g.fillStyle = dd == null ? 'rgba(255,255,255,.4)' : dd < 0 ? '#ffd166' : '#fff'; g.font = `400 66px ${FONT}`; g.fillText(sc == null ? '-' : String(sc), x + cw / 2, y + 104);
+    if (dd != null && dd < 0) { g.strokeStyle = '#ffd166'; g.lineWidth = 4; g.beginPath(); g.arc(x + cw / 2, y + 100, 38, 0, TAU); g.stroke(); }
     g.textAlign = 'start';
   });
   // 오늘의 기록
@@ -1763,7 +1819,7 @@ function crocEats(x, z) {
   c.tx = x; c.tz = z; c.chomp = 2.2; c.state = 'swim'; setTimeout(sndChomp, 700); return true;
 }
 // 물가(연못 가장자리에서 6유닛 안)에 멈춘 공 근처의 악어
-function crocNear(x, z) { return CROCS.find(c => { const d = Math.hypot(x - c.w[0], z - c.w[1]); return d > c.w[2] && d < c.w[2] + 6 && c.chomp <= 0 && !c.steal; }); }
+function crocNear(x, z) { const rng = hole().ev === 'croc' ? 10 : 6; return CROCS.find(c => { const d = Math.hypot(x - c.w[0], z - c.w[1]); return d > c.w[2] && d < c.w[2] + rng && c.chomp <= 0 && !c.steal; }); }
 function crocSteal(c) {
   S.mode = 'wait'; cam.mode = 'steal';
   const b = S.ball, dx = b.x - c.w[0], dz = b.z - c.w[1], dl = Math.hypot(dx, dz);
@@ -1858,6 +1914,114 @@ function updateLife(dt, t) {
   }
 }
 
+// ================= 홀 테마 이벤트 =================
+// 공이 멈춘 뒤 홀 테마에 따라 벌어지는 일 (true면 이벤트가 진행 중)
+function holeStopEvent(lie) {
+  const h = hole(), b = S.ball;
+  if (lie === 'green') return false;
+  if (h.ev === 'rabbit' && lie === 'rough' && Math.random() < .6) {
+    S.mode = 'wait'; const r = RABBITS[0]; r.x = b.x - 2; r.z = b.z - 1.5; r.state = 'sit'; r.t = 9;
+    toast('토끼가 다가와요…', 1400); recMark('토끼 도우미', `${S.hole + 1}번 홀`);
+    setTimeout(() => { const k = .3, tx = b.x + (h.cup[0] - b.x) * k, tz = b.z + (h.cup[1] - b.z) * k; const from = [b.x, b.z]; slideBall(from, [tx, tz], 1.1); r.tx = tx - 1; r.tz = tz - 1; r.state = 'hop';
+      toast(`토끼가 공을 핀 쪽으로 ${Math.round(Math.hypot(tx - from[0], tz - from[1]) * M_PER_U)}m 밀어줬어요!`, 2200); showBubble(me, '고마워 토끼야!'); sndHonk(1); recStopIn(2400);
+      setTimeout(() => { S.mode = 'walk'; cam.mode = 'follow'; lastActKey = ''; guideKey = ''; updHud(); }, 1300); }, 1200);
+    return true;
+  }
+  if (h.ev === 'boar' && Math.random() < .5) { S.mode = 'wait'; setTimeout(() => { spawnCritter('boar', [b.x, b.z]); S.mode = 'walk'; cam.mode = 'follow'; lastActKey = ''; }, 500); return true; }
+  if (h.ev === 'crow' && Math.random() < .55) { S.mode = 'wait'; setTimeout(() => { spawnCritter('crow'); S.mode = 'walk'; cam.mode = 'follow'; lastActKey = ''; }, 500); return true; }
+  return false;
+}
+function slideBall(from, to, sec) {
+  const t0 = performance.now(), go = () => { const k = Math.min(1, (performance.now() - t0) / (sec * 1000)), e = 1 - (1 - k) ** 3; S.ball.x = from[0] + (to[0] - from[0]) * e; S.ball.z = from[1] + (to[1] - from[1]) * e; if (k < 1) requestAnimationFrame(go); };
+  go();
+}
+function duckRescue() {
+  const h = hole(), b = S.ball, w = h.water[0], dx = (S.last ? S.last.x : h.tee[0]) - w[0], dz = (S.last ? S.last.z : h.tee[1]) - w[1], dl = Math.hypot(dx, dz) || 1;
+  S.mode = 'wait'; S.ballVis = false; sndSplash(); splash(b.x, b.z); toast('퐁당! 앗, 오리 가족이 헤엄쳐 와요', 1800); recMark('오리가 공을 건져줌', `${S.hole + 1}번 홀 · 무벌타`);
+  if (DUCKS) { DUCKS.target = [b.x, b.z]; }
+  setTimeout(sndQuack, 600);
+  setTimeout(() => {
+    const nx = w[0] + dx / dl * (w[2] + 2), nz = w[1] + dz / dl * (w[2] + 2);
+    Object.assign(S.ball, { x: nx, z: nz, y: heightAt(nx, nz), vx: 0, vy: 0, vz: 0, state: 'rest' }); S.ballVis = true;
+    if (DUCKS) DUCKS.target = [w[0] + dx / dl * (w[2] - 1.5), w[1] + dz / dl * (w[2] - 1.5)];
+    toast('오리가 공을 건져다 줬어요! (무벌타)', 2400); showBubble(me, '오리 최고!!'); sndQuack(4); recStopIn(2600);
+    S.mode = 'walk'; cam.mode = 'follow'; lastActKey = ''; guideKey = ''; updHud();
+  }, 2600);
+}
+// 오리 연못에 사는 오리 가족
+let DUCKS = null;
+function buildDucks() {
+  const h = HOLES.find(x => x.ev === 'duck'); if (!h) return; const w = h.water[0], hi = HOLES.indexOf(h);
+  DUCKS = { g: [], w, wy: waterY(hi, 0), target: null, a: 0 };
+  for (let i = 0; i < 5; i++) { const d = makeGoose(i ? .6 : 1.1, true); scene.add(d); DUCKS.g.push(d); }
+}
+function updateDucks(dt, t) {
+  if (!DUCKS) return; const D = DUCKS; D.a += dt * .25;
+  let hx = D.w[0] + Math.cos(D.a) * D.w[2] * .55, hz = D.w[1] + Math.sin(D.a) * D.w[2] * .55;
+  if (D.target) { const d = Math.hypot(D.target[0] - D.lx, D.target[1] - D.lz); hx = D.target[0]; hz = D.target[1]; if (d < .5 && D.tT == null) D.tT = t; if (D.tT != null && t - D.tT > 4) { D.target = null; D.tT = null; } }
+  D.lx = D.lx == null ? hx : D.lx + (hx - D.lx) * Math.min(1, dt * (D.target ? 1.2 : 3)); D.lz = D.lz == null ? hz : D.lz + (hz - D.lz) * Math.min(1, dt * (D.target ? 1.2 : 3));
+  let px = D.lx, pz = D.lz, py = D.prevYaw || 0;
+  D.g.forEach((g, i) => { const tx = i ? D.g[i - 1].position.x : D.lx, tz = i ? D.g[i - 1].position.z : D.lz;
+    if (!i) { g.position.set(D.lx, D.wy - .3, D.lz); } else { const dx = g.position.x - tx, dz = g.position.z - tz, dl = Math.hypot(dx, dz) || 1, sp = 1.1; if (dl > sp) { g.position.x = tx + dx / dl * sp; g.position.z = tz + dz / dl * sp; } g.position.y = D.wy - .18; }
+    const ny = Math.atan2(tx - g.position.x, tz - g.position.z); if (i || Math.hypot(hx - px, hz - pz) > .01) g.rotation.y = i ? ny : Math.atan2(hx - (D.ox || hx), hz - (D.oz || hz)) || g.rotation.y; g.rotation.z = Math.sin(t * 3 + i) * .06; });
+  D.ox = D.lx; D.oz = D.lz;
+}
+// 보물찾기 홀: 트램펄린·황금 당근·물음표 상자
+const ZONE_MESH = [];
+function buildZones() {
+  for (const h of HOLES) for (const z of (h.zones || [])) {
+    const g = new T.Group(), y = heightAt(z.x, z.z); g.position.set(z.x, y, z.z);
+    const ring = new T.Mesh(new T.RingGeometry(z.r - .35, z.r, 40), new T.MeshBasicMaterial({ color: z.t === 'gold' ? 0xffd166 : z.t === 'jump' ? 0x4d9de0 : 0xb07bd8, transparent: true, opacity: .9, side: T.DoubleSide })); ring.rotation.x = -Math.PI / 2; ring.position.y = .08; g.add(ring);
+    if (z.t === 'jump') { const pad = new T.Mesh(new T.CylinderGeometry(z.r * .7, z.r * .7, .25, 24), mat(0x2f6fd6)); pad.position.y = .3; g.add(pad); const mat2 = new T.Mesh(new T.CylinderGeometry(z.r * .62, z.r * .62, .27, 24), mat(0x1b1b22)); mat2.position.y = .31; g.add(mat2); for (let i = 0; i < 6; i++) { const a = i / 6 * TAU, l = new T.Mesh(new T.CylinderGeometry(.06, .06, .35, 6), mat(0x888888)); l.position.set(Math.cos(a) * z.r * .65, .12, Math.sin(a) * z.r * .65); g.add(l); } }
+    if (z.t === 'gold') { const c = makeMiniCarrot(4); c.traverse(o => { if (o.isMesh && o.material.color.getHex() === 0xf08a2f) o.material = new T.MeshPhongMaterial({ color: 0xffc83d, emissive: 0x7a5200, shininess: 120, specular: 0xffffff }); }); c.position.y = 1.2; g.add(c); g.userData.spin = c; }
+    if (z.t === 'box') { const bx = new T.Mesh(new T.BoxGeometry(1.4, 1.4, 1.4), new T.MeshLambertMaterial({ map: textTexture(128, 128, (c, w, hh) => { c.fillStyle = '#b07bd8'; c.fillRect(0, 0, w, hh); c.strokeStyle = '#fff'; c.lineWidth = 8; c.strokeRect(6, 6, w - 12, hh - 12); c.fillStyle = '#fff'; c.font = `400 96px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('?', w / 2, hh / 2 + 4); }) })); bx.position.y = 1.1; bx.castShadow = true; g.add(bx); g.userData.spin = bx; }
+    scene.add(g); ZONE_MESH.push({ z, g, h });
+  }
+}
+function updateZones(dt, t) {
+  for (const m of ZONE_MESH) { if (m.g.userData.spin) { m.g.userData.spin.rotation.y += dt * 1.2; m.g.userData.spin.position.y = 1.2 + Math.sin(t * 2) * .2; } m.g.visible = !(S.zoneUsed[m.z.t] && hole() === m.h) ; }
+  const h = hole(), b = S.ball;
+  if (S.mode !== 'flight' || !h.zones) return;
+  if (b.y - heightAt(b.x, b.z) > .5) return;
+  for (const z of h.zones) {
+    if (S.zoneUsed[z.t] || Math.hypot(b.x - z.x, b.z - z.z) > z.r) continue;
+    S.zoneUsed[z.t] = true; triggerZone(z); break;
+  }
+}
+function triggerZone(z) {
+  const h = hole(), b = S.ball;
+  if (z.t === 'jump') {
+    const dx = h.cup[0] - b.x, dz = h.cup[1] - b.z, dl = Math.hypot(dx, dz) || 1, sp = Math.min(13, dl * .55);
+    Object.assign(b, { state: 'fly', vx: dx / dl * sp, vz: dz / dl * sp, vy: 13, y: heightAt(b.x, b.z) + .4, landed: false, tree: true });
+    tone(300, .15, 'sine', .2); tone(600, .3, 'sine', .15, .1); toast('트램펄린! 공이 하늘 높이 튕겨요!', 2000); recMark('트램펄린 점프', `${S.hole + 1}번 홀`);
+  } else if (z.t === 'gold') {
+    S.chance++; lastActKey = ''; fireworks(z.x, heightAt(z.x, z.z) + 4, z.z, 80); toast('황금 당근 발견! 캐디 찬스 +1', 2200); recMark('황금 당근', `${S.hole + 1}번 홀 · 캐디 찬스 +1`);
+  } else if (z.t === 'box') {
+    const r = Math.random(); fireworks(z.x, heightAt(z.x, z.z) + 2, z.z, 60);
+    if (r < .3) { setTimeout(() => { const a = Math.random() * TAU; Object.assign(b, { x: h.cup[0] + Math.cos(a) * 3, z: h.cup[1] + Math.sin(a) * 3, vx: 0, vy: 0, vz: 0, state: 'roll' }); }, 300); toast('물음표 상자: 행운의 순간이동! 공이 그린으로!', 2400); recMark('행운의 순간이동', `${S.hole + 1}번 홀`); }
+    else if (r < .55) { S.okTix++; renderTix(); toast('물음표 상자: OK권 1장 당첨!', 2200); recMark('OK권 당첨', `${S.hole + 1}번 홀`); }
+    else if (r < .8) { toast('물음표 상자: 고라니가 튀어나왔다!!', 2000); setTimeout(() => spawnCritter('deer'), 1500); }
+    else { toast('물음표 상자: 꽝! 다음 기회에~', 2000); }
+  }
+}
+// 갤러리 홀: 그린 옆 관중
+const GALLERY = [];
+function buildGallery() {
+  const h = HOLES.find(x => x.ev === 'gallery'); if (!h) return; const cols = ['#ffd166', '#4d9de0', '#e15a97', '#78c587', '#b07bd8', '#ffffff', '#3bc4b4'];
+  const [cx, cz] = h.cup;
+  for (let i = 0; i < 16; i++) {
+    const a = Math.PI * .1 + i / 15 * Math.PI * .8, r = h.green + 4 + (i % 2) * 1.6, x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r;
+    const g = makeCarrot(cols[i % cols.length]); g.scale.setScalar(.85); g.position.set(x, heightAt(x, z), z); g.rotation.y = Math.atan2(cx - x, cz - z); scene.add(g); GALLERY.push({ g, y: heightAt(x, z), ph: Math.random() * 6, cheer: 0 });
+  }
+  const sign = new T.Mesh(new T.PlaneGeometry(5, 1.2), new T.MeshLambertMaterial({ map: textTexture(512, 120, (c, w, hh) => { c.fillStyle = '#e9711f'; c.fillRect(0, 0, w, hh); c.fillStyle = '#fff'; c.font = `400 72px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('당근 CC 화이팅!', w / 2, hh / 2 + 4); }), side: T.DoubleSide }));
+  const sx = cx, sz = cz + h.green + 8; sign.position.set(sx, heightAt(sx, sz) + 2.2, sz); sign.rotation.y = Math.PI; scene.add(sign);
+}
+function updateGallery(dt, t) {
+  const near = hole().ev === 'gallery';
+  for (const p of GALLERY) { p.cheer = Math.max(0, p.cheer - dt); const j = p.cheer > 0 ? Math.abs(Math.sin(t * 9 + p.ph)) * .8 : near ? Math.abs(Math.sin(t * 2 + p.ph)) * .08 : 0; p.g.position.y = p.y + j; }
+}
+function galleryCheer(big) { for (const p of GALLERY) p.cheer = big ? 4 : 1.6; noise(big ? 2.4 : 1.2, 1500, .4, big ? .25 : .12); if (big) noise(2, 2600, .6, .1, .3); }
+
 // ================= 깜짝 동물: 고라니, 멧돼지, 거위 가족, 까마귀 =================
 const CRITTERS = []; let nextCritter = 18, shakeT = 0, lastKind = '';
 function legs(g, m, xs, zs, y, h, r) { const out = []; for (const x of xs) for (const z of zs) { const l = new T.Mesh(new T.CylinderGeometry(r, r * .8, h, 6), m); l.position.set(x, y - h / 2, z); l.geometry.translate(0, 0, 0); g.add(l); out.push(l); } return out; }
@@ -1917,10 +2081,10 @@ const sndBoar = () => { for (let i = 0; i < 3; i++) { tone(85 + Math.random() * 
 const sndHonk = (n = 3) => { for (let i = 0; i < n; i++) { tone(420, .14, 'square', .06, i * .3); tone(380, .12, 'sawtooth', .05, i * .3 + .05); } };
 const sndQuack = (n = 3) => { for (let i = 0; i < n; i++) { tone(640, .09, 'square', .05, i * .22); tone(560, .1, 'sawtooth', .04, i * .22 + .04); } };
 const sndCaw = () => { tone(520, .2, 'sawtooth', .06); tone(470, .22, 'sawtooth', .06, .3); };
-function spawnCritter() {
+function spawnCritter(force, center) {
   const pool = ['deer', 'boar', 'geese', 'ducks', 'croc'].filter(k => k !== lastKind);
   if (S.ball.state === 'rest' && S.ballVis && S.strokes > 0 && Math.hypot(me.x - S.ball.x, me.z - S.ball.z) > 18 && lastKind !== 'crow' && Math.random() < .35) pool.splice(0, pool.length, 'crow');
-  const kind = pool[Math.random() * pool.length | 0]; lastKind = kind;
+  const kind = force || pool[Math.random() * pool.length | 0]; lastKind = kind;
   const fx = Math.sin(cam.yaw), fz = Math.cos(cam.yaw), rx = -fz, rz = fx, side = Math.random() < .5 ? 1 : -1;
   if (kind === 'crow') {
     const c = makeCrow(), sx = S.ball.x + rand(-25, 25), sz = S.ball.z + rand(-25, 25);
@@ -1929,7 +2093,7 @@ function spawnCritter() {
   }
   // 내 앞 6~8m를 천천히 가로질러요. 가운데쯤에서 잠깐 멈춰 나를 쳐다봐요
   const fam = kind === 'geese' || kind === 'ducks';
-  const ahead = rand(6, 8), cx = me.x + fx * ahead, cz = me.z + fz * ahead, half = fam ? 9 : kind === 'croc' ? 8 : 15;
+  const ahead = rand(6, 8), cx = center ? center[0] : me.x + fx * ahead, cz = center ? center[1] : me.z + fz * ahead, half = fam ? 9 : kind === 'croc' ? 8 : 15;
   const from = [cx - rx * side * half, cz - rz * side * half], to = [cx + rx * side * half, cz + rz * side * half];
   const n = fam ? 5 : 1, members = [];
   for (let i = 0; i < n; i++) {
@@ -1939,7 +2103,7 @@ function spawnCritter() {
   }
   const speed = { deer: 5, boar: 4, geese: 1.5, ducks: 1.8, croc: 1.1 }[kind];
   const len = Math.hypot(to[0] - from[0], to[1] - from[1]);
-  CRITTERS.push({ kind, members, from, to, len, d: 0, speed, yaw: Math.atan2(to[0] - from[0], to[1] - from[1]), said: false, t: 0, pauseAt: len * .45, pause: { deer: 1.8, boar: 1.4, geese: 1.2, ducks: 1, croc: 2 }[kind], paused: 0 });
+  CRITTERS.push({ kind, members, from, to, len, d: 0, speed, yaw: Math.atan2(to[0] - from[0], to[1] - from[1]), said: false, t: 0, pauseAt: len * .45, pause: { deer: 1.8, boar: 1.4, geese: 1.2, ducks: 1, croc: 2 }[kind], paused: 0, kick: !!center });
   cam.focus = CRITTERS[CRITTERS.length - 1]; me.moveT = null; $('critterSkip').hidden = false; $('cine').hidden = false;
   const nm = { deer: '고라니', boar: '멧돼지', geese: '거위 가족', ducks: '오리 가족', croc: '악어' }[kind]; if (!S.st.animals.includes(nm)) S.st.animals.push(nm);
   recMark(fam ? `${nm} 행차` : `${nm} 출몰`, `${S.hole + 1}번 홀`);
@@ -1949,6 +2113,7 @@ function spawnCritter() {
   if (kind === 'boar') { sndBoar(); toast('멧돼지 출몰 주의!!', 1800); shakeT = 1.2; setTimeout(() => showBubble(me, '으악 멧돼지!'), 300); me.jump = 1; }
   if (kind === 'geese') { sndHonk(); toast('거위 가족이 길을 건너요~ 잠깐 멈춤!', 2200); setTimeout(() => showBubble(me, '줄 서서 간다 ㅋㅋ'), 1500); }
 }
+function len2(c) { return c.len; }
 function endFocus() { cam.focus = null; $('critterSkip').hidden = true; $('cine').hidden = true; }
 $('critterSkip').onclick = endFocus;
 function animLegs(g, ph, amp) { const L = g.userData.legs; if (!L) return; L.forEach((l, i) => { l.rotation.x = Math.sin(ph + (i % 2 ? Math.PI : 0) + (i > 1 ? Math.PI / 2 : 0)) * amp; }); }
@@ -1975,7 +2140,9 @@ function updateCritters(dt) {
     }
     // 가운데쯤에서 잠깐 멈춰서 나를 쳐다봐요
     let stopped = false;
-    if (c.d >= c.pauseAt && c.paused < c.pause) { c.paused += dt; stopped = true;
+    if (c.kick && c.d >= len2(c) * .5 && !c.kicked) { c.kicked = true; const a = c.yaw + rand(-.4, .4), d = rand(3, 6); let nx = S.ball.x + Math.sin(a) * d, nz = S.ball.z + Math.cos(a) * d; if (!canStand(nx, nz) || surface(nx, nz) === 'water') { nx = S.ball.x; nz = S.ball.z; }
+      slideBall([S.ball.x, S.ball.z], [nx, nz], .6); guideKey = ''; sndBoar(); toast(`멧돼지가 공을 ${Math.round(Math.hypot(nx - S.ball.x, nz - S.ball.z) * M_PER_U)}m 차고 갔어요! (무벌타)`, 2400); showBubble(me, '야 이 멧돼지야!'); recMark('멧돼지가 공 참', `${S.hole + 1}번 홀`); }
+    if (!c.kick && c.d >= c.pauseAt && c.paused < c.pause) { c.paused += dt; stopped = true;
       if (c.paused - dt <= 0) { if (c.kind === 'deer') { sndGorani(); showBubble(me, '눈 마주쳤어…'); } if (c.kind === 'boar') sndBoar(); if (c.kind === 'geese') sndHonk(2); if (c.kind === 'ducks') sndQuack(2); if (c.kind === 'croc') { sndChomp(); showBubble(me, '으아 입 벌렸다!'); } } }
     else c.d += c.speed * dt;
     let alive = false;
@@ -2261,7 +2428,7 @@ function guideHTML(hi) {
   return `<span class="eyebrow">${hi + 1}번 홀 공략도 · PAR ${h.par} · ${len}m</span><h2>${esc(h.name)}</h2>
     <div class="guide-tabs" role="tablist"><button type="button" role="tab" class="on" data-gm="hole">이번 홀</button><button type="button" role="tab" data-gm="course">전체 코스</button></div>
     <canvas class="guide-map" id="guideMap" width="560" height="640" aria-label="${hi + 1}번 홀 지도"></canvas>
-    <p class="guide-tip"><b>토끼 캐디</b> ${esc(HOLE_TIPS[hi] || '')} 노란 점선을 따라가면 돼요. 아래 T가 티, 위의 깃발이 그린이에요.</p>`;
+    <p class="evtag"><b>${HOLE_EV[h.ev][0]}</b> ${HOLE_EV[h.ev][1]}</p><p class="guide-tip"><b>토끼 캐디</b> ${esc(HOLE_TIPS[hi] || '')} 노란 점선을 따라가면 돼요. 아래 T가 티, 위의 깃발이 그린이에요.</p>`;
 }
 function bindGuide(hi) {
   let mode = 'hole';
@@ -2383,7 +2550,7 @@ function frame() {
     o.ball.visible = !!o.bv; o.ball.position.set(o.bx, heightAt(o.bx, o.bz) + .2, o.bz);
   }
 
-  updateLife(dt, t); updateFireworks(dt); updateEat(dt, t); updateCritters(dt);
+  updateLife(dt, t); updateFireworks(dt); updateEat(dt, t); updateCritters(dt); updateDucks(dt, t); updateZones(dt, t); updateGallery(dt, t);
   if (moveRing.material.opacity > 0) { moveRing.material.opacity = Math.max(0, moveRing.material.opacity - dt * 1.2); moveRing.scale.multiplyScalar(1 + dt * .8); }
   updateCamera(dt);
   renderer.render(scene, camera);
