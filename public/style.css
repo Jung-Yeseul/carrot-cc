@@ -100,6 +100,9 @@ button{font-family:inherit}
 .power i{display:block;height:100%;width:0;background:linear-gradient(90deg,#78c587,#ffd166 60%,#ff6a3d)}
 .actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;align-items:center;min-height:48px}
 .act{font:600 15px var(--body);border:0;border-radius:999px;padding:12px 20px;cursor:pointer;background:var(--carrot);color:var(--carrot-ink);box-shadow:0 4px 0 color-mix(in srgb,var(--carrot) 60%,#000);touch-action:none;user-select:none;-webkit-user-select:none}
+.act.wc.m{background:#2f6fd6;box-shadow:0 4px 0 #1d4590;color:#fff}
+.act.wc.w{background:#d6453d;box-shadow:0 4px 0 #8f2a24;color:#fff}
+.wcbar{width:100%;background:color-mix(in srgb,var(--fg) 10%,transparent);color:var(--fg)}
 .act.sub{background:color-mix(in srgb,var(--surface) 90%,transparent);color:var(--fg);box-shadow:0 0 0 1px var(--line);backdrop-filter:blur(8px)}
 .act.round{width:48px;height:48px;padding:0;font-size:18px}
 .act.swing{font-family:var(--display);font-weight:400;font-size:22px;padding:14px 30px}
@@ -123,6 +126,25 @@ button{font-family:inherit}
 @keyframes nudge{0%,100%{margin-left:-6px}50%{margin-left:6px}}
 .tag.caddie .nm{background:rgba(46,122,63,.9)}
 .sheet{position:absolute;z-index:15;top:calc(12px + env(safe-area-inset-top,0px));right:calc(12px + env(safe-area-inset-right,0px));width:min(380px,calc(100% - 24px));max-height:calc(100% - 200px);overflow:auto;background:var(--surface);color:var(--fg);border-radius:16px;padding:16px;box-shadow:0 20px 40px -20px rgba(0,0,0,.6);display:flex;flex-direction:column;gap:10px}
+.people-btn b{color:var(--carrot);font-variant-numeric:tabular-nums}
+.sheet-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.sheet-sub{margin:0;font-size:12px;color:var(--muted)}
+.plist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.plist li{display:grid;grid-template-columns:12px minmax(0,1fr) auto;gap:4px 10px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:12px}
+.plist li.me{border-color:var(--carrot)}
+.plist i{width:12px;height:12px;border-radius:50%;box-shadow:0 0 0 1px rgba(0,0,0,.25);grid-row:span 2}
+.plist .pn{font-weight:600;font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.plist .pw{font-size:12px;color:var(--muted);grid-column:2}
+.plist .ps{font-family:var(--mono);font-size:12px;text-align:right;font-variant-numeric:tabular-nums}
+.plist button{grid-column:3;grid-row:2;font:500 12px var(--body);border:1px solid var(--line);background:transparent;color:var(--fg);border-radius:999px;padding:3px 9px;cursor:pointer}
+.plist button:hover{border-color:var(--carrot);color:var(--carrot)}
+.plist button:disabled{opacity:.4;cursor:not-allowed}
+.invite{border-top:1px dashed var(--line);padding-top:10px;display:flex;flex-direction:column;gap:6px}
+.invite p{margin:0;font-size:12px;color:var(--muted)}
+.invite-row{display:flex;gap:6px}
+.invite-row input{flex:1;min-width:0;font:12px var(--mono);padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--fg)}
+.invite-row .btn{padding:8px 14px;font-size:13px}
+.invited{margin:0;font-size:13px;font-weight:600;color:var(--leaf);background:color-mix(in srgb,var(--leaf) 12%,transparent);padding:6px 12px;border-radius:999px}
 .sheet h3{font-family:var(--display);font-size:20px;font-weight:400;margin:0}
 .overlay{position:absolute;inset:0;z-index:25;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(10,20,13,.45)}
 .overlay.soft{background:transparent;align-items:flex-end;padding-bottom:calc(130px + env(safe-area-inset-bottom,0px));pointer-events:none}

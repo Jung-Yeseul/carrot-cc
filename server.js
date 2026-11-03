@@ -63,7 +63,7 @@ function nickname() {
 function counts() { return channels.slice(1).map(m => m.size); }
 function total() { return sockets.size; }
 function lobbyPayload() { return { t: 'lobby', total: total(), cap: CAPACITY, ch: counts() }; }
-function publicPlayer(p) { return { id: p.id, nick: p.nick, color: p.color, h: p.h, x: p.x, z: p.z, r: p.r, a: p.a, bx: p.bx, bz: p.bz, bv: p.bv }; }
+function publicPlayer(p) { return { id: p.id, nick: p.nick, color: p.color, h: p.h, x: p.x, z: p.z, r: p.r, a: p.a, bx: p.bx, bz: p.bz, bv: p.bv, st: p.st, sc: p.sc, dn: p.dn }; }
 
 function send(ws, msg) { if (ws.readyState === 1) ws.send(typeof msg === 'string' ? msg : JSON.stringify(msg)); }
 function toChannel(ch, msg, exceptId) {
@@ -103,7 +103,7 @@ const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 512 });
 
 wss.on('connection', (ws) => {
   if (total() >= MAX_TOTAL) { send(ws, { t: 'full' }); return ws.close(1013, 'full'); }
-  const p = { id: nextId++, nick: nickname(), color: COLORS[Math.random() * COLORS.length | 0], ws, ch: 0, h: 0, x: 0, z: 0, r: 0, a: 0, bx: 0, bz: 0, bv: 0,
+  const p = { id: nextId++, nick: nickname(), color: COLORS[Math.random() * COLORS.length | 0], ws, ch: 0, h: 0, x: 0, z: 0, r: 0, a: 0, bx: 0, bz: 0, bv: 0, st: 0, sc: 0, dn: 0,
     tokens: 40, lastEmo: 0, strikes: 0, alive: true };
   sockets.add(p);
   send(ws, { ...lobbyPayload(), t: 'hello', id: p.id, nick: p.nick, color: p.color });
@@ -142,9 +142,11 @@ wss.on('connection', (ws) => {
         // 3D 좌표는 소수 첫째 자리까지 ×10 정수로 받아요
         const h = int(m.h, 0, HOLES - 1), x = int(m.x, -XY, XY), z = int(m.z, -XY, XY), r = int(m.r, 0, 63), a = int(m.a, 0, 4);
         const bx = int(m.bx, -XY, XY), bz = int(m.bz, -XY, XY);
-        if ([h, x, z, r, a, bx, bz].includes(null)) return;
-        Object.assign(p, { h, x, z, r, a, bx, bz, bv: m.bv ? 1 : 0 });
-        toChannel(p.ch, { t: 'pos', id: p.id, h, x, z, r, a, bx, bz, bv: p.bv }, p.id);
+        // st: 이번 홀 타수, sc: 지금까지 합계(파 대비), dn: 끝낸 홀 수
+        const st = int(m.st ?? 0, 0, 40), sc = int(m.sc ?? 0, -40, 99), dn = int(m.dn ?? 0, 0, HOLES);
+        if ([h, x, z, r, a, bx, bz, st, sc, dn].includes(null)) return;
+        Object.assign(p, { h, x, z, r, a, bx, bz, bv: m.bv ? 1 : 0, st, sc, dn });
+        toChannel(p.ch, { t: 'pos', id: p.id, h, x, z, r, a, bx, bz, bv: p.bv, st, sc, dn }, p.id);
         break;
       }
       case 'emo': {

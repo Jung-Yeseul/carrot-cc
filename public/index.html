@@ -54,6 +54,7 @@
       <button class="ghost" type="button" id="nickRandom">랜덤</button>
       <p class="nickerr" id="nickErr" role="alert"></p>
     </form>
+    <p class="invited" id="invited" hidden></p>
     <button class="btn big" id="teeUp">티업하기</button>
     <details class="chpick">
       <summary>채널 직접 고르기</summary>
@@ -84,6 +85,7 @@
   <div class="hud tr">
     <div class="row"><span class="chbadge" id="chBadge">혼자 라운딩</span><button type="button" class="who" id="nick" title="이름표 바꾸기"></button></div>
     <div class="row"><button class="ghost" id="sound" aria-pressed="true">소리 켬</button><button class="ghost" id="cardBtn" aria-expanded="false">스코어카드</button></div>
+    <button class="ghost people-btn" id="peopleBtn" aria-expanded="false">같이 치는 사람 <b id="peopleN">1</b></button>
     <canvas id="minimap" width="300" height="300" aria-label="코스 지도"></canvas>
   </div>
 
@@ -100,6 +102,15 @@
   </div>
   <div class="help" id="help">드래그: 시점 돌리기 · 바닥 클릭: 그곳으로 걷기 · WASD/방향키: 걷기 · 휠: 확대</div>
 
+  <aside class="sheet" id="peopleSheet" hidden>
+    <div class="sheet-head"><h3>같이 치는 사람</h3><button class="ghost" id="peopleClose" aria-label="닫기">닫기</button></div>
+    <p class="sheet-sub" id="peopleSub"></p>
+    <ul class="plist" id="plist"></ul>
+    <div class="invite">
+      <p>친구를 같은 채널로 부르려면 이 링크를 보내세요.</p>
+      <div class="invite-row"><input id="inviteLink" readonly aria-label="초대 링크"><button class="btn" id="inviteCopy" type="button">복사</button></div>
+    </div>
+  </aside>
   <aside class="sheet" id="cardSheet" hidden>
     <h3>스코어카드</h3>
     <div class="sc-wrap"><table id="sc"></table></div>
