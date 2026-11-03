@@ -76,7 +76,7 @@ const ADJ = ['아삭한', '주황빛', '느긋한', '조용한', '바람같은',
 const NOUN = ['버디', '이글', '퍼터', '캐디', '티샷', '디봇', '당근', '파세이브', '그린', '페어웨이', '드라이버', '웨지', '티박스'];
 const COLORS = ['#f2c14e', '#f78154', '#5fad56', '#4d9de0', '#b07bd8', '#e15a97', '#3bc4b4', '#ffd166'];
 const EMOTES = 6; // 클라이언트 EMOTES 목록 길이와 맞춰주세요
-const LOOK_HATS = 8, LOOK_TOPS = 5; // 클라이언트 HATS, TOPS 개수와 맞추기
+const LOOK_HATS = 8, LOOK_TOPS = 5, LOOK_ACCS = 5; // 클라이언트 HATS, TOPS, ACCS 개수와 맞추기
 const HOLES = 9;   // 클라이언트 HOLES 개수와 맞추기
 const XY = 1300;  // 좌표 범위 (코스 ±120 유닛 × 10, 여유 포함)
 
@@ -229,10 +229,12 @@ wss.on('connection', (ws) => {
         break;
       }
       case 'look': {
-        // 락커에서 고른 옷: [모자 색, 옷 종류]
-        const hat = int(Array.isArray(m.lk) ? m.lk[0] : null, 0, LOOK_HATS - 1), top = int(Array.isArray(m.lk) ? m.lk[1] : null, 0, LOOK_TOPS - 1);
-        const now = Date.now(); if (hat === null || top === null || now - (p.lastLook || 0) < 300) return;
-        p.lastLook = now; p.lk = [hat, top];
+        // 락커에서 고른 옷: [모자 색, 옷 종류, 소품]
+        // 소품(세 번째 칸)은 없어도 돼요 (예전 클라이언트 호환)
+        const lk = Array.isArray(m.lk) ? m.lk : [];
+        const hat = int(lk[0], 0, LOOK_HATS - 1), top = int(lk[1], 0, LOOK_TOPS - 1), acc = lk.length > 2 ? int(lk[2], 0, LOOK_ACCS - 1) : 0;
+        const now = Date.now(); if (hat === null || top === null || acc === null || now - (p.lastLook || 0) < 300) return;
+        p.lastLook = now; p.lk = [hat, top, acc];
         if (p.ch) toChannel(p.ch, { t: 'look', id: p.id, lk: p.lk }, p.id);
         break;
       }

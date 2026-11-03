@@ -243,7 +243,7 @@ function onMsg(m) {
       break;
     }
     case 'emo': { const o = NET.others.get(m.id); if (!o) return; showBubble(o, EMOTES[m.e]); o.jump = 1; break; }
-    case 'look': { const o = NET.others.get(m.id); if (!o || !Array.isArray(m.lk) || !HATS[m.lk[0]] || !TOPS[m.lk[1]]) return; o.lk = m.lk; if (o.av) { applyLook(o.av, o.lk, o.color); o.jump = 1; } break; }
+    case 'look': { const o = NET.others.get(m.id); if (!o || !Array.isArray(m.lk) || !HATS[m.lk[0]] || !TOPS[m.lk[1]]) return; o.lk = normLook(m.lk); if (o.av) { applyLook(o.av, o.lk, o.color); o.jump = 1; } break; }
     case 'res': {
       const name = m.one ? '홀인원' : ({ '-1': '버디', '-2': '이글', '-3': '알바트로스', '-4': '콘도르' })[m.d] || '파';
       feed(`${m.nick} 님 ${m.h + 1}번 홀 ${name}! 축하해 주세요`);
@@ -276,10 +276,12 @@ function joinChannel(ch) {
   pendingJoin = setTimeout(() => { pendingJoin = 0; enterGame(); }, 2500);
 }
 $('teeUp').onclick = () => joinChannel(invitedCh());
-$('toLobby').onclick = () => {
+function exitToEntry() {
   sendNet({ t: 'leave' }); NET.ch = 0; NET.wantCh = 0; clearOthers();
   $('app').hidden = true; $('lobby').hidden = false; running = false; setMaster(false);
-};
+}
+$('toLobby').onclick = () => openGameMenu();
+$('exitBtn').onclick = () => openGameMenu();
 // ---- 닉네임 ----
 const NICK_RE = /^[가-힣a-zA-Z0-9 _]+$/;
 const NICK_BANNED = ['씨발', '시발', 'ㅅㅂ', '병신', 'ㅂㅅ', '개새', '좆', '지랄', '꺼져', '섹스', '자지', '보지', '니미', '애미', '애비', '느금', 'fuck', 'shit', 'sex', 'bitch', '관리자', '운영자', '운영진', 'admin', '캐디봇'];
@@ -397,7 +399,10 @@ function makeCarrot(visor) {
 // ---- 락커: 모자 색과 옷 ----
 const HATS = [['흰색', '#ffffff'], ['당근', '#ff8a2a'], ['빨강', '#e0453a'], ['핑크', '#ff8fb8'], ['하늘', '#5ab4f0'], ['초록', '#3f9a4e'], ['노랑', '#ffd23f'], ['검정', '#2b2b2b']]; // 서버 LOOK_HATS와 개수 맞추기
 const TOPS = ['기본', '폴로 셔츠', '니트 조끼', '턱시도', '하와이안']; // 서버 LOOK_TOPS와 개수 맞추기
-let myLook = (() => { try { const v = JSON.parse(localStorage.getItem('carrotLook')); if (Array.isArray(v) && v[0] >= 0 && v[0] < HATS.length && v[1] >= 0 && v[1] < TOPS.length) return v; } catch {} return null; })();
+const ACCS = ['없음', '선글라스', '리본', '헤드폰', '꽃 장식']; // 서버 LOOK_ACCS와 개수 맞추기
+// 예전에 저장한 [모자, 옷] 두 칸짜리도 그대로 읽어요
+const normLook = v => { const a = Array.isArray(v) ? v : []; const h = a[0] | 0, t = a[1] | 0, c = a[2] | 0; return [HATS[h] ? h : 0, TOPS[t] ? t : 0, ACCS[c] ? c : 0]; };
+let myLook = (() => { try { const v = JSON.parse(localStorage.getItem('carrotLook')); if (Array.isArray(v) && v[0] >= 0 && v[0] < HATS.length && v[1] >= 0 && v[1] < TOPS.length) return normLook(v); } catch {} return null; })();
 function saveLook() { try { localStorage.setItem('carrotLook', JSON.stringify(myLook)); } catch {} sendNet({ t: 'look', lk: myLook }); }
 const TOP_TEX = {};
 function topTexture(i) {
@@ -416,13 +421,20 @@ function applyLook(av, lk, fallback) {
   const col = new T.Color(lk ? HATS[lk[0]][1] : fallback || '#ffffff');
   if (ud.vis) { ud.vis.color.copy(col); ud.vis.emissive.copy(col).multiplyScalar(.25); }
   if (ud.outfit) { av.remove(ud.outfit); ud.outfit = null; }
-  const top = lk ? lk[1] : 0; if (!top) return;
+  const top = lk ? lk[1] | 0 : 0, acc = lk ? lk[2] | 0 : 0; if (!top && !acc) return;
   const o = new T.Group(), r = y => .6 * (y - .2) / 1.7 + .03;
+  av.add(o); ud.outfit = o; addAcc(o, acc); if (!top) return;
   const shirt = new T.Mesh(new T.CylinderGeometry(r(1.4), r(.9), .5, 24, 1, true), new T.MeshLambertMaterial({ map: topTexture(top), side: T.DoubleSide }));
   shirt.position.y = 1.15; o.add(shirt);
   if (top === 1) for (const s of [-1, 1]) { const cl = new T.Mesh(new T.BoxGeometry(.2, .03, .14), mat(0xf7f7f2)); cl.position.set(s * .1, 1.41, .42); cl.rotation.set(-.5, s * .5, s * .35); o.add(cl); }
   if (top === 3) { const bm = mat(0xd2442c); const k = new T.Mesh(new T.BoxGeometry(.07, .07, .05), bm); k.position.set(0, 1.36, .45); o.add(k); for (const s of [-1, 1]) { const w = new T.Mesh(new T.ConeGeometry(.07, .12, 4), bm); w.rotation.z = s * Math.PI / 2; w.position.set(s * .08, 1.36, .44); o.add(w); } }
-  av.add(o); ud.outfit = o;
+}
+function addAcc(o, acc) {
+  const put = (geo, m, x, y, z, rx = 0, ry = 0, rz = 0) => { const k = new T.Mesh(geo, m); k.position.set(x, y, z); k.rotation.set(rx, ry, rz); o.add(k); return k; };
+  if (acc === 1) { const dk = new T.MeshPhongMaterial({ color: 0x1a1a1f, shininess: 90 }); for (const s of [-1, 1]) put(new T.BoxGeometry(.24, .14, .04), dk, s * .19, 1.63, .54, 0, s * .25); put(new T.BoxGeometry(.14, .03, .03), dk, 0, 1.66, .56); }
+  if (acc === 2) { const pk = mat(0xff6f91); for (const s of [-1, 1]) put(new T.ConeGeometry(.12, .24, 4), pk, s * .16, 2.12, .1, 0, 0, s * Math.PI / 2); put(new T.SphereGeometry(.07, 8, 6), pk, 0, 2.12, .1); }
+  if (acc === 3) { const hp = mat(0x2b2b2b), pad = mat(0xff8a2a); put(new T.TorusGeometry(.63, .045, 6, 20, Math.PI), hp, 0, 1.62, 0); for (const s of [-1, 1]) put(new T.CylinderGeometry(.15, .15, .12, 14), pad, s * .55, 1.6, 0, 0, 0, Math.PI / 2); }
+  if (acc === 4) { const pet = mat(0xffffff), mid = mat(0xffd23f); for (let i = 0; i < 5; i++) { const a = i / 5 * TAU; put(new T.SphereGeometry(.07, 6, 5), pet, .42 + Math.cos(a) * .08, 1.98 + Math.sin(a) * .08, .38); } put(new T.SphereGeometry(.05, 6, 5), mid, .42, 1.98, .42); }
 }
 
 function makeCaddie() {
@@ -775,7 +787,7 @@ function showBubble(o, text) {
 // ---- 다른 사람 ----
 function addOther(p) {
   if (NET.others.has(p.id)) removeOther(p.id);
-  const o = { st: p.st || 0, sc: p.sc || 0, dn: p.dn || 0, id: p.id, nick: p.nick, color: p.color, x: (p.x || 0) / 10, z: (p.z || 0) / 10, tx: (p.x || 0) / 10, tz: (p.z || 0) / 10, yaw: 0, tyaw: (p.r || 0) / 10, a: p.a || 0, h: p.h || 0, bx: 0, bz: 0, bv: 0, seen: !!p.x, ph: 0, jump: 0, lk: Array.isArray(p.lk) ? p.lk : null };
+  const o = { st: p.st || 0, sc: p.sc || 0, dn: p.dn || 0, id: p.id, nick: p.nick, color: p.color, x: (p.x || 0) / 10, z: (p.z || 0) / 10, tx: (p.x || 0) / 10, tz: (p.z || 0) / 10, yaw: 0, tyaw: (p.r || 0) / 10, a: p.a || 0, h: p.h || 0, bx: 0, bz: 0, bv: 0, seen: !!p.x, ph: 0, jump: 0, lk: Array.isArray(p.lk) ? normLook(p.lk) : null };
   if (built) attachOther(o);
   NET.others.set(p.id, o);
 }
@@ -958,6 +970,8 @@ function updActions() {
   else if (S.mode !== 'aim') key = S.mode;
   if (S.mode === 'ride') key = 'ride';
   if (S.mode === 'range') key = `range${RG.club}`;
+  if (S.mode === 'club') key = `club${LB.zone}${LB.lockerUI ? 1 : 0}`;
+  if (S.mode === 'cine') key = 'cine';
   if (key === lastActKey) return; lastActKey = key;
   const a = $('actions'); let html = '';
   if (S.mode === 'aim') {
@@ -983,7 +997,12 @@ function updActions() {
       <button class="act swing" id="swing">누르고 있다가 떼기</button>
       <button class="act sub round" id="aR" aria-label="오른쪽으로">▶</button>
       <button class="act sub" id="rClub">${CLUBS[RG.club].name} ▸</button>
-      <button class="act" id="rTee">1번 홀로 가기</button>`;
+      <button class="act" id="rLobby">🏛️ 로비로</button>`;
+  if (S.mode === 'club' && !LB.lockerUI) {
+    if (LB.zone === 'out') html = '<button class="act" id="clEnter">🚪 클럽하우스 입장</button>';
+    else if (LB.zone === 'locker') html = '<button class="act" id="clDress">👕 옷 갈아입기</button><button class="act sub" id="clLobby">🏛️ 로비로</button>';
+    else html = '<button class="act sub" id="clLocker">👕 락커룸</button><button class="act sub" id="clRange">🏌️ 드라이빙 레인지</button><button class="act" id="clCourse">⛳ 티오프 하러 가기</button>';
+  }
   if (S.mode === 'eat') html = '<button class="act sub" id="eatDone">다 먹었어요</button>';
   if (S.mode === 'flight') html = '<button class="act sub" id="skipFlight">공 멈춘 곳 바로 보기 ▸▸</button>';
   a.innerHTML = html;
@@ -991,7 +1010,9 @@ function updActions() {
   on('skipRide', skipRide); on('eatDone', () => { EAT.t = EAT_SEC; }); on('skipFlight', skipFlight); on('ready', enterAim); on('goBall', walkToBall); on('cartBall', () => cartTo(S.ball.x, S.ball.z, true)); on('warpBall', warpToBall); on('menuBtn', showShade); on('mull', mulligan); on('okBtn', useOk); on('pickBtn', pickUp);
   on('wcM', () => useRestroom('m')); on('wcW', () => useRestroom('w'));
   on('cancel', exitAim); on('clubBtn', () => { S.club = (S.club + 1) % 4; S.clubAuto = false; lastActKey = ''; clearChance('클럽을 바꿔서 캐디 찬스가 풀렸어요'); }); on('chanceBtn', caddieChance); on('lieBtn', toggleLie);
-  on('rClub', () => { RG.club = (RG.club + 1) % 3; rangeHud(); lastActKey = ''; }); on('rTee', leaveRange);
+  on('rClub', () => { RG.club = (RG.club + 1) % 3; rangeHud(); lastActKey = ''; }); on('rLobby', () => backToClub('range'));
+  on('clEnter', () => startCine('enter')); on('clDress', openDress); on('clLobby', () => walkPath([[-13, 0], [-9, 0], [-2, -2.2]]));
+  on('clLocker', () => { closeDesk(true); walkPath([[-3, .5], [-10, 0], [-13.5, -.8]]); }); on('clRange', () => { closeDesk(true); walkPath([[3, -.5], [6, -3], [10.2, -4.5]]); }); on('clCourse', () => { closeDesk(true); walkPath([[3, 1.5], [6, 3], [10.2, 4.5]]); });
   const hold = (id, d) => { const el = $(id); if (!el) return; let iv = 0; const stop = () => clearInterval(iv); el.onpointerdown = e => { e.preventDefault(); iv = setInterval(() => { if (S.mode === 'range') RG.yaw = clamp(RG.yaw + d * .008, -.6, .6); else S.aimYaw += d * .012; }, 16); }; el.onpointerup = stop; el.onpointerleave = stop; el.onpointercancel = stop; };
   hold('aL', 1); hold('aR', -1);
   const sw = $('swing');
@@ -1001,13 +1022,14 @@ function updActions() {
 
 // ================= 이동 =================
 function canStand(x, z) {
+  if (inClub(x, z)) return clubCanStand(x, z);
   if (Math.abs(x) > MAP - 1 || Math.abs(z) > MAP - 1) return false;
   for (const h of HOLES) for (const w of h.water) if (Math.hypot(x - w[0], z - w[1]) < w[2] + .5) return false;
   for (const t of TREES) if (Math.hypot(x - t.x, z - t.z) < t.tr + .55) return false;
   if (x > RR.x - 2.7 && x < RR.x + 2.7 && z > RR.z - 3.9 && z < RR.z + 3.9) return false; // 화장실 건물
   return true;
 }
-$('lbSkip') && ($('lbSkip').onclick = () => leaveLobby('tee'));
+$('lbSkip') && ($('lbSkip').onclick = () => skipCine());
 // 공 있는 곳으로 순간이동 (뿅!)
 function warpToBall() {
   if (S.mode !== 'walk' || S.ball.state !== 'rest') return;
@@ -2232,122 +2254,250 @@ function updateCritters(dt) {
   if (shakeT > 0) shakeT = Math.max(0, shakeT - dt);
 }
 
-// ================= 클럽하우스 로비 (입장 체크인) =================
-const LB = { x: 0, z: 520, built: false, view: 'desk', desk: null, staff: null, doors: null, doorOpen: 0, walkT: null, after: null };
+// ================= 클럽하우스 (정문 · 로비 · 락커룸) =================
+// 코스 밖 (0, 520) 근처에 따로 지었어요. 아래 좌표는 모두 LB 기준 로컬 좌표(lx, lz)예요.
+//   로비: x -10~10, z -10~10 / 락커룸: x -22~-10, z -7~7 / 정문 밖 정원: z 10~44
+//   로비 오른쪽 벽의 두 출입구: 드라이빙 레인지(z -6~-3), 골프 코스(z 3~6)
+const LB = { x: 0, z: 520, built: false, staff: null, panels: null, doorK: 0, myLocker: null, floors: [], zone: 'out', desk: 'idle', deskSnooze: false, portalLock: false, welcome: null, cine: null, lockerUI: false, cam: null };
+const CL = {
+  allow: [[-9.4, 9.4, -9.4, 9.4], [-10.7, -9.3, -1.3, 1.3], [-21.0, -10.6, -6.4, 6.4], [-1.6, 1.6, 9.3, 10.9], [-30, 30, 10.8, 44], [9.3, 10.5, -5.8, -3.2], [9.3, 10.5, 3.2, 5.8]],
+  block: [[-4.2, 4.2, -10, -4.2], [-9.4, -6.2, 3.6, 7.4], [6.2, 9.4, -1.9, 1.9], [-17.8, -14.2, .3, 1.7], [-21.0, -11.2, 5.5, 6.4], [-9.5, -4.5, 10.8, 12.6], [4.5, 9.5, 10.8, 12.6]],
+  circles: [[-8.6, 8.6, .9], [8.6, 8.6, .9], [-8.6, -8.4, .9], [8.6, -8.4, .9], [0, 24, 2.7], [-3, 12.2, .65], [3, 12.2, .65]],
+};
+const inClub = (x, z) => Math.abs(z - LB.z) < 70 && Math.abs(x - LB.x) < 70;
+const clubZone = (lx, lz) => lz > 10.2 ? 'out' : lx < -10 ? 'locker' : 'lobby';
+function clubCanStand(x, z) {
+  const lx = x - LB.x, lz = z - LB.z, inR = r => lx >= r[0] && lx <= r[1] && lz >= r[2] && lz <= r[3];
+  if (!CL.allow.some(inR) || CL.block.some(inR)) return false;
+  return !CL.circles.some(c => Math.hypot(lx - c[0], lz - c[1]) < c[2]);
+}
 function buildLobby() {
   if (LB.built) return; LB.built = true;
-  const g = new T.Group(), y0 = EDGE_H + .01; g.position.set(LB.x, y0, LB.z); LB.g = g;
+  const g = new T.Group(), y0 = EDGE_H; g.position.set(LB.x, y0, LB.z); LB.g = g;
   const add = (geo, m, x, y, z, sh = false) => { const o = new T.Mesh(geo, m); o.position.set(x, y, z); o.receiveShadow = true; o.castShadow = sh; g.add(o); return o; };
-  // 바닥: 체크무늬 원목
-  const floorT = textTexture(512, 512, (c, w, h) => { for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) { c.fillStyle = (i + j) % 2 ? '#b98a5e' : '#a87850'; c.fillRect(i * 64, j * 64, 64, 64); } c.strokeStyle = 'rgba(0,0,0,.12)'; for (let i = 0; i <= 8; i++) { c.beginPath(); c.moveTo(i * 64, 0); c.lineTo(i * 64, h); c.moveTo(0, i * 64); c.lineTo(w, i * 64); c.stroke(); } });
-  floorT.wrapS = floorT.wrapT = T.RepeatWrapping; floorT.repeat.set(3, 3);
-  const fl = add(new T.PlaneGeometry(20, 20), new T.MeshLambertMaterial({ map: floorT }), 0, 0, 0); fl.rotation.x = -Math.PI / 2;
-  const carpet = add(new T.PlaneGeometry(3, 14), mat(0x2e5e36), 0, .02, 2); carpet.rotation.x = -Math.PI / 2;
-  const carpetB = add(new T.PlaneGeometry(3.4, 14.2), mat(0xd9b45a), 0, .015, 2); carpetB.rotation.x = -Math.PI / 2;
-  // 벽과 천장
-  const wallM = mat(0xf3ead8), wood = mat(0x7a5233), dark = mat(0x4a301c);
-  add(new T.BoxGeometry(20, 7, .3), wallM, 0, 3.5, -10); add(new T.BoxGeometry(.3, 7, 20), wallM, -10, 3.5, 0); add(new T.BoxGeometry(.3, 7, 20), wallM, 10, 3.5, 0);
-  add(new T.BoxGeometry(8, 7, .3), wallM, -6, 3.5, 10); add(new T.BoxGeometry(8, 7, .3), wallM, 6, 3.5, 10); add(new T.BoxGeometry(4, 2.4, .3), wallM, 0, 5.8, 10);
-  for (const [w, x, z, ry] of [[20, 0, -9.84, 0], [20, -9.84, 0, Math.PI / 2], [20, 9.84, 0, Math.PI / 2]]) { const wn = add(new T.BoxGeometry(w, 1.2, .05), wood, x, .6, z); wn.rotation.y = ry; }
-  const ceil = add(new T.PlaneGeometry(20, 20), mat(0xfbf6ea), 0, 7, 0); ceil.rotation.x = Math.PI / 2;
-  // 유리문 (바깥 잔디가 비쳐요)
-  const glass = add(new T.PlaneGeometry(4, 4.6), new T.MeshBasicMaterial({ color: 0x9fd08a }), 0, 2.3, 10.1); glass.rotation.y = Math.PI;
-  for (const x of [-2, 0, 2]) add(new T.BoxGeometry(.12, 4.6, .12), dark, x, 2.3, 10);
-  // 프론트 카운터
-  const desk = new T.Group(); desk.position.set(0, 0, -5.2); g.add(desk); LB.desk = desk;
-  const dm = new T.Mesh(new T.BoxGeometry(7, 1.15, 1.2), wood); dm.position.y = .58; desk.add(dm);
-  const top = new T.Mesh(new T.BoxGeometry(7.3, .12, 1.45), mat(0xe9711f, { emissive: 0x4a1d00 })); top.position.y = 1.2; desk.add(top);
-  const front = new T.Mesh(new T.PlaneGeometry(4.2, .7), new T.MeshLambertMaterial({ map: textTexture(512, 90, (c, w, h) => { c.fillStyle = '#7a5233'; c.fillRect(0, 0, w, h); c.fillStyle = '#f4e9cf'; c.font = `400 64px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('FRONT · 프론트', w / 2, h / 2 + 3); }) })); front.position.set(0, .62, .61); desk.add(front);
-  const bell = new T.Mesh(new T.SphereGeometry(.14, 12, 8, 0, TAU, 0, Math.PI / 2), mat(0xd9b45a, { emissive: 0x3a2a00 })); bell.position.set(2.2, 1.27, .2); desk.add(bell);
-  const book = new T.Mesh(new T.BoxGeometry(.7, .06, .5), mat(0x2e5e36)); book.position.set(-1.6, 1.29, .2); book.rotation.y = .2; desk.add(book);
-  // 직원 토끼 (나비넥타이)
+  const plane = (w, h, m, x, y, z, ry = 0, rx = 0) => { const o = add(new T.PlaneGeometry(w, h), m, x, y, z); o.rotation.set(rx, ry, 0); return o; };
+  const signTex = (w, h, top, sub, bg = '#2d5a3a', fg = '#e8c873') => textTexture(w, h, (c, W, H) => { c.fillStyle = bg; c.fillRect(0, 0, W, H); c.strokeStyle = fg; c.lineWidth = Math.max(4, H * .05); c.strokeRect(c.lineWidth, c.lineWidth, W - c.lineWidth * 2, H - c.lineWidth * 2); c.fillStyle = fg; c.textAlign = 'center'; c.textBaseline = 'middle'; c.font = `400 ${H * (sub ? .42 : .55)}px ${FONT}`; c.fillText(top, W / 2, H * (sub ? .4 : .52)); if (sub) { c.font = `600 ${H * .17}px "IBM Plex Mono",monospace`; c.fillText(sub, W / 2, H * .76); } });
+  const cream = mat(0xf4ecdb), wood = mat(0x6a4529), darkWood = mat(0x4a2f1b), brass = mat(0xd4af5a, { emissive: 0x3a2a00 }), deep = mat(0x2d5a3a), roofM = new T.MeshPhongMaterial({ color: 0x2b5a3c, flatShading: true, shininess: 6 });
+  const warm = new T.MeshBasicMaterial({ color: 0xfff0c8 });
+
+  // ---- 바닥: 크림 대리석(로비) · 원목(락커룸) · 잔디와 돌길(정원) ----
+  const marbleT = textTexture(512, 512, (c, w, h) => { c.fillStyle = '#f2ebdc'; c.fillRect(0, 0, w, h); const R = rng(21); c.lineWidth = 2; for (let i = 0; i < 16; i++) { c.strokeStyle = `rgba(150,138,116,${.08 + R() * .14})`; c.beginPath(); let x = R() * w, y = R() * h; c.moveTo(x, y); for (let k = 0; k < 7; k++) { x += (R() - .5) * 110; y += R() * 70; c.lineTo(x, y); } c.stroke(); } c.strokeStyle = 'rgba(140,118,84,.35)'; c.lineWidth = 3; c.strokeRect(1, 1, w - 2, h - 2); });
+  marbleT.wrapS = marbleT.wrapT = T.RepeatWrapping; marbleT.repeat.set(5, 5);
+  const fl = plane(20, 20, new T.MeshLambertMaterial({ map: marbleT }), 0, .01, 0, 0, -Math.PI / 2);
+  const plankT = textTexture(256, 256, (c, w, h) => { for (let i = 0; i < 8; i++) { c.fillStyle = i % 2 ? '#a77a52' : '#b4875c'; c.fillRect(0, i * 32, w, 32); c.fillStyle = 'rgba(0,0,0,.12)'; c.fillRect(0, i * 32, w, 2); c.fillRect((i * 97) % w, i * 32, 2, 32); } });
+  plankT.wrapS = plankT.wrapT = T.RepeatWrapping; plankT.repeat.set(3, 3);
+  const lfl = plane(12, 14, new T.MeshLambertMaterial({ map: plankT }), -16, .01, 0, 0, -Math.PI / 2);
+  const lawnT = textTexture(64, 256, (c, w, h) => { for (let i = 0; i < 8; i++) { c.fillStyle = i % 2 ? '#6aa64f' : '#77b45a'; c.fillRect(0, i * 32, w, 32); } });
+  lawnT.wrapS = lawnT.wrapT = T.RepeatWrapping; lawnT.repeat.set(12, 6);
+  const lawn = plane(90, 40, new T.MeshLambertMaterial({ map: lawnT }), 0, .005, 30, 0, -Math.PI / 2);
+  LB.floors = [fl, lfl, lawn];
+  const stoneT = textTexture(128, 128, (c, w, h) => { c.fillStyle = '#e6dcc6'; c.fillRect(0, 0, w, h); c.strokeStyle = 'rgba(120,100,70,.28)'; c.lineWidth = 3; for (let i = 0; i <= 2; i++) { c.beginPath(); c.moveTo(0, i * 64); c.lineTo(w, i * 64); c.stroke(); } c.beginPath(); c.moveTo(64, 0); c.lineTo(64, 64); c.moveTo(32, 64); c.lineTo(32, 128); c.moveTo(96, 64); c.lineTo(96, 128); c.stroke(); });
+  stoneT.wrapS = stoneT.wrapT = T.RepeatWrapping; stoneT.repeat.set(2, 17);
+  plane(4.4, 34, new T.MeshLambertMaterial({ map: stoneT }), 0, .02, 27, 0, -Math.PI / 2);
+  const plaza = add(new T.CircleGeometry(6.2, 40), mat(0xe6dcc6), 0, .025, 24); plaza.rotation.x = -Math.PI / 2;
+  const plazaRim = add(new T.RingGeometry(6.2, 6.6, 40), mat(0xc9b48a), 0, .026, 24); plazaRim.rotation.x = -Math.PI / 2;
+
+  // ---- 벽 (안팎 모두 크림색) ----
+  // 실내가 어두워지지 않게 벽·지붕은 그림자를 만들지 않아요
+  const wall = (w, h, d, x, z, y = h / 2, m = cream) => add(new T.BoxGeometry(w, h, d), m, x, y, z, false);
+  wall(20.8, 7, .4, 0, -10);                                   // 로비 뒷벽
+  wall(8.2, 7, .4, -6.1, 10); wall(8.2, 7, .4, 6.1, 10); wall(4, 2, .4, 0, 10, 6);   // 정문 벽 (문 높이 5)
+  wall(.4, 7, 8.8, -10, -5.8); wall(.4, 7, 8.8, -10, 5.8); wall(.4, 2.4, 2.8, -10, 0, 5.8); // 락커룸 쪽 벽
+  wall(.4, 7, 4.4, 10, -8.0); wall(.4, 7, 6.4, 10, 0); wall(.4, 7, 4.4, 10, 8.0); for (const z of [-4.5, 4.5]) wall(.4, 2.2, 2.8, 10, z, 5.9);
+  wall(12.2, 6, .4, -16, -7); wall(12.2, 6, .4, -16, 7); wall(.4, 6, 14.4, -22, 0);  // 락커룸
+  // 실내 걸레받이(원목)와 천장 간접조명
+  for (const [w, x, z, ry] of [[20, 0, -9.78, 0], [8.4, -9.78, -5.8, Math.PI / 2], [8.4, -9.78, 5.8, Math.PI / 2], [4.2, 9.78, -8, Math.PI / 2], [6, 9.78, 0, Math.PI / 2], [4.2, 9.78, 8, Math.PI / 2], [8, -6.1, 9.78, 0], [8, 6.1, 9.78, 0]]) { const b = add(new T.BoxGeometry(w, 1.1, .06), wood, x, .55, z); b.rotation.y = ry; const s = add(new T.BoxGeometry(w, .06, .08), brass, x, 1.12, z); s.rotation.y = ry; }
+  for (const [w, x, z, ry] of [[19.4, 0, -9.7, 0], [19.4, -9.7, 0, Math.PI / 2], [19.4, 9.7, 0, Math.PI / 2], [19.4, 0, 9.7, 0]]) { const s = add(new T.BoxGeometry(w, .12, .12), warm, x, 6.8, z); s.rotation.y = ry; }
+  plane(20, 20, mat(0xfbf6ea), 0, 7, 0, 0, Math.PI / 2); plane(12, 14, mat(0xfbf6ea), -16, 6, 0, 0, Math.PI / 2);
+
+  // ---- 지붕 (딥그린) ----
+  const pyramid = (sx, h, sz, x, y, z) => { const o = add(new T.ConeGeometry(Math.SQRT1_2, 1, 4), roofM, x, y + h / 2, z, false); o.rotation.y = Math.PI / 4; o.scale.set(sx, h, sz); return o; };
+  add(new T.BoxGeometry(22.6, .4, 22.6), deep, 0, 7.2, 0, false); pyramid(22.6, 4.6, 22.6, 0, 7.4, 0);
+  add(new T.BoxGeometry(12.8, .35, 15), deep, -16, 6.2, 0, false); pyramid(12.8, 3, 15, -16, 6.35, 0);
+  // 정면 박공 + 금색 간판
+  wall(22, 2.2, .5, 0, 10.05, 8.3);
+  const sign = plane(15, 1.8, new T.MeshLambertMaterial({ map: signTex(1200, 144, 'CARROT COUNTRY CLUB', '') }), 0, 8.35, 10.32);
+  // 기둥과 캐노피
+  for (const x of [-3, 3]) { add(new T.CylinderGeometry(.42, .5, 5.2, 14), cream, x, 2.6, 12.2, true); add(new T.BoxGeometry(1.2, .3, 1.2), brass, x, .15, 12.2); add(new T.BoxGeometry(1.1, .25, 1.1), brass, x, 5.1, 12.2); }
+  add(new T.BoxGeometry(8.8, .45, 3.6), deep, 0, 5.35, 11.9, false);
+  plane(8.8, .45, new T.MeshLambertMaterial({ map: signTex(880, 46, 'EST. 2026 · PRIVATE GOLF CLUB', '', '#2d5a3a', '#e8c873') }), 0, 5.35, 13.71);
+  // 바깥 창문 (따뜻한 실내 불빛)
+  for (const x of [-6.5, 6.5]) { plane(3.4, 2.6, new T.MeshBasicMaterial({ color: 0xffe9bb }), x, 3, 10.22); for (const [w, h, ox, oy] of [[3.6, .16, 0, 1.38], [3.6, .16, 0, -1.38], [.16, 2.9, 1.72, 0], [.16, 2.9, -1.72, 0], [.1, 2.6, 0, 0], [3.4, .1, 0, 0]]) add(new T.BoxGeometry(w, h, .1), wood, x + ox, 3 + oy, 10.25); }
+  // 유리 정문 (양쪽으로 열려요)
+  for (const [w, h, x, y] of [[.25, 5, -2.05, 2.5], [.25, 5, 2.05, 2.5], [4.35, .3, 0, 5.05]]) add(new T.BoxGeometry(w, h, .5), wood, x, y, 10);
+  const glassM = new T.MeshPhongMaterial({ color: 0xcfe9ef, transparent: true, opacity: .32, shininess: 90, specular: 0xffffff, depthWrite: false });
+  LB.panels = [-1, 1].map(s => { const p = new T.Group(); p.position.set(s, 0, 10); g.add(p); const gl = new T.Mesh(new T.BoxGeometry(1.95, 4.8, .06), glassM); gl.position.y = 2.45; p.add(gl); for (const [w, h, x, y] of [[2, .12, 0, .1], [2, .12, 0, 4.8], [.12, 4.8, -.95, 2.45], [.12, 4.8, .95, 2.45]]) { const f = new T.Mesh(new T.BoxGeometry(w, h, .1), wood); f.position.set(x, y, 0); p.add(f); } const hd = new T.Mesh(new T.BoxGeometry(.06, 1.2, .14), brass); hd.position.set(-s * .7, 2.4, 0); p.add(hd); p.userData.s = s; return p; });
+
+  // ---- 정원: 화단, 나무, 가로등, 당근 조형물 ----
+  const soil = mat(0x6b4a2e);
+  const FLOWER_N = 70, flowers = new T.InstancedMesh(new T.IcosahedronGeometry(.18, 0), new T.MeshLambertMaterial(), FLOWER_N * 2), M4 = new T.Matrix4(), FC = [0xff8fb8, 0xffd23f, 0xffffff, 0xe0453a, 0xb07bd8].map(c => new T.Color(c));
+  let fi = 0; const R = rng(33);
+  for (const [x0, x1] of [[-9.5, -4.5], [4.5, 9.5]]) {
+    add(new T.BoxGeometry(x1 - x0, .35, 1.8), soil, (x0 + x1) / 2, .17, 11.7);
+    add(new T.BoxGeometry(x1 - x0 + .2, .4, .2), mat(0xc9b48a), (x0 + x1) / 2, .2, 12.65);
+    for (let i = 0; i < FLOWER_N; i++) { M4.makeTranslation(x0 + .2 + R() * (x1 - x0 - .4), .45 + R() * .15, 10.9 + R() * 1.6); flowers.setMatrixAt(fi, M4); flowers.setColorAt(fi, FC[(R() * FC.length) | 0]); fi++; }
+  }
+  flowers.instanceMatrix.needsUpdate = true; if (flowers.instanceColor) flowers.instanceColor.needsUpdate = true; g.add(flowers);
+  const leafM = new T.MeshPhongMaterial({ color: 0x3f8a3f, flatShading: true, shininess: 4 }), trunkM = mat(0x6b4a2e);
+  for (const [x, z, s] of [[-17, 18, 1.2], [17, 18, 1.2], [-24, 30, 1.4], [24, 30, 1.4], [-13, 38, 1], [13, 38, 1], [-27, 14, 1.1], [27, 14, 1.1]]) {
+    add(new T.CylinderGeometry(.25 * s, .35 * s, 2.2 * s, 7), trunkM, x, 1.1 * s, z, true);
+    const cn = add(new T.IcosahedronGeometry(1.9 * s, 0), leafM, x, 3.2 * s, z, true); cn.scale.y = 1.15; CL.circles.push([x, z, .9 * s]);
+  }
+  for (const [x, z] of [[-2.9, 17], [2.9, 17], [-2.9, 33], [2.9, 33]]) { add(new T.CylinderGeometry(.07, .1, 3.2, 6), darkWood, x, 1.6, z, true); add(new T.SphereGeometry(.3, 10, 8), warm, x, 3.35, z); CL.circles.push([x, z, .35]); }
+  for (const z of [36, 39, 42]) for (const x of [-3.3, 3.3]) { add(new T.BoxGeometry(1.4, .8, 1.4), mat(0x3a7a3a, { flatShading: true }), x, .4, z, true); CL.circles.push([x, z, .9]); }
+  add(new T.CylinderGeometry(1.8, 2.1, 1.1, 20), cream, 0, .55, 24, true); add(new T.CylinderGeometry(1.85, 1.85, .12, 20), brass, 0, 1.12, 24);
+  const statue = makeCarrot('#d4af5a'); statue.position.set(0, 1.15, 24); statue.scale.setScalar(1.25); statue.rotation.y = 0; g.add(statue); statue.userData.club.visible = false; LB.statue = statue;
+  plane(1.6, .5, new T.MeshLambertMaterial({ map: signTex(320, 100, 'EST. 2026', '', '#3d2a08', '#e8c873') }), 0, .6, 26.11);
+
+  // ---- 로비 실내 ----
+  const carpetB = plane(3.6, 14.2, brass, 0, .015, 3, 0, -Math.PI / 2); const carpet = plane(3.2, 14, mat(0x1f4a2e), 0, .02, 3, 0, -Math.PI / 2);
+  // 프론트 데스크 (원목 + 대리석 상판 + 황동)
+  const desk = new T.Group(); desk.position.set(0, 0, -5.2); g.add(desk);
+  const dm = new T.Mesh(new T.BoxGeometry(8, 1.15, 1.3), darkWood); dm.position.y = .58; desk.add(dm);
+  const top = new T.Mesh(new T.BoxGeometry(8.4, .12, 1.6), new T.MeshLambertMaterial({ map: marbleT })); top.position.y = 1.2; desk.add(top);
+  for (const y of [.18, 1.05]) { const s = new T.Mesh(new T.BoxGeometry(8.02, .06, .04), brass); s.position.set(0, y, .66); desk.add(s); }
+  const front = new T.Mesh(new T.PlaneGeometry(4.2, .6), new T.MeshLambertMaterial({ map: textTexture(512, 74, (c, w, h) => { c.fillStyle = '#4a2f1b'; c.fillRect(0, 0, w, h); c.fillStyle = '#e8c873'; c.font = `400 52px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('FRONT · 프론트', w / 2, h / 2 + 3); }) })); front.position.set(0, .62, .661); desk.add(front);
+  const bell = new T.Mesh(new T.SphereGeometry(.14, 12, 8, 0, TAU, 0, Math.PI / 2), brass); bell.position.set(2.4, 1.27, .2); desk.add(bell);
+  const book = new T.Mesh(new T.BoxGeometry(.7, .06, .5), deep); book.position.set(-1.6, 1.29, .2); book.rotation.y = .2; desk.add(book);
+  const lamp = new T.Mesh(new T.CylinderGeometry(.22, .3, .35, 12), mat(0xfff1c8, { emissive: 0x6a5a30 })); lamp.position.set(-3.2, 1.75, -.1); desk.add(lamp); const ls = new T.Mesh(new T.CylinderGeometry(.04, .04, .5, 6), brass); ls.position.set(-3.2, 1.45, -.1); desk.add(ls);
+  // 토끼 리셉셔니스트
   const staff = makeCaddie(); staff.position.set(.3, .55, -6.2); staff.scale.setScalar(1.2); g.add(staff); LB.staff = staff;
   const bow = new T.Mesh(new T.BoxGeometry(.22, .1, .05), mat(0xd2442c)); bow.position.set(0, 1.05, .33); staff.add(bow);
-  // 뒷벽 간판, 트로피, 액자
-  const logo = new T.Mesh(new T.PlaneGeometry(8, 1.8), new T.MeshLambertMaterial({ map: textTexture(1024, 230, (c, w, h) => { c.fillStyle = '#2e5e36'; c.fillRect(0, 0, w, h); c.strokeStyle = '#d9b45a'; c.lineWidth = 10; c.strokeRect(10, 10, w - 20, h - 20); carrotIcon(c, 120, 118, 5); c.fillStyle = '#ff9248'; c.font = `400 110px ${FONT}`; c.textBaseline = 'middle'; c.fillText('당근 컨트리클럽', 210, 104); c.fillStyle = '#f4e9cf'; c.font = `600 34px "IBM Plex Mono",monospace`; c.fillText('CARROT COUNTRY CLUB · EST. 2026', 214, 180); }) }));
-  logo.position.set(0, 4.6, -9.82); g.add(logo);
-  const shelf = add(new T.BoxGeometry(3.4, .12, .6), wood, -6.2, 2.4, -9.6);
-  for (let i = 0; i < 4; i++) { const cup = new T.Group(); cup.position.set(-7.4 + i * .8, 2.46, -9.55); const gold = mat(0xd9b45a, { emissive: 0x3a2a00 }); const b = new T.Mesh(new T.CylinderGeometry(.06, .12, .1, 10), gold); b.position.y = .05; cup.add(b); const st = new T.Mesh(new T.CylinderGeometry(.03, .03, .25, 6), gold); st.position.y = .22; cup.add(st); const bw = new T.Mesh(new T.CylinderGeometry(.16, .08, .22, 12), gold); bw.position.y = .44; cup.add(bw); g.add(cup); }
-  const hof = new T.Mesh(new T.PlaneGeometry(2.6, 1.8), new T.MeshLambertMaterial({ map: textTexture(320, 220, (c, w, h) => { c.fillStyle = '#3d2a08'; c.fillRect(0, 0, w, h); c.fillStyle = '#d9b45a'; c.fillRect(10, 10, w - 20, h - 20); c.fillStyle = '#3d2a08'; c.textAlign = 'center'; c.font = `400 38px ${FONT}`; c.fillText('명예의 전당', w / 2, 60); c.font = `400 26px ${FONT}`; c.fillText('HOLE IN ONE', w / 2, 100); c.font = `400 22px ${FONT}`; c.fillText('홀인원하면 이름이 올라가요', w / 2, 150); }) }));
-  hof.position.set(6.3, 3, -9.82); g.add(hof);
-  // 화분, 소파, 샹들리에
+  // 뒷벽 로고, 트로피, 명예의 전당 액자
+  const logo = new T.Mesh(new T.PlaneGeometry(8, 1.9), new T.MeshLambertMaterial({ map: textTexture(1024, 240, (c, w, h) => { c.fillStyle = '#2d5a3a'; c.fillRect(0, 0, w, h); c.strokeStyle = '#e8c873'; c.lineWidth = 10; c.strokeRect(12, 12, w - 24, h - 24); carrotIcon(c, 120, 122, 5); c.fillStyle = '#e8c873'; c.font = `400 104px ${FONT}`; c.textBaseline = 'middle'; c.fillText('당근 컨트리클럽', 210, 104); c.font = `600 32px "IBM Plex Mono",monospace`; c.fillText('CARROT COUNTRY CLUB · EST. 2026', 214, 184); }) }));
+  logo.position.set(0, 4.5, -9.78); g.add(logo);
+  add(new T.BoxGeometry(3.4, .12, .6), darkWood, -6.2, 2.4, -9.6);
+  for (let i = 0; i < 4; i++) { const cup = new T.Group(); cup.position.set(-7.4 + i * .8, 2.46, -9.55); const b = new T.Mesh(new T.CylinderGeometry(.06, .12, .1, 10), brass); b.position.y = .05; cup.add(b); const st = new T.Mesh(new T.CylinderGeometry(.03, .03, .25, 6), brass); st.position.y = .22; cup.add(st); const bw = new T.Mesh(new T.CylinderGeometry(.16, .08, .22, 12), brass); bw.position.y = .44; cup.add(bw); g.add(cup); }
+  const hof = new T.Mesh(new T.PlaneGeometry(2.6, 1.8), new T.MeshLambertMaterial({ map: textTexture(320, 220, (c, w, h) => { c.fillStyle = '#3d2a08'; c.fillRect(0, 0, w, h); c.fillStyle = '#e8c873'; c.fillRect(10, 10, w - 20, h - 20); c.fillStyle = '#3d2a08'; c.textAlign = 'center'; c.font = `400 38px ${FONT}`; c.fillText('명예의 전당', w / 2, 60); c.font = `400 26px ${FONT}`; c.fillText('HOLE IN ONE', w / 2, 100); c.font = `400 22px ${FONT}`; c.fillText('홀인원하면 이름이 올라가요', w / 2, 150); }) }));
+  hof.position.set(6.3, 3, -9.78); g.add(hof);
+  // 라운지: 소파, 티 테이블, 화분, 샹들리에
+  // 소파는 출입구를 막지 않게: 왼쪽은 앞쪽 벽, 오른쪽은 두 출입구 사이 벽
+  for (const [x, sz] of [[-8.3, 5.5], [8.3, 0]]) { const so = new T.Group(); so.position.set(x, 0, sz); g.add(so); const base = new T.Mesh(new T.BoxGeometry(1.3, .5, 3.2), deep); base.position.y = .45; so.add(base); const back = new T.Mesh(new T.BoxGeometry(.32, 1, 3.2), deep); back.position.set(x < 0 ? -.55 : .55, .95, 0); so.add(back); for (const z of [-1.7, 1.7]) { const arm = new T.Mesh(new T.BoxGeometry(1.3, .75, .25), deep); arm.position.set(0, .6, z); so.add(arm); } const tb = new T.Mesh(new T.CylinderGeometry(.6, .6, .08, 18), new T.MeshLambertMaterial({ map: marbleT })); tb.position.set(x < 0 ? 1.4 : -1.4, .55, 0); so.add(tb); const tl = new T.Mesh(new T.CylinderGeometry(.06, .1, .5, 8), brass); tl.position.set(x < 0 ? 1.4 : -1.4, .27, 0); so.add(tl); }
   for (const [x, z] of [[-8.6, 8.6], [8.6, 8.6], [-8.6, -8.4], [8.6, -8.4]]) { add(new T.CylinderGeometry(.45, .35, .8, 12), mat(0xb5653a), x, .4, z, true); const lf = add(new T.IcosahedronGeometry(.9, 0), mat(0x3f8a3f, { flatShading: true }), x, 1.5, z, true); lf.scale.y = 1.3; }
-  for (const x of [-6.5, 6.5]) { const so = new T.Group(); so.position.set(x, 0, 2); g.add(so); const sm = mat(0x2e5e36); const base = new T.Mesh(new T.BoxGeometry(1.2, .5, 3), sm); base.position.y = .45; so.add(base); const back = new T.Mesh(new T.BoxGeometry(.3, .9, 3), sm); back.position.set(x < 0 ? -.55 : .55, .9, 0); so.add(back); }
-  for (const [x, z] of [[-4, -2], [4, -2], [0, 4]]) { const ch = add(new T.SphereGeometry(.35, 12, 8), new T.MeshBasicMaterial({ color: 0xfff1c8 }), x, 6.2, z); const pl = new T.PointLight(0xffe2b0, .7, 16); pl.position.set(x, 5.8, z); g.add(pl); }
-  // 왼쪽 벽 락커 (가운데 하나는 문이 열려요)
-  const lockW = mat(0x6b4a2e), brass = mat(0xd9b45a, { emissive: 0x3a2a00 });
-  add(new T.BoxGeometry(.9, 2.7, 6.6), dark, -9.4, 1.35, -5.2, true);
-  LB.doors = [];
-  for (let i = 0; i < 6; i++) {
-    const z = -7.95 + i * 1.1, num = 101 + i;
-    const pivot = new T.Group(); pivot.position.set(-8.93, 1.35, z - .52); g.add(pivot);
-    const door = new T.Mesh(new T.BoxGeometry(.06, 2.5, 1.02), new T.MeshLambertMaterial({ map: textTexture(64, 160, (c, w, h) => { c.fillStyle = '#7a5233'; c.fillRect(0, 0, w, h); c.strokeStyle = 'rgba(0,0,0,.25)'; c.lineWidth = 3; c.strokeRect(6, 6, w - 12, h - 12); c.fillStyle = 'rgba(0,0,0,.35)'; for (let k = 0; k < 4; k++) c.fillRect(16, 14 + k * 7, 32, 3); c.fillStyle = '#d9b45a'; c.fillRect(18, 52, 28, 16); c.fillStyle = '#3d2a08'; c.font = '700 13px sans-serif'; c.textAlign = 'center'; c.fillText(num, 32, 65); }) }));
-    door.position.z = .51; pivot.add(door);
-    const knob = new T.Mesh(new T.SphereGeometry(.05, 8, 6), brass); knob.position.set(.05, 0, .92); pivot.add(knob);
-    LB.doors.push(pivot);
+  for (const [x, z] of [[-4, -1], [4, -1], [0, 5]]) { add(new T.SphereGeometry(.38, 12, 8), warm, x, 6.2, z); add(new T.CylinderGeometry(.02, .02, .8, 4), brass, x, 6.6, z); }
+  for (const [x, z] of [[0, -1], [-16, 0]]) { const pl = new T.PointLight(0xffe2b0, .8, 22); pl.position.set(x, 5.6, z); g.add(pl); }
+  // 출입구 표지판 (실내)
+  const hang = (w, top, sub, x, y, z, ry) => { const s = plane(w, w * .26, new T.MeshLambertMaterial({ map: signTex(640, 166, top, sub) }), x, y, z, ry); return s; };
+  hang(2.6, '락커룸', 'LOCKER ROOM', -9.76, 5.3, 0, Math.PI / 2);
+  hang(2.6, '드라이빙 레인지', 'DRIVING RANGE', 9.76, 5.4, -4.5, -Math.PI / 2);
+  hang(2.6, '스타트 하우스 · 티오프', 'START HOUSE', 9.76, 5.4, 4.5, -Math.PI / 2);
+  hang(2.8, '정문', 'MAIN ENTRANCE', 0, 5.6, 9.76, Math.PI);
+  hang(2.6, '로비', 'LOBBY', -10.24, 5.3, 0, -Math.PI / 2);
+  // 오른쪽 출입구 너머: 밝은 바깥 풍경 + 황동 문틀
+  const outT = textTexture(128, 256, (c, w, h) => { const gr = c.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#bfe0f2'); gr.addColorStop(.55, '#eaf6f0'); gr.addColorStop(.56, '#8fcf6e'); gr.addColorStop(1, '#5fa04a'); c.fillStyle = gr; c.fillRect(0, 0, w, h); });
+  for (const z of [-4.5, 4.5]) { plane(2.8, 4.8, new T.MeshBasicMaterial({ map: outT }), 10.45, 2.4, z, -Math.PI / 2); for (const dz of [-1.42, 1.42]) add(new T.BoxGeometry(.5, 4.8, .14), brass, 10, 2.4, z + dz); }
+  // 바닥 안내 화살표
+  const arrowT = textTexture(256, 128, (c, w, h) => { c.fillStyle = 'rgba(232,200,115,.9)'; c.beginPath(); c.moveTo(20, 44); c.lineTo(160, 44); c.lineTo(160, 14); c.lineTo(236, 64); c.lineTo(160, 114); c.lineTo(160, 84); c.lineTo(20, 84); c.fill(); });
+  const arrowM = new T.MeshBasicMaterial({ map: arrowT, transparent: true, depthWrite: false });
+  for (const [x, z, ry] of [[-7.6, 0, Math.PI], [7.4, -4.5, 0], [7.4, 4.5, 0]]) { const a = plane(1.8, .9, arrowM, x, .03, z, 0, -Math.PI / 2); a.rotation.set(-Math.PI / 2, 0, ry); }
+
+  // ---- 락커룸 ----
+  const lockN = 10; LB.lockers = [];
+  for (let i = 0; i < lockN; i++) {
+    const z = -5.85 + i * 1.3, num = 101 + i;
+    add(new T.BoxGeometry(1, 3, 1.3), darkWood, -21.5, 1.5, z, false);
+    const pivot = new T.Group(); pivot.position.set(-20.98, 1.5, z - .62); g.add(pivot);
+    const door = new T.Mesh(new T.BoxGeometry(.06, 2.8, 1.22), new T.MeshLambertMaterial({ map: textTexture(64, 160, (c, w, h) => { c.fillStyle = '#7a5233'; c.fillRect(0, 0, w, h); c.strokeStyle = 'rgba(0,0,0,.25)'; c.lineWidth = 3; c.strokeRect(6, 6, w - 12, h - 12); c.fillStyle = 'rgba(0,0,0,.3)'; for (let k = 0; k < 4; k++) c.fillRect(16, 14 + k * 7, 32, 3); c.fillStyle = '#e8c873'; c.fillRect(18, 52, 28, 16); c.fillStyle = '#3d2a08'; c.font = '700 13px sans-serif'; c.textAlign = 'center'; c.fillText(num, 32, 65); }) }));
+    door.position.z = .61; pivot.add(door);
+    const knob = new T.Mesh(new T.SphereGeometry(.05, 8, 6), brass); knob.position.set(.05, 0, 1.1); pivot.add(knob);
+    LB.lockers.push({ pivot, num, z });
   }
-  // 열리는 락커 안: 옷걸이와 셔츠
-  const inside = new T.Group(); inside.position.set(-9.2, 0, -5.75); g.add(inside);
-  const bar = new T.Mesh(new T.CylinderGeometry(.02, .02, .9, 6), brass); bar.rotation.x = Math.PI / 2; bar.position.set(0, 2.25, 0); inside.add(bar);
-  for (const [dz, c] of [[-.25, 0x2aa3c9], [.05, 0xf7f7f2], [.3, 0x1d1d22]]) { const sh = new T.Mesh(new T.BoxGeometry(.12, .7, .26), mat(c)); sh.position.set(.05, 1.85, dz); inside.add(sh); }
-  // 거울 (락커 옆)
-  const mirror = add(new T.PlaneGeometry(1.4, 2.4), new T.MeshPhongMaterial({ color: 0xcfe3ea, shininess: 120, specular: 0xffffff }), -9.82, 1.6, -0.6); mirror.rotation.y = Math.PI / 2;
-  add(new T.BoxGeometry(.08, 2.6, 1.6), wood, -9.86, 1.6, -0.6);
-  // 바깥 연습장 안내판
-  const sign = new T.Mesh(new T.PlaneGeometry(2.2, .8), new T.MeshLambertMaterial({ map: textTexture(320, 116, (c, w, h) => { c.fillStyle = '#2e5e36'; c.fillRect(0, 0, w, h); c.fillStyle = '#f4e9cf'; c.font = `400 40px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('← 락커룸', w / 2, h / 2); }) }));
-  sign.position.set(-5.2, 4.2, -9.82); g.add(sign);
+  add(new T.BoxGeometry(1, .2, 13.4), brass, -21.5, 3.1, 0);
+  // 전신 거울
+  add(new T.BoxGeometry(2, 3.5, .12), brass, -16, 2.05, -6.76);
+  const mirT = textTexture(128, 256, (c, w, h) => { const gr = c.createLinearGradient(0, 0, w, h); gr.addColorStop(0, '#dfeef2'); gr.addColorStop(.5, '#b9d3db'); gr.addColorStop(1, '#e8f3f5'); c.fillStyle = gr; c.fillRect(0, 0, w, h); c.fillStyle = 'rgba(255,255,255,.55)'; c.beginPath(); c.moveTo(20, 0); c.lineTo(50, 0); c.lineTo(10, 120); c.lineTo(0, 120); c.fill(); c.beginPath(); c.moveTo(70, 0); c.lineTo(82, 0); c.lineTo(30, 200); c.lineTo(22, 200); c.fill(); });
+  plane(1.75, 3.25, new T.MeshPhongMaterial({ map: mirT, shininess: 120, specular: 0xffffff }), -16, 2.05, -6.69);
+  // 벤치
+  add(new T.BoxGeometry(3.2, .22, .9), deep, -16, .62, 1, true); add(new T.BoxGeometry(3.3, .08, 1), wood, -16, .48, 1);
+  for (const x of [-17.4, -14.6]) add(new T.BoxGeometry(.14, .45, .8), brass, x, .23, 1);
+  // 옷걸이와 골프웨어
+  add(new T.CylinderGeometry(.03, .03, 8.6, 6), brass, -16, 2.5, 6.4).rotation.z = Math.PI / 2;
+  for (const x of [-20.2, -11.8]) add(new T.CylinderGeometry(.05, .05, 2.5, 6), brass, x, 1.25, 6.4);
+  const wearC = [0xf7f7f2, 0x2aa3c9, 0x1d1d22, 0xc8463a, 0x2b4e8c, 0xffd23f, 0xf1e6cc, 0xff8fb8];
+  for (let i = 0; i < 12; i++) { const x = -19.6 + i * .66, c = wearC[i % wearC.length]; const sh = add(new T.BoxGeometry(.5, .95, .14), mat(c), x, 1.9, 6.35, true); sh.rotation.y = (i % 2 ? .12 : -.12); add(new T.BoxGeometry(.5, .04, .04), brass, x, 2.42, 6.35); }
+  add(new T.BoxGeometry(8.4, .08, .6), wood, -16, 3.3, 6.5);
+  for (let i = 0; i < 6; i++) { const cap = add(new T.SphereGeometry(.22, 10, 6, 0, TAU, 0, Math.PI / 2), mat([0xffffff, 0xff8a2a, 0x5ab4f0, 0x3f9a4e, 0xffd23f, 0x2b2b2b][i]), -19.5 + i * 1.4, 3.34, 6.45); cap.scale.y = .7; }
+  for (const [x, z] of [[-11, -6.2], [-21, 6.4]]) { add(new T.CylinderGeometry(.35, .28, .7, 12), mat(0xb5653a), x, .35, z, true); add(new T.IcosahedronGeometry(.7, 0), mat(0x3f8a3f, { flatShading: true }), x, 1.3, z, true); }
+  const lsign = plane(3, .78, new T.MeshLambertMaterial({ map: signTex(640, 166, '락커룸', 'LOCKER ROOM') }), -16, 4.4, -6.78);
   scene.add(g);
 }
-// 클럽하우스: 인사 → [바로 티업 / 락커에서 옷 갈아입기 / 드라이빙 레인지]
-const LB_SPOT = { desk: [-.6, -3.3], locker: [-7.5, -4.2] };
+
+// ---- 상태 전환 ----
+function setClubUI(on) { $('app').classList.toggle('inclub', on); $('app').classList.remove('inlobby'); if (!on) { $('lobbyUI').hidden = true; $('clubTitle').hidden = true; $('lbSkip').hidden = true; } }
+function placeClub(lx, lz, yaw, camYaw = yaw) { LB.zone = clubZone(lx, lz); me.x = LB.x + lx; me.z = LB.z + lz; me.yaw = yaw; me.moveT = null; me.path = null; cam.yaw = camYaw; LB.cam = null; }
+// where: 'outside'(정원) | 'lobby' | 'range'(연습장 출입구) | 'course'(코스 출입구) | 'gate'(정문으로 나가는 연출)
+function startClubAt(where) {
+  buildLobby(); closeOverlay(); setClubUI(true); $('power').hidden = true; landRing.visible = false;
+  LB.lockerUI = false; LB.desk = 'idle'; LB.deskSnooze = false; LB.welcome = null; LB.portalLock = true; LB.cine = null; $('lobbyUI').hidden = true; $('lobbyUI').classList.remove('locker');
+  if (where === 'outside') placeClub(0, 31, Math.PI);
+  else if (where === 'range') placeClub(7.6, -4.5, -Math.PI / 2, 2.25);
+  else if (where === 'course') placeClub(7.6, 4.5, -Math.PI / 2, .89);
+  else if (where === 'gate') { placeClub(0, 5, 0); startCine('exit'); return; }
+  else placeClub(0, 2, Math.PI);
+  S.mode = 'club'; lastActKey = '';
+}
+function fadeTo(fn) { $('fade').classList.add('on'); sndCart(); setTimeout(() => { fn(); setTimeout(() => $('fade').classList.remove('on'), 150); }, 500); }
+
+// ---- 입장·퇴장 연출 ----
+function startCine(kind) {
+  S.mode = 'cine'; me.moveT = null; me.path = null; LB.cam = null; lastActKey = ''; $('lobbyUI').hidden = true;
+  if (kind === 'enter') {
+    const sx = clamp(me.x - LB.x, -2.5, 2.5);
+    const lz0 = me.z - LB.z, side = me.x - LB.x < 0 ? -3.8 : 3.8;
+    // 당근 조형물(정원 가운데)을 돌아서 정문으로
+    const lead = lz0 > 21 ? [[side, Math.min(lz0, 27.5)], [side, 20.5], [0, 15]] : [[sx * .5, 15]];
+    LB.cine = { kind, t: 0, path: [...lead, [0, 12.5], [0, 8.5], [0, 3.6]] };
+    const t = $('clubTitle'); t.hidden = false; t.classList.remove('on'); void t.offsetWidth; t.classList.add('on');
+    tone(523, .3, 'sine', .1); tone(659, .3, 'sine', .1, .18); tone(784, .5, 'sine', .1, .36);
+  } else {
+    LB.cine = { kind, t: 0, path: [[0, 8.6], [0, 12.5], [0, 17.5]] };
+  }
+  $('lbSkip').hidden = false; $('lbSkip').textContent = '건너뛰기 ▸';
+}
+function finishCine() {
+  const c = LB.cine; if (!c) return; LB.cine = null; $('lbSkip').hidden = true;
+  const end = c.path.length ? c.path[c.path.length - 1] : null;
+  if (end) { me.x = LB.x + end[0]; me.z = LB.z + end[1]; }
+  S.mode = 'club'; me.anim = 0; lastActKey = ''; LB.cam = null; LB.zone = clubZone(me.x - LB.x, me.z - LB.z);
+  if (c.kind === 'enter') {
+    me.yaw = Math.PI; cam.yaw = Math.PI;
+    setTimeout(() => { $('clubTitle').hidden = true; }, 900);
+    LB.welcome = [me.x, me.z]; openDesk(true);
+  } else { me.yaw = 0; cam.yaw = Math.PI; toast('정문 밖이에요. 언제든 다시 입장할 수 있어요', 2200); }
+}
+function skipCine() {
+  const c = LB.cine; if (!c) return;
+  c.path = c.path.length ? [c.path[c.path.length - 1]] : []; finishCine();
+}
+
+// ---- 프론트 데스크 ----
 function lbShow(name, say, btns) {
+  $('lobbyUI').hidden = false; $('lobbyUI').classList.remove('locker');
   $('lbName').textContent = name; typeSay(say);
   $('lbBtns').className = 'lb-btns';
   $('lbBtns').innerHTML = btns.map(([t, a, cls]) => `<button type="button" class="btn${cls ? ' ' + cls : ''}" data-a="${a}">${esc(t)}</button>`).join('');
   $('lbBtns').querySelectorAll('[data-a]').forEach(b => b.onclick = () => lobbyAct(b.dataset.a));
   if (LB.staff) LB.staff.userData.talk = 1.2;
 }
-function lobbyMenu(first) {
-  LB.view = 'desk';
-  const say = first ? `어서 오세요, ${NET.nick} 님! 당근 컨트리클럽입니다. 오늘은 어떻게 하실래요?` : ['잘 어울리세요! 이제 어디로 모실까요?', '오늘 룩 최고예요~ 어디로 가실래요?'][Math.random() * 2 | 0];
-  lbShow('프론트 토끼 매니저', say, [['바로 티업', 'tee'], ['락커에서 옷 갈아입기', 'locker', 'sub'], ['드라이빙 레인지', 'range', 'sub'], ['이름 바꾸기', 'nick', 'link']]);
+function openDesk(welcome) {
+  LB.desk = 'open';
+  lbShow('프론트 토끼 매니저', welcome ? `어서 오세요, ${NET.nick} 님! 당근 컨트리클럽입니다. 오늘은 무엇을 도와드릴까요?` : '어서 오세요! 당근 컨트리클럽입니다. 오늘은 무엇을 도와드릴까요?',
+    [['락커룸 안내', 'g-locker'], ['드라이빙 레인지 안내', 'g-range', 'sub'], ['티오프(스타트 하우스) 안내', 'g-course', 'sub'], ['이름 바꾸기', 'nick', 'link']]);
+  tone(1568, .4, 'sine', .08);
 }
+function closeDesk(snooze) { LB.desk = 'idle'; LB.welcome = null; if (snooze) LB.deskSnooze = true; if (!LB.lockerUI) $('lobbyUI').hidden = true; }
+function walkPath(pts) { const w = pts.map(([lx, lz]) => [LB.x + lx, LB.z + lz]); me.moveT = w.shift(); me.path = w; }
 function lobbyAct(a) {
   tone(660, .05, 'square', .04);
-  if (a === 'tee') { lbShow('프론트 토끼 매니저', '1번 홀 단풍길로 모실게요. 즐거운 라운딩 되세요~', []); setTimeout(() => leaveLobby('tee'), 700); }
-  else if (a === 'range') { lbShow('프론트 토끼 매니저', '드라이빙 레인지는 이쪽이에요. 몸 풀고 오세요!', []); setTimeout(() => leaveLobby('range'), 700); }
-  else if (a === 'locker') openLocker();
-  else if (a === 'nick') { $('nick').click(); const iv = setInterval(() => { if ($('overlay').hidden) { clearInterval(iv); lobbyMenu(true); } }, 300); }
-  else if (a === 'lkdone') { saveLook(); LB.walkT = LB_SPOT.desk.slice(); LB.after = () => lobbyMenu(false); LB.view = 'desk'; LB.doorOpen = 0; $('lobbyUI').classList.remove('locker'); lbShow('프론트 토끼 매니저', '', []); }
-}
-function openLocker() {
-  LB.walkT = LB_SPOT.locker.slice(); LB.view = 'locker'; LB.doorOpen = 1; $('lobbyUI').classList.add('locker');
-  LB.after = () => { me.yaw = Math.PI / 2; renderLocker(); };
-  lbShow('락커룸', '락커로 가는 중…', []);
-}
-function renderLocker() {
-  const lk = myLook || [0, 0];
-  $('lbName').textContent = '락커룸 · 오늘의 라운딩 룩';
-  clearInterval(typeT); $('lbSay').textContent = '모자 색과 옷을 골라 보세요. 같이 치는 사람들에게도 이렇게 보여요!';
-  $('lbBtns').className = 'lb-btns lk';
-  $('lbBtns').innerHTML = `<div class="lk-row"><span class="lk-lab">모자</span><div class="lk-sw">${HATS.map(([n, c], i) => `<button type="button" class="sw${i === lk[0] ? ' on' : ''}" data-hat="${i}" style="--c:${c}" aria-label="${n} 모자" title="${n}"></button>`).join('')}</div></div>
-    <div class="lk-row"><span class="lk-lab">옷</span><div class="lk-tops">${TOPS.map((n, i) => `<button type="button" class="tp${i === lk[1] ? ' on' : ''}" data-top="${i}">${n}</button>`).join('')}</div></div>
-    <div class="lk-row end"><button type="button" class="btn" data-a="lkdone">이걸로 입을게요</button></div>`;
-  $('lbBtns').querySelectorAll('[data-hat],[data-top]').forEach(b => b.onclick = () => {
-    const cur = (myLook || [0, 0]).slice();
-    if (b.dataset.hat != null) cur[0] = +b.dataset.hat; else cur[1] = +b.dataset.top;
-    myLook = cur; applyLook(me.av, myLook, '#ffffff'); me.jump = 1; tone(880 + cur[1] * 60, .08, 'triangle', .08); tone(1320, .08, 'triangle', .06, .07);
-    renderLocker();
-  });
-  $('lbBtns').querySelector('[data-a]').onclick = () => lobbyAct('lkdone');
-}
-function startLobby() {
-  buildLobby(); S.mode = 'lobby'; LB.view = 'desk'; LB.doorOpen = 0; LB.after = () => lobbyMenu(true);
-  me.x = LB.x - .6; me.z = LB.z + 1.5; me.yaw = Math.PI; LB.walkT = LB_SPOT.desk.slice();
-  $('app').classList.add('inlobby'); $('lobbyUI').hidden = false; $('lobbyUI').classList.remove('locker'); $('lbSay').textContent = ''; $('lbBtns').innerHTML = ''; $('lbName').textContent = '프론트 토끼 매니저';
-  lbCam = null;
-  // 딩동~ 문 열리는 소리
-  tone(880, .4, 'sine', .14); tone(698, .6, 'sine', .14, .35);
+  const guide = (say, pts) => { lbShow('프론트 토끼 매니저', say, []); setTimeout(() => { closeDesk(true); walkPath(pts); }, 1100); };
+  if (a === 'g-locker') guide('락커룸은 왼쪽 문이에요. 모셔다 드릴게요!', [[-5, 0], [-10, 0], [-13.5, -.8]]);
+  else if (a === 'g-range') guide('드라이빙 레인지는 오른쪽 앞 문이에요. 문으로 들어가시면 바로 연습장이에요!', [[5.5, -2.6], [10.2, -4.5]]);
+  else if (a === 'g-course') guide('스타트 하우스는 오른쪽 뒤 문이에요. 토끼 캐디가 티오프 준비하고 기다리고 있어요!', [[5.5, 2.6], [10.2, 4.5]]);
+  else if (a === 'nick') { $('nick').click(); const iv = setInterval(() => { if ($('overlay').hidden) { clearInterval(iv); if (LB.desk === 'open') openDesk(false); } }, 300); }
+  else if (a === 'lkdone') closeLocker();
+  else if (a === 'cd-ok') { caddieBye(); toast('나이스 샷 기대할게요!', 1400); }
+  else if (a === 'cd-guide') { caddieBye(); showGuide(S.hole); }
+  else if (a === 'lklobby') { closeLocker(); walkPath([[-13, 0], [-9, 0], [-2, -2.2]]); }
 }
 let typeT = 0;
 function typeSay(text) {
@@ -2355,43 +2505,203 @@ function typeSay(text) {
   typeT = setInterval(() => { n += 2; el.textContent = text.slice(0, n); if (n % 6 === 0) tone(1100 + Math.random() * 200, .025, 'square', .015); if (n >= text.length) clearInterval(typeT); }, 30);
   el.onclick = () => { clearInterval(typeT); el.textContent = text; };
 }
-function leaveLobby(dest = 'tee') {
-  if (S.mode !== 'lobby') return;
-  clearInterval(typeT); $('fade').classList.add('on'); sndCart();
-  setTimeout(() => {
-    $('lobbyUI').hidden = true; $('app').classList.remove('inlobby');
-    if (dest === 'range') { startRange(); setTimeout(() => $('fade').classList.remove('on'), 150); return; }
-    goFirstTee();
-    setTimeout(() => $('fade').classList.remove('on'), 150);
-  }, 500);
+
+// ---- 락커룸: 거울 앞에서 옷 갈아입기 ----
+function myLockerIdx() { return Math.abs([...(NET.nick || 'a')].reduce((a, c) => a * 31 + c.charCodeAt(0), 7)) % LB.lockers.length; }
+function openDress() {
+  if (S.mode !== 'club') return;
+  const go = () => { LB.lockerUI = true; me.yaw = Math.PI; LB.cam = null; LB.myLocker = myLockerIdx(); closeDesk(); renderLocker(); lastActKey = ''; };
+  const lx = me.x - LB.x, lz = me.z - LB.z;
+  if (Math.hypot(lx + 16, lz + 2.6) < .6) go(); else { walkPath(lz > 1.8 || lz < .2 ? [[-16, -2.6]] : [[-12.5, -1.5], [-16, -2.6]]); LB.afterWalk = go; }
 }
-function goFirstTee() {
-  const t = HOLES[S.hole].tee; me.x = t[0] - 1 + rand(-3, 3); me.z = t[1] + 6 + rand(-1, 1.5); me.yaw = Math.PI; cam.yaw = Math.PI; S.mode = 'walk'; snapCam(); lastActKey = '';
-  if (S.ball.state === 'rest' && S.strokes > 0) { me.x = S.ball.x - 1.5; me.z = S.ball.z - 1.5; snapCam(); }
-  sendPos(true);
-  setTimeout(() => { if (S.hole === 0 && S.strokes === 0 && $('overlay').hidden) showGuide(0); }, 900);
-  setTimeout(() => $('help').classList.add('off'), window.innerWidth < 640 ? 7000 : 12000);
+function closeLocker() { LB.lockerUI = false; LB.myLocker = null; $('lobbyUI').hidden = true; $('lobbyUI').classList.remove('locker'); LB.cam = null; lastActKey = ''; toast('오늘 룩 저장했어요. 어디서든 이 옷으로 보여요', 1800); }
+function renderLocker() {
+  const lk = normLook(myLook);
+  $('lobbyUI').hidden = false; $('lobbyUI').classList.add('locker');
+  $('lbName').textContent = `락커 ${LB.lockers[LB.myLocker ?? 0].num}번 · 오늘의 라운딩 룩`;
+  clearInterval(typeT); $('lbSay').textContent = '고르는 즉시 거울에 비쳐요. 클럽하우스·연습장·코스 어디서든 이 옷으로 보여요!';
+  $('lbBtns').className = 'lb-btns lk';
+  $('lbBtns').innerHTML = `<div class="lk-row"><span class="lk-lab">모자</span><div class="lk-sw">${HATS.map(([n, c], i) => `<button type="button" class="sw${i === lk[0] ? ' on' : ''}" data-hat="${i}" style="--c:${c}" aria-label="${n} 모자" title="${n}"></button>`).join('')}</div></div>
+    <div class="lk-row"><span class="lk-lab">옷</span><div class="lk-tops">${TOPS.map((n, i) => `<button type="button" class="tp${i === lk[1] ? ' on' : ''}" data-top="${i}">${n}</button>`).join('')}</div></div>
+    <div class="lk-row"><span class="lk-lab">소품</span><div class="lk-tops">${ACCS.map((n, i) => `<button type="button" class="tp${i === lk[2] ? ' on' : ''}" data-acc="${i}">${n}</button>`).join('')}</div></div>
+    <div class="lk-row end"><button type="button" class="btn sub" data-a="lklobby">로비로 돌아가기</button><button type="button" class="btn" data-a="lkdone">다 입었어요</button></div>`;
+  $('lbBtns').querySelectorAll('[data-hat],[data-top],[data-acc]').forEach(b => b.onclick = () => {
+    const cur = normLook(myLook).slice();
+    if (b.dataset.hat != null) cur[0] = +b.dataset.hat; else if (b.dataset.top != null) cur[1] = +b.dataset.top; else cur[2] = +b.dataset.acc;
+    myLook = cur; saveLook(); applyLook(me.av, myLook, '#ffffff'); me.jump = 1; tone(880 + cur[1] * 60, .08, 'triangle', .08); tone(1320, .08, 'triangle', .06, .07);
+    renderLocker();
+  });
+  $('lbBtns').querySelectorAll('[data-a]').forEach(b => b.onclick = () => lobbyAct(b.dataset.a));
 }
+
+// ---- 공간 이동: 연습장 · 코스 ----
+function goRangeFromClub() { closeDesk(); fadeTo(() => { setClubUI(false); startRange(); }); }
+function backToClub(where) { fadeTo(() => { if (S.mode === 'range') { $('app').classList.remove('inrange'); const cs = document.querySelector('.holecard .count span'); if (cs) cs.textContent = '타'; if (RG.ball && RG.ball.state === 'tee') { RG.ball.state = 'free'; RG.ball.m.visible = false; } RG.charge = false; updHud(); } startClubAt(where); }); }
+function goCourseDoor() {
+  me.moveT = null; me.path = null; closeDesk();
+  const saved = !roundHasProgress() && loadRound();
+  if (!roundHasProgress() && !saved) { if (S.scores.every(x => x != null)) resetRound(false); enterCourse(false); return; }
+  const d = roundHasProgress() ? { hole: S.hole, strokes: S.strokes, sc: totalDiff(), done: S.scores.filter(x => x != null).length } : { hole: saved.hole, strokes: saved.strokes, sc: saved.scores.reduce((d, s, i) => s == null ? d : d + s - HOLES[i].par, 0), done: saved.scores.filter(x => x != null).length };
+  me.x = LB.x + 7.6; me.yaw = -Math.PI / 2; cam.yaw = .89; LB.cam = null; lastActKey = '';
+  overlay(`<span class="eyebrow">스타트 하우스</span><h2>다시 오셨군요! 이어서 라운딩하시겠어요?</h2>
+    <p>${d.hole + 1}번 홀 · 이번 홀 ${d.strokes}타 · 합계 ${fmtDiff(d.sc)} (${d.done}/${HOLES.length}홀 완료)</p>
+    <div class="btns col"><button class="btn" id="rcGo">이어서 라운딩하기</button><button class="btn sub" id="rcNew">새 라운딩 시작하기</button><button class="btn sub" id="rcBack">클럽하우스로 돌아가기</button></div>`);
+  $('rcGo').onclick = () => { closeOverlay(); if (saved) applyRound(saved); enterCourse(true); };
+  $('rcNew').onclick = () => {
+    overlay(`<span class="eyebrow">새 라운딩</span><h2>지금 라운딩 기록을 지우고 새로 시작할까요?</h2><p>이번 라운딩 타수와 공 위치가 초기화돼요. 명예의 전당과 베스트 기록은 그대로 남아요.</p>
+      <div class="btns"><button class="btn" id="rcYes">새로 시작</button><button class="btn sub" id="rcNo">취소</button></div>`);
+    $('rcYes').onclick = () => { closeOverlay(); resetRound(false); clearRound(); enterCourse(false); };
+    $('rcNo').onclick = () => goCourseDoor();
+  };
+  $('rcBack').onclick = () => { closeOverlay(); LB.portalLock = true; };
+}
+function enterCourse(resume) {
+  fadeTo(() => {
+    setClubUI(false); updHud(); renderCard(); renderTix();
+    goFirstTee(); caddieHello(resume);
+  });
+}
+// 스타트 하우스: 토끼 캐디가 카트 옆에서 인사해요
+let helloCad = null;
+function caddieHello(resume) {
+  if (helloCad) { scene.remove(helloCad); helloCad = null; }
+  const a = me.yaw + Math.PI / 2, cx = me.x + Math.sin(a) * 1.6 + Math.sin(me.yaw) * 1.2, cz = me.z + Math.cos(a) * 1.6 + Math.cos(me.yaw) * 1.2;
+  helloCad = makeCaddie(); helloCad.position.set(cx, heightAt(cx, cz), cz); helloCad.rotation.y = Math.atan2(me.x - cx, me.z - cz); scene.add(helloCad); helloCad.userData.talk = 2;
+  cam.yaw = Math.atan2(cx - me.x, cz - me.z) - .6;
+  const n = HOLES[S.hole];
+  const say = resume ? `다시 오셨네요, ${NET.nick} 님! ${S.hole + 1}번 홀 ${S.strokes ? `공 있는 데서 ${S.strokes + 1}타째부터` : '티잉 구역에서'} 이어서 칠게요.`
+    : `안녕하세요, ${NET.nick} 님! 오늘 함께할 토끼 캐디예요. 여기가 티오프 장소예요. 첫 홀은 ${n.name}, PAR ${n.par}! 편하게 치세요~`;
+  lbShow('토끼 캐디', say, resume ? [['좋아요, 가요!', 'cd-ok']] : [['잘 부탁해요!', 'cd-ok'], ['오늘 코스 미리 보기', 'cd-guide', 'sub']]);
+  tone(988, .1, 'triangle', .08); tone(1318, .14, 'triangle', .08, .1);
+}
+function caddieBye() {
+  $('lobbyUI').hidden = true; clearInterval(typeT);
+  const c = helloCad; if (!c) return; helloCad = null; let k = 0;
+  const iv = setInterval(() => { k++; c.position.y += .05; c.scale.multiplyScalar(.93); if (k > 18) { clearInterval(iv); scene.remove(c); } }, 30);
+}
+function leaveCourse(where) {
+  if (S.mode === 'aim') exitAim();
+  if (S.mode !== 'walk') { toast(S.mode === 'ride' ? '카트에서 내린 뒤에 이동할 수 있어요' : '공이 멈춘 뒤에 이동할 수 있어요', 1600); return; }
+  closeOverlay(); saveRound(); keys.clear(); me.moveT = null; caddieBye();
+  fadeTo(() => startClubAt(where));
+}
+
+// ---- 라운딩 저장·이어하기 (브라우저에 저장, 다른 사람과는 무관) ----
+const ROUND_KEY = 'carrotRound';
+function roundHasProgress() { const done = S.scores.filter(x => x != null).length; return done < HOLES.length && (S.strokes > 0 || done > 0); }
+function clearRound() { try { localStorage.removeItem(ROUND_KEY); } catch {} }
+function saveRound() {
+  if (!roundHasProgress()) { if (S.scores.every(x => x != null)) clearRound(); return; }
+  const d = { v: 1, at: Date.now(), hole: S.hole, strokes: S.strokes, scores: S.scores.slice(), ball: { x: S.ball.x, z: S.ball.z }, ballVis: S.ballVis, buff: S.buff, mulligans: S.mulligans, okTix: S.okTix, chance: S.chance, spent: S.spent || 0, st: S.st, crocDone: !!S.crocDone, zoneUsed: S.zoneUsed || {} };
+  try { localStorage.setItem(ROUND_KEY, JSON.stringify(d)); } catch {}
+}
+function loadRound() {
+  try { const d = JSON.parse(localStorage.getItem(ROUND_KEY)); if (!d || d.v !== 1 || !Array.isArray(d.scores) || d.scores.length !== HOLES.length || !d.ball) return null; if (Date.now() - d.at > 3 * 86400e3) return null; if (d.scores.every(x => x != null)) return null; return d; } catch { return null; }
+}
+function applyRound(d) {
+  S.hole = clamp(d.hole | 0, 0, HOLES.length - 1); S.strokes = Math.max(0, d.strokes | 0); d.scores.forEach((v, i) => { S.scores[i] = v == null ? null : +v; });
+  Object.assign(S.ball, { x: +d.ball.x || HOLES[S.hole].tee[0], z: +d.ball.z || HOLES[S.hole].tee[1], y: 0, vx: 0, vy: 0, vz: 0, state: 'rest' }); S.ballVis = d.ballVis !== false;
+  S.buff = d.buff || null; S.mulligans = d.mulligans | 0; S.okTix = d.okTix | 0; S.chance = d.chance ?? CHANCE_MAX; S.spent = d.spent || 0; S.st = d.st || newStats(); S.crocDone = !!d.crocDone; S.zoneUsed = d.zoneUsed || {}; S.prev = null; S.last = null;
+  const m = S.buff && MENU.find(x => x.id === S.buff); $('buffChip').hidden = !m; if (m) $('buffChip').textContent = m.chip;
+  renderSpent(); renderTix(); renderCard(); updHud();
+}
+setInterval(() => { if (built && ['walk', 'aim', 'wait', 'flight', 'ride', 'eat'].includes(S.mode)) saveRound(); }, 4000);
+window.addEventListener('pagehide', () => { if (built && !['club', 'cine', 'range'].includes(S.mode)) saveRound(); });
+
+// ---- 메뉴 (왼쪽 위 당근 CC 버튼) ----
+function openGameMenu() {
+  if (!built || S.mode === 'cine') return;
+  const inCourse = !['club', 'range'].includes(S.mode);
+  if (inCourse) overlay(`<span class="eyebrow">메뉴 · ${NET.ch ? NET.ch + '채널' : '혼자 라운딩'}</span><h2>${S.hole + 1}번 홀 · ${S.strokes}타째</h2>
+    <p>합계 ${fmtDiff(totalDiff())} · ${S.scores.filter(x => x != null).length}/${HOLES.length}홀 완료. 클럽하우스에 다녀와도 지금 위치에서 이어서 칠 수 있어요.</p>
+    <div class="btns col"><button class="btn" id="gmGo">▶ 라운딩 계속하기</button><button class="btn sub" id="gmClub">🏛️ 클럽하우스 로비로</button><button class="btn sub" id="gmGate">🚪 정문으로 나가기</button></div>
+    <button type="button" class="linkbtn" id="gmExit">입장 화면(채널 선택)으로 나가기</button>`);
+  else overlay(`<span class="eyebrow">메뉴</span><h2>${S.mode === 'range' ? '드라이빙 레인지' : '클럽하우스'}</h2>
+    <p>${roundHasProgress() ? `진행 중인 라운딩: ${S.hole + 1}번 홀 · 합계 ${fmtDiff(totalDiff())}` : '스타트 하우스에서 캐디와 만나 티오프할 수 있어요.'}</p>
+    <div class="btns col"><button class="btn" id="gmGo">▶ 계속 둘러보기</button><button class="btn sub" id="gmCourse">⛳ 티오프 하러 가기</button>${S.mode === 'range' ? '<button class="btn sub" id="gmLobby">🏛️ 로비로 돌아가기</button>' : ''}<button class="btn sub" id="gmGate">🚪 정문으로 나가기</button></div>
+    <button type="button" class="linkbtn" id="gmExit">입장 화면(채널 선택)으로 나가기</button>`);
+  $('gmGo').onclick = closeOverlay;
+  if ($('gmClub')) $('gmClub').onclick = () => leaveCourse('course');
+  if ($('gmLobby')) $('gmLobby').onclick = () => { closeOverlay(); backToClub('range'); };
+  if ($('gmCourse')) $('gmCourse').onclick = () => { closeOverlay(); if (S.mode === 'range') backToClub('course'); else { placeClub(8.3, 4.5, -Math.PI / 2); goCourseDoor(); } };
+  $('gmGate').onclick = () => { if (inCourse) leaveCourse('gate'); else { closeOverlay(); if (S.mode === 'range') backToClub('gate'); else fadeTo(() => startClubAt('gate')); } };
+  $('gmExit').onclick = () => { closeOverlay(); saveRound(); exitToEntry(); };
+}
+
+// ---- 매 프레임 ----
 function updateLobby(dt, t) {
   if (!LB.built) return;
-  if (LB.doors) LB.doors.forEach((d, i) => { const tgt = i === 2 && LB.doorOpen ? 1.45 : 0; d.rotation.y += (tgt - d.rotation.y) * Math.min(1, dt * 4); });
-  if (S.mode !== 'lobby') return;
-  if (LB.walkT) {
-    const tx = LB.x + LB.walkT[0], tz = LB.z + LB.walkT[1], dx = tx - me.x, dz = tz - me.z, d = Math.hypot(dx, dz);
-    if (d < .1) { LB.walkT = null; me.anim = 0; me.yaw = Math.PI; const f = LB.after; LB.after = null; if (f) setTimeout(f, 150); if (LB.view === 'desk') tone(1568, .5, 'sine', .1); }
-    else { const sp = Math.min(d, 5 * dt); me.x += dx / d * sp; me.z += dz / d * sp; me.yaw = Math.atan2(dx, dz); me.anim = 1; }
-  } else me.anim = 0;
+  const lx = me.x - LB.x, lz = me.z - LB.z, here = inClub(me.x, me.z) && (S.mode === 'club' || S.mode === 'cine');
+  // 정문: 가까이 가면 양쪽으로 스르륵
+  const want = here && Math.hypot(lx, (lz - 10) * 1.3) < 4.6 ? 1 : 0;
+  LB.doorK += (want - LB.doorK) * Math.min(1, dt * 5);
+  if (LB.panels) for (const p of LB.panels) p.position.x = p.userData.s * (1 + LB.doorK * 1.9);
+  if (want && !LB.doorSnd) { LB.doorSnd = true; noise(.35, 900, .6, .05); } else if (!want) LB.doorSnd = false;
+  for (const [i, L] of LB.lockers.entries()) { const tgt = LB.lockerUI && i === LB.myLocker ? 1.5 : 0; L.pivot.rotation.y += (tgt - L.pivot.rotation.y) * Math.min(1, dt * 4); }
   const sf = LB.staff; if (sf) { sf.userData.talk = Math.max(0, (sf.userData.talk || 0) - dt); sf.position.y = .55 + (sf.userData.talk > 0 ? Math.abs(Math.sin(t * 10)) * .06 : 0); sf.rotation.z = Math.sin(t * 1.5) * .04; }
+  if (LB.statue) LB.statue.rotation.y = Math.sin(t * .4) * .25;
+  $('app').classList.toggle('dlg', !$('lobbyUI').hidden);
+  if (helloCad) helloCad.position.y = heightAt(helloCad.position.x, helloCad.position.z) + Math.abs(Math.sin(t * 8)) * .06;
+  if (!here) return;
+  if (S.mode === 'cine') {
+    const c = LB.cine; c.t += dt;
+    if (c.path.length) {
+      const [tx, tz] = c.path[0], dx = LB.x + tx - me.x, dz = LB.z + tz - me.z, d = Math.hypot(dx, dz);
+      // 문이 반쯤 열릴 때까지 문 앞에서 잠깐 기다려요
+      const atDoor = Math.abs(lz - 10) < 2.2 && LB.doorK < .55;
+      if (d < .12) c.path.shift();
+      else if (!atDoor) { const sp = Math.min(d, (lz > 13 ? 7 : 4.2) * dt); me.x += dx / d * sp; me.z += dz / d * sp; me.yaw = Math.atan2(dx, dz); me.anim = 1; }
+    } else { c.wait = (c.wait || 0) + dt; if (c.wait > .35) finishCine(); }
+    return;
+  }
+  LB.zone = clubZone(lx, lz);
+  if (LB.afterWalk && !me.moveT) { const f = LB.afterWalk; LB.afterWalk = null; f(); }
+  if (keys.size && LB.afterWalk) LB.afterWalk = null;
+  if (LB.lockerUI && (keys.size || me.moveT)) closeLocker();
+  // 프론트 근처에 오면 토끼가 먼저 말을 걸어요
+  const dDesk = Math.hypot(lx, lz + 3.4);
+  if (LB.welcome && Math.hypot(me.x - LB.welcome[0], me.z - LB.welcome[1]) > 1.5) LB.welcome = null;
+  if (!LB.lockerUI) {
+    if (dDesk > 3.8) LB.deskSnooze = false;
+    if (dDesk < 2.6 && LB.desk !== 'open' && !LB.deskSnooze && !me.moveT) openDesk(false);
+    else if (LB.desk === 'open' && !LB.welcome && dDesk > 3.8) closeDesk();
+  }
+  // 오른쪽 출입구로 걸어 들어가면 연습장 / 코스로
+  if (lx < 8.6) LB.portalLock = false;
+  if (lx > 9.6 && !LB.portalLock) {
+    LB.portalLock = true;
+    if (lz < 0) goRangeFromClub(); else goCourseDoor();
+  }
 }
-let lbCam = null;
 function lobbyCamera(dt) {
-  // 프론트: 입구 쪽 대각선에서 카운터와 나를 함께 / 락커: 거울 보듯 내 앞모습
-  const y0 = EDGE_H, tg = LB.view === 'locker'
-    ? { tx: LB.x - 7.9, ty: y0 + 1.3, tz: LB.z - 4.7, px: LB.x - 3.6, py: y0 + 2.3, pz: LB.z - 2.6 }
-    : { tx: LB.x + .2, ty: y0 + 1.4, tz: LB.z - 4.4, px: LB.x + 4.2, py: y0 + 3.6, pz: LB.z + 3.2 };
-  if (!lbCam) lbCam = { ...tg };
-  const k = Math.min(1, dt * 3); for (const key in tg) lbCam[key] += (tg[key] - lbCam[key]) * k;
-  return lbCam;
+  const y0 = EDGE_H, lx = me.x - LB.x, lz = me.z - LB.z;
+  let tg;
+  if (S.mode === 'cine') {
+    const c = LB.cine;
+    if (c.kind === 'enter') tg = lz > 9.6 ? { tx: LB.x, ty: y0 + 2.6, tz: LB.z + 10, px: LB.x + 2.2, py: y0 + 3.4, pz: me.z + 8 } : { tx: me.x, ty: y0 + 1.5, tz: me.z - 2.5, px: LB.x + 4.6, py: y0 + 3.9, pz: LB.z + 8.8 };
+    else tg = { tx: me.x, ty: y0 + 2, tz: me.z, px: LB.x + 4.5, py: y0 + 3.8, pz: LB.z + 24 };
+  } else if (LB.lockerUI) {
+    tg = { tx: me.x, ty: y0 + 1.45, tz: me.z, px: me.x + .5, py: y0 + 2.15, pz: LB.z - 6.45 };
+  } else {
+    const zone = clubZone(lx, lz), cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
+    const dist = zone === 'out' ? Math.max(9, cam.dist) : Math.min(cam.dist, 7.5);
+    let px = me.x - Math.sin(cam.yaw) * cp * dist, pz = me.z - Math.cos(cam.yaw) * cp * dist, py = y0 + 1.6 + sp * dist;
+    const r = zone === 'lobby' ? [-9.3, 9.3, -9.3, 9.3] : zone === 'locker' ? [-21.2, -10.9, -6.5, 6.5] : null;
+    if (r) { px = clamp(px, LB.x + r[0], LB.x + r[1]); pz = clamp(pz, LB.z + r[2], LB.z + r[3]); py = Math.min(py, y0 + (zone === 'lobby' ? 6.2 : 5.3)); }
+    else if (pz < LB.z + 11 && px > LB.x - 23 && px < LB.x + 11) pz = LB.z + 11;
+    tg = { tx: me.x, ty: y0 + 1.5, tz: me.z, px, py: Math.max(py, y0 + 1.2), pz };
+  }
+  if (!LB.cam) LB.cam = { ...tg };
+  const k = Math.min(1, dt * (S.mode === 'cine' ? 2.6 : 6)); for (const key in tg) LB.cam[key] += (tg[key] - LB.cam[key]) * k;
+  return LB.cam;
+}
+function goFirstTee() {
+  const t = HOLES[S.hole].tee; me.x = t[0] - 1 + rand(-3, 3); me.z = t[1] + 6 + rand(-1, 1.5); me.yaw = Math.PI; cam.yaw = Math.PI; S.mode = 'walk'; me.path = null; me.moveT = null;
+  if (S.ball.state === 'rest' && S.strokes > 0) { const a = Math.atan2(hole().cup[0] - S.ball.x, hole().cup[1] - S.ball.z); for (const r of [2, 3, 4.5]) { const x = S.ball.x - Math.sin(a) * r, z = S.ball.z - Math.cos(a) * r; if (canStand(x, z)) { me.x = x; me.z = z; break; } } me.yaw = a; cam.yaw = a; }
+  snapCam(); lastActKey = '';
+  sendPos(true);
+  setTimeout(() => { if (S.hole === 0 && S.strokes === 0 && $('overlay').hidden && $('lobbyUI').hidden && S.mode === 'walk') showGuide(0); }, 900);
+  setTimeout(() => $('help').classList.add('off'), window.innerWidth < 640 ? 7000 : 12000);
 }
 
 // ================= 드라이빙 레인지 =================
@@ -2426,7 +2736,7 @@ function buildRange() {
     for (let k = 0; k < 6; k++) add(new T.SphereGeometry(.12, 8, 6), mat(0xffffff), x + 2 + rand(-.18, .18), .74, -.8 + rand(-.18, .18));
   }
   // 거리 표지판과 바닥 선
-  for (const m of [50, 100, 150]) {
+  for (const m of [50, 100, 150, 200]) {
     const z = m / M_PER_U;
     const line = add(new T.PlaneGeometry(80, .35), new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .55 }), 0, .05, z); line.rotation.x = -Math.PI / 2;
     for (const sx of [-30, 30]) {
@@ -2484,7 +2794,7 @@ function startRange() {
   $('app').classList.add('inrange'); $('power').hidden = false;
   if (!RANGE_CLUBS.includes(RG.club)) RG.club = 0;
   rangeTee(); rangeHud(); lastActKey = '';
-  toast('드라이빙 레인지예요. 마음껏 쳐 보세요!', 2200);
+  toast('드라이빙 레인지예요. 연습 기록은 라운딩 스코어와 상관없어요', 2400);
   setTimeout(() => $('help').classList.add('off'), 100);
 }
 function rangeTee() {
@@ -2548,6 +2858,9 @@ function updateRange(dt, t) {
   if (RG.charge) { RG.power = chargePower(); $('pow').style.width = (RG.power * 100) + '%'; }
   me.chargeP = RG.charge ? RG.power : 0;
   $('powLabel').textContent = RG.charge ? `${CLUBS[RG.club].name} ${Math.round(RG.power * 100)}% · 예상 캐리 ${RANGE_M(rangeCarry(Math.max(RG.power, .05)))}m` : `${CLUBS[RG.club].name} · 풀스윙 캐리 ${RANGE_M(rangeCarry(1))}m`;
+  // 착지 예상 지점 (기존 조준 링 재사용)
+  const pc = rangeCarry(RG.charge ? Math.max(RG.power, .05) : 1), showRing = !RG.flying && RG.ball && RG.ball.state === 'tee';
+  landRing.visible = showRing; if (showRing) landRing.position.set(bx + Math.sin(RG.yaw) * pc, EDGE_H + .1, bz + Math.cos(RG.yaw) * pc);
   if (RG.flagT == null) RG.flagT = 0; RG.flagT += dt; for (const tg of RG.targets) tg.flag.rotation.y = Math.sin(RG.flagT * 3 + tg.m) * .25;
 }
 function rangeCarry(p) { const v = launchVel(p, 0, RG.club, 'tee'); return 2 * v.vy / G * Math.hypot(v.vx, v.vz); }
@@ -2572,7 +2885,7 @@ function leaveRange() {
   if (S.mode !== 'range') return;
   RG.charge = false; $('fade').classList.add('on'); sndCart();
   setTimeout(() => {
-    $('app').classList.remove('inrange'); $('power').hidden = true; const cs = document.querySelector('.holecard .count span'); if (cs) cs.textContent = '타';
+    $('app').classList.remove('inrange'); $('power').hidden = true; landRing.visible = false; const cs = document.querySelector('.holecard .count span'); if (cs) cs.textContent = '타';
     if (RG.ball && RG.ball.state === 'tee') { RG.ball.state = 'free'; RG.ball.m.visible = false; }
     goFirstTee(); updHud(); setTimeout(() => $('fade').classList.remove('on'), 150);
   }, 500);
@@ -2645,7 +2958,7 @@ function bindInput() {
     }
   });
   const up = e => {
-    if (ptrs.size === 1 && moved <= 6 && S.mode === 'walk') clickMove(e);
+    if (ptrs.size === 1 && moved <= 6 && (S.mode === 'walk' || (S.mode === 'club' && !LB.lockerUI))) clickMove(e);
     ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = 0; S.aimDrag = false;
   };
   el.addEventListener('pointerup', up); el.addEventListener('pointercancel', e => { ptrs.delete(e.pointerId); });
@@ -2679,8 +2992,9 @@ function aimFromPointer(e) {
 function clickMove(e) {
   const r = renderer.domElement.getBoundingClientRect();
   ray.setFromCamera({ x: (e.clientX - r.left) / r.width * 2 - 1, y: -((e.clientY - r.top) / r.height) * 2 + 1 }, camera);
-  const hit = ray.intersectObject(ground)[0]; if (!hit) return;
+  const hit = ray.intersectObjects(S.mode === 'club' ? LB.floors : [ground])[0]; if (!hit) return;
   let x = hit.point.x, z = hit.point.z;
+  me.path = null;
   if (!canStand(x, z)) { toast('거긴 들어갈 수 없어요', 1000); return; }
   me.moveT = [x, z]; moveRing.position.set(x, heightAt(x, z) + .06, z); moveRing.material.opacity = .9; moveRing.scale.setScalar(1);
   $('help').classList.add('off');
@@ -2690,7 +3004,7 @@ function clickMove(e) {
 function snapCam() { const y = heightAt(me.x, me.z); cam.tx = me.x; cam.ty = y + 1.6; cam.tz = me.z; cam.px = me.x - Math.sin(cam.yaw) * cam.dist; cam.py = y + 6; cam.pz = me.z - Math.cos(cam.yaw) * cam.dist; }
 function updateCamera(dt) {
   let tx, ty, tz, px, py, pz;
-  if (S.mode === 'lobby') {
+  if (S.mode === 'club' || S.mode === 'cine') {
     const c = lobbyCamera(dt); camera.position.set(c.px, c.py, c.pz); camera.lookAt(c.tx, c.ty, c.tz); cam.px = c.px; cam.py = c.py; cam.pz = c.pz; cam.tx = c.tx; cam.ty = c.ty; cam.tz = c.tz;
     sun.position.set(LB.x + 40, 80, LB.z + 25); sun.target.position.set(LB.x, EDGE_H, LB.z); return;
   }
@@ -2761,7 +3075,7 @@ function updateCamera(dt) {
 
 // ================= 위치 전송 =================
 function sendPos(force) {
-  if (!NET.ch || S.mode === 'lobby' || S.mode === 'range') return;
+  if (!NET.ch || S.mode === 'club' || S.mode === 'cine' || S.mode === 'range') return;
   const yaw = ((me.yaw % TAU) + TAU) % TAU;
   const bv = S.ballVis && S.ball.state === 'rest' ? 1 : 0;
   const dn = S.scores.filter(x => x != null).length;
@@ -2878,7 +3192,7 @@ function frame() {
 
   // 내 이동
   if (S.mode !== 'ride' && S.mode !== 'eat') me.anim = 0;
-  if (S.mode === 'walk' || S.mode === 'wait' || (S.mode === 'flight' && me.swingT === 0)) {
+  if (S.mode === 'walk' || S.mode === 'club' || S.mode === 'wait' || (S.mode === 'flight' && me.swingT === 0)) {
     let vx = 0, vz = 0;
     const fx = Math.sin(cam.yaw), fz = Math.cos(cam.yaw), rx = -fz, rz = fx;
     if (keys.has('w') || keys.has('arrowup')) { vx += fx; vz += fz; }
@@ -2886,8 +3200,8 @@ function frame() {
     if (keys.has('d') || keys.has('arrowright')) { vx += rx; vz += rz; }
     if (keys.has('a') || keys.has('arrowleft')) { vx -= rx; vz -= rz; }
     if (cam.focus && (vx || vz)) { vx = vz = 0; }
-    if (vx || vz) { me.moveT = null; $('help').classList.add('off'); }
-    else if (me.moveT) { const dx = me.moveT[0] - me.x, dz = me.moveT[1] - me.z, d = Math.hypot(dx, dz); if (d < .25) me.moveT = null; else { vx = dx / d; vz = dz / d; } }
+    if (vx || vz) { me.moveT = null; me.path = null; $('help').classList.add('off'); }
+    else if (me.moveT) { const dx = me.moveT[0] - me.x, dz = me.moveT[1] - me.z, d = Math.hypot(dx, dz); if (d < .25) me.moveT = me.path && me.path.length ? me.path.shift() : null; else { vx = dx / d; vz = dz / d; } }
     const l = Math.hypot(vx, vz);
     if (l > 0) {
       vx /= l; vz /= l; if (me.tipsy > 0) { const w = Math.sin(performance.now() / 260) * .55; const nx = vx - vz * w, nz = vz + vx * w, nl = Math.hypot(nx, nz); vx = nx / nl; vz = nz / nl; } const sp = 6.5 * dt;
@@ -3011,7 +3325,7 @@ function enterGame() {
   me.tag.querySelector('.nm').textContent = NET.nick;
   audio(); startAmbience(); setMaster(true);
   resetRound(false);
-  startLobby();
+  startClubAt('outside');
   updChannelBadge(); resize();
   if (!running) { running = true; clock.getDelta(); requestAnimationFrame(frame); }
   if (window.innerWidth < 640) $('help').textContent = '드래그: 시점 · 땅 탭: 걷기 · 두 손가락: 확대';

@@ -78,17 +78,18 @@
     <div class="aimtip" id="aimTip" hidden>◀ 라인을 끌어서 옮기세요 ▶</div>
   </div>
   <div class="fade" id="fade"></div>
+  <div class="clubtitle" id="clubTitle" hidden><b>CARROT COUNTRY CLUB</b><span>EST. 2026 · PRIVATE GOLF CLUB</span><p>“당근 컨트리클럽에 오신 것을 환영합니다.”</p></div>
   <section class="lobbyui" id="lobbyUI" hidden aria-live="polite">
     <div class="lb-box">
       <span class="lb-name" id="lbName">프론트 토끼 매니저</span>
       <p class="lb-say" id="lbSay"></p>
       <div class="lb-btns" id="lbBtns"></div>
     </div>
-    <button type="button" class="ghost lb-skip" id="lbSkip">바로 티업 ▸</button>
   </section>
+  <button type="button" class="ghost lb-skip" id="lbSkip" hidden>건너뛰기 ▸</button>
 
   <div class="hud tl">
-    <button class="brand" id="toLobby" title="클럽하우스로 나가기"><svg viewBox="0 0 40 52" aria-hidden="true"><g fill="#3f9a4e"><path d="M20 16C17 9 16 4 17 1c3 3 5 8 4 15z"/><path d="M19 17c-5-3-9-5-12-9 5 0 9 3 13 8z"/><path d="M21 17c4-4 8-6 12-8-5-1-9 2-13 7z"/></g><path fill="#f08a2f" d="M8 22c0-6 24-6 24 0 0 10-7 22-11 29-1 1-2 1-3 0-4-7-10-19-10-29z"/><circle cx="16" cy="26" r="1.8" fill="#2a1a10"/><circle cx="24" cy="26" r="1.8" fill="#2a1a10"/></svg>당근 CC</button>
+    <button class="brand" id="toLobby" title="메뉴 (클럽하우스 · 정문)" aria-label="메뉴 열기"><svg viewBox="0 0 40 52" aria-hidden="true"><g fill="#3f9a4e"><path d="M20 16C17 9 16 4 17 1c3 3 5 8 4 15z"/><path d="M19 17c-5-3-9-5-12-9 5 0 9 3 13 8z"/><path d="M21 17c4-4 8-6 12-8-5-1-9 2-13 7z"/></g><path fill="#f08a2f" d="M8 22c0-6 24-6 24 0 0 10-7 22-11 29-1 1-2 1-3 0-4-7-10-19-10-29z"/><circle cx="16" cy="26" r="1.8" fill="#2a1a10"/><circle cx="24" cy="26" r="1.8" fill="#2a1a10"/></svg>당근 CC</button>
     <div class="holecard">
       <div class="holeno" id="holeNo">1</div>
       <div class="holemeta"><span class="nm" id="holeName"></span><span class="pr" id="holePar"></span><span class="pr" id="holeDist"></span></div>
@@ -102,6 +103,7 @@
     <div class="row"><span class="chbadge" id="chBadge">혼자 라운딩</span><button type="button" class="who" id="nick" title="이름표 바꾸기"></button></div>
     <div class="row"><button class="ghost" id="sound" aria-pressed="true">소리 켬</button><button class="ghost" id="cardBtn" aria-expanded="false">스코어카드</button></div>
     <div class="row"><button class="ghost" id="goShadeBtn">그늘집 가기</button><button class="ghost" id="goWCBtn">화장실 가기</button></div>
+    <div class="row"><button class="ghost exit-btn" id="exitBtn" title="클럽하우스 · 정문으로 나가기">🏛️ 나가기</button></div>
     <div class="row"><button class="ghost clip-btn" id="clipBtn" aria-expanded="false" hidden>하이라이트 <b id="clipN">0</b></button><button class="ghost people-btn" id="peopleBtn" aria-expanded="false">같이 치는 사람 <b id="peopleN">1</b></button></div>
     <canvas id="minimap" width="300" height="300" aria-label="이번 홀 지도"></canvas>
     <span class="mm-cap">지도를 누르면 크게 보여요</span>
@@ -168,8 +170,9 @@
   <div class="card">
     <span class="eyebrow">만든 사람</span>
     <h2 id="creditTitle">딴짓연구소</h2>
-    <p>당근 컨트리클럽을 만든 딴짓연구소예요. 온라인 산사에서 영감을 받아, 말없이 공만 치다 쉬어가는 골프장을 만들었어요. 새 홀 소식과 재밌는 장면은 인스타그램에 올려요.</p>
+    <p>당근 컨트리클럽을 만든 딴짓연구소예요. 온라인 산사에서 영감을 받아, 말없이 공만 치다 쉬어가는 골프장을 만들었어요. 새 홀 소식과 재밌는 장면은 인스타그램과 스레드에 올려요.</p>
     <a class="btn insta" href="https://www.instagram.com/ttanjit.lab" target="_blank" rel="noopener">인스타그램 @ttanjit.lab</a>
+    <a class="btn threads" href="https://www.threads.com/@ttanjit.lab" target="_blank" rel="noopener">스레드 @ttanjit.lab</a>
     <p class="credit-small">© 2026 딴짓연구소. All rights reserved.</p>
     <button class="btn" type="button" id="creditClose">닫기</button>
   </div>
