@@ -75,4 +75,17 @@ GitHub 저장소에서 파일을 수정(연필 아이콘)하거나 새로 업로
 - 서버는 접속당 초당 메시지 수를 제한하고, 이상한 값은 무시해요.
 - 접속 현황은 `https://내주소/api/status`에서 숫자로 볼 수 있어요.
 - 서버 한 대로 동시접속 수천 명까지는 무난해요. 산사처럼 하루 수십만 명이 몰리면 Render 플랜을 올리거나 서버를 나누는 작업이 필요해요.
-- 베스트 기록은 각자 브라우저에만 저장돼요. 랭킹을 만들려면 데이터베이스(예: Supabase)를 붙이면 돼요.
+- 베스트 기록과 락커에서 고른 옷, 드라이빙 레인지 최고 비거리는 각자 브라우저에 저장돼요.
+
+## 5. 명예의 전당이 지워지지 않게 하기 (한 번만 설정)
+
+Render 무료 플랜은 재배포·재시작 때 서버 안의 파일이 지워져요. 그래서 홀인원 기록을 내 GitHub 계정의 **비공개 Gist** 하나에 같이 저장해요.
+
+1. GitHub → 오른쪽 위 프로필 → **Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token**
+2. 이름 `carrot-cc-hof`, 만료일은 넉넉히(예: 1년), **Repository access: Public repositories (read-only)** 그대로 두기
+3. **Account permissions → Gists → Read and write** 만 켜고 **Generate token** → 나온 값 복사
+4. Render 대시보드 → carrot-cc → **Environment → Add Environment Variable**
+   - Key: `GITHUB_TOKEN`, Value: 방금 복사한 값 → **Save Changes** (자동으로 다시 배포돼요)
+5. 배포 로그에 `명예의 전당 Gist 연결됨` 이 보이면 끝. 이후 기록은 재배포해도 계속 누적돼요.
+
+토큰을 안 넣어도 게임은 똑같이 돌아가고, 서버가 재시작되기 전까지는 기록이 쌓여요.

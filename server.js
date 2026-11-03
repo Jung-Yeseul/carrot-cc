@@ -16,21 +16,67 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const BOOT_VERSION = Date.now().toString(36);
 
 // ---- 명예의 전당 (홀인원 기록) ----
-// data/hof.json에 저장해요. Render 무료 플랜은 재배포·재시작 때 파일이 지워질 수 있어요.
+// 기록은 계속 누적돼요. 서버 안의 data/hof.json에도 저장하지만, Render 무료 플랜은 재배포·재시작 때
+// 이 파일이 지워져요. 그래서 환경변수 GITHUB_TOKEN(Gists 읽기·쓰기 권한)이 있으면
+// 내 GitHub 계정의 비공개 Gist 하나("carrot-cc hall of fame")에 백업하고, 서버가 켜질 때 거기서 다시 불러와요.
 const HOF_FILE = path.join(__dirname, 'data', 'hof.json');
+const GH_TOKEN = process.env.GITHUB_TOKEN || '';
+const GIST_DESC = 'carrot-cc hall of fame';
 let HOF = [];
 try { HOF = JSON.parse(fs.readFileSync(HOF_FILE, 'utf8')); if (!Array.isArray(HOF)) HOF = []; } catch { HOF = []; }
-function saveHof() { fs.mkdir(path.dirname(HOF_FILE), { recursive: true }, () => fs.writeFile(HOF_FILE, JSON.stringify(HOF.slice(-1000)), () => {})); }
+let gistId = process.env.HOF_GIST_ID || '', gistTimer = null, gistReady = false;
+const gh = (p, opt = {}) => fetch('https://api.github.com' + p, { ...opt, headers: { Authorization: 'Bearer ' + GH_TOKEN, Accept: 'application/vnd.github+json', 'User-Agent': 'carrot-cc', 'Content-Type': 'application/json' } }).then(r => { if (!r.ok) throw new Error('GitHub ' + r.status); return r.json(); });
+const hofKey = e => `${e.at}|${e.nick}|${e.h}`;
+function mergeHof(list) {
+  if (!Array.isArray(list)) return;
+  const seen = new Set(HOF.map(hofKey));
+  for (const e of list) if (e && typeof e.at === 'number' && !seen.has(hofKey(e))) { HOF.push({ nick: String(e.nick).slice(0, 12), h: e.h | 0, at: e.at, c: e.c ? 1 : 0 }); seen.add(hofKey(e)); }
+  HOF.sort((a, b) => a.at - b.at);
+}
+async function loadGist() {
+  if (!GH_TOKEN) return;
+  try {
+    if (!gistId) {
+      for (let page = 1; page <= 5 && !gistId; page++) {
+        const list = await gh(`/gists?per_page=100&page=${page}`);
+        const g = list.find(x => x.description === GIST_DESC); if (g) gistId = g.id;
+        if (list.length < 100) break;
+      }
+    }
+    if (gistId) {
+      const g = await gh('/gists/' + gistId), f = g.files && g.files['hof.json'];
+      let txt = f && f.content; if (f && f.truncated && f.raw_url) txt = await (await fetch(f.raw_url)).text();
+      mergeHof(JSON.parse(txt || '[]'));
+    } else {
+      const g = await gh('/gists', { method: 'POST', body: JSON.stringify({ description: GIST_DESC, public: false, files: { 'hof.json': { content: JSON.stringify(HOF) } } }) });
+      gistId = g.id;
+    }
+    gistReady = true; console.log(`명예의 전당 Gist 연결됨 (${HOF.length}개 기록)`);
+    saveHof(); broadcastHof();
+  } catch (err) { console.log('명예의 전당 Gist 연결 실패:', err.message); setTimeout(loadGist, 60000); }
+}
+function saveHof() {
+  fs.mkdir(path.dirname(HOF_FILE), { recursive: true }, () => fs.writeFile(HOF_FILE, JSON.stringify(HOF), () => {}));
+  if (!GH_TOKEN || !gistReady) return;
+  clearTimeout(gistTimer);
+  gistTimer = setTimeout(() => gh('/gists/' + gistId, { method: 'PATCH', body: JSON.stringify({ files: { 'hof.json': { content: JSON.stringify(HOF) } } }) }).catch(err => console.log('Gist 저장 실패:', err.message)), 2000);
+}
+function broadcastHof() { const board = JSON.stringify(hofPayload()); for (const q of sockets) send(q.ws, board); }
 const kstDay = ts => new Date(ts + 9 * 3600e3).toISOString().slice(0, 10);
 function hofPayload() {
   const today = kstDay(Date.now());
-  return { t: 'hof', today: HOF.filter(e => kstDay(e.at) === today).length, total: HOF.length, list: HOF.slice(-30).reverse() };
+  return { t: 'hof', today: HOF.filter(e => kstDay(e.at) === today).length, total: HOF.length, list: HOF.slice(-30).reverse(), top: hofTop() };
+}
+function hofTop() {
+  const m = new Map(); for (const e of HOF) m.set(e.nick, (m.get(e.nick) || 0) + 1);
+  return [...m].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([nick, n]) => ({ nick, n }));
 }
 
 const ADJ = ['아삭한', '주황빛', '느긋한', '조용한', '바람같은', '침착한', '오늘도', '은은한', '흔들리는', '한가로운', '산뜻한', '나른한', '포근한', '단단한'];
 const NOUN = ['버디', '이글', '퍼터', '캐디', '티샷', '디봇', '당근', '파세이브', '그린', '페어웨이', '드라이버', '웨지', '티박스'];
 const COLORS = ['#f2c14e', '#f78154', '#5fad56', '#4d9de0', '#b07bd8', '#e15a97', '#3bc4b4', '#ffd166'];
 const EMOTES = 6; // 클라이언트 EMOTES 목록 길이와 맞춰주세요
+const LOOK_HATS = 8, LOOK_TOPS = 5; // 클라이언트 HATS, TOPS 개수와 맞추기
 const HOLES = 9;   // 클라이언트 HOLES 개수와 맞추기
 const XY = 1300;  // 좌표 범위 (코스 ±120 유닛 × 10, 여유 포함)
 
@@ -83,7 +129,7 @@ function nickname() {
 function counts() { return channels.slice(1).map(m => m.size); }
 function total() { return sockets.size; }
 function lobbyPayload() { return { t: 'lobby', total: total(), cap: CAPACITY, ch: counts() }; }
-function publicPlayer(p) { return { id: p.id, nick: p.nick, color: p.color, h: p.h, x: p.x, z: p.z, r: p.r, a: p.a, bx: p.bx, bz: p.bz, bv: p.bv, st: p.st, sc: p.sc, dn: p.dn }; }
+function publicPlayer(p) { return { id: p.id, nick: p.nick, color: p.color, h: p.h, x: p.x, z: p.z, r: p.r, a: p.a, bx: p.bx, bz: p.bz, bv: p.bv, st: p.st, sc: p.sc, dn: p.dn, lk: p.lk }; }
 
 function send(ws, msg) { if (ws.readyState === 1) ws.send(typeof msg === 'string' ? msg : JSON.stringify(msg)); }
 function toChannel(ch, msg, exceptId) {
@@ -182,6 +228,14 @@ wss.on('connection', (ws) => {
         toChannel(p.ch, { t: 'pos', id: p.id, h, x, z, r, a, bx, bz, bv: p.bv, st, sc, dn }, p.id);
         break;
       }
+      case 'look': {
+        // 락커에서 고른 옷: [모자 색, 옷 종류]
+        const hat = int(Array.isArray(m.lk) ? m.lk[0] : null, 0, LOOK_HATS - 1), top = int(Array.isArray(m.lk) ? m.lk[1] : null, 0, LOOK_TOPS - 1);
+        const now = Date.now(); if (hat === null || top === null || now - (p.lastLook || 0) < 300) return;
+        p.lastLook = now; p.lk = [hat, top];
+        if (p.ch) toChannel(p.ch, { t: 'look', id: p.id, lk: p.lk }, p.id);
+        break;
+      }
       case 'emo': {
         if (!p.ch) return;
         const e = int(m.e, 0, EMOTES - 1);
@@ -223,4 +277,4 @@ setInterval(() => {
   for (const p of sockets) if (p.ch) send(p.ws, t);
 }, 3000);
 
-server.listen(PORT, () => console.log(`당근 CC 개장: http://localhost:${PORT}  (채널 ${CHANNELS}개 × 정원 ${CAPACITY}명)`));
+server.listen(PORT, () => { console.log(`당근 CC 개장: http://localhost:${PORT}  (채널 ${CHANNELS}개 × 정원 ${CAPACITY}명)`); loadGist(); });

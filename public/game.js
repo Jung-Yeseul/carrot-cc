@@ -230,6 +230,7 @@ function onMsg(m) {
       NET.ch = m.ch; NET.cap = m.cap; NET.wantCh = 0; clearOthers();
       try { if (location.hash !== '#ch' + m.ch) history.replaceState(null, '', '#ch' + m.ch); } catch {}
       for (const p of m.players) addOther(p);
+      if (myLook) sendNet({ t: 'look', lk: myLook });
       if (pendingJoin) { clearTimeout(pendingJoin); pendingJoin = 0; enterGame(); } else feed(`${m.ch}채널에 다시 들어왔어요`);
       updChannelBadge(); break;
     case 'enter': addOther(m.p); feed(`${m.p.nick} 님이 티업했어요`); updChannelBadge(); break;
@@ -242,6 +243,7 @@ function onMsg(m) {
       break;
     }
     case 'emo': { const o = NET.others.get(m.id); if (!o) return; showBubble(o, EMOTES[m.e]); o.jump = 1; break; }
+    case 'look': { const o = NET.others.get(m.id); if (!o || !Array.isArray(m.lk) || !HATS[m.lk[0]] || !TOPS[m.lk[1]]) return; o.lk = m.lk; if (o.av) { applyLook(o.av, o.lk, o.color); o.jump = 1; } break; }
     case 'res': {
       const name = m.one ? '홀인원' : ({ '-1': '버디', '-2': '이글', '-3': '알바트로스', '-4': '콘도르' })[m.d] || '파';
       feed(`${m.nick} 님 ${m.h + 1}번 홀 ${name}! 축하해 주세요`);
@@ -389,9 +391,40 @@ function makeCarrot(visor) {
   const shaft = new T.Mesh(new T.CylinderGeometry(.025, .025, 1.25, 6), mat(0x8a918a)); shaft.position.y = -.62; club.add(shaft);
   const head = new T.Mesh(new T.BoxGeometry(.12, .1, .26), mat(0x5d635d)); head.position.set(0, -1.25, .08); club.add(head);
   club.rotation.set(.15, 0, .2);
-  g.userData = { club, body: [body, top], cheeks };
+  g.userData = { club, body: [body, top], cheeks, vis, outfit: null };
   return g;
 }
+// ---- 락커: 모자 색과 옷 ----
+const HATS = [['흰색', '#ffffff'], ['당근', '#ff8a2a'], ['빨강', '#e0453a'], ['핑크', '#ff8fb8'], ['하늘', '#5ab4f0'], ['초록', '#3f9a4e'], ['노랑', '#ffd23f'], ['검정', '#2b2b2b']]; // 서버 LOOK_HATS와 개수 맞추기
+const TOPS = ['기본', '폴로 셔츠', '니트 조끼', '턱시도', '하와이안']; // 서버 LOOK_TOPS와 개수 맞추기
+let myLook = (() => { try { const v = JSON.parse(localStorage.getItem('carrotLook')); if (Array.isArray(v) && v[0] >= 0 && v[0] < HATS.length && v[1] >= 0 && v[1] < TOPS.length) return v; } catch {} return null; })();
+function saveLook() { try { localStorage.setItem('carrotLook', JSON.stringify(myLook)); } catch {} sendNet({ t: 'look', lk: myLook }); }
+const TOP_TEX = {};
+function topTexture(i) {
+  if (TOP_TEX[i]) return TOP_TEX[i];
+  // 원기둥 텍스처의 가운데(w/2)가 몸 앞쪽에 오도록 offset을 줘요
+  const tx = textTexture(512, 128, (c, w, h) => {
+    if (i === 1) { c.fillStyle = '#f7f7f2'; c.fillRect(0, 0, w, h); c.fillStyle = '#2b4e8c'; c.fillRect(0, h - 22, w, 10); c.fillStyle = '#e9711f'; c.fillRect(0, h - 10, w, 6); c.fillStyle = '#d8d8d0'; c.fillRect(w / 2 - 5, 0, 10, 52); c.fillStyle = '#9a9a92'; for (const y of [14, 32]) { c.beginPath(); c.arc(w / 2, y, 4, 0, TAU); c.fill(); } }
+    if (i === 2) { c.fillStyle = '#f1e6cc'; c.fillRect(0, 0, w, h); for (let k = 0; k < 9; k++) { const x = k * 64; c.fillStyle = k % 2 ? '#c8463a' : '#2e5e36'; c.beginPath(); c.moveTo(x, h / 2 - 50); c.lineTo(x + 32, h / 2); c.lineTo(x, h / 2 + 50); c.lineTo(x - 32, h / 2); c.fill(); } c.strokeStyle = '#d9b45a'; c.lineWidth = 3; for (let k = -2; k < 20; k++) { c.beginPath(); c.moveTo(k * 32, 0); c.lineTo(k * 32 + h, h); c.moveTo(k * 32 + h, 0); c.lineTo(k * 32, h); c.stroke(); } c.fillStyle = '#2e5e36'; c.fillRect(0, h - 12, w, 12); }
+    if (i === 3) { c.fillStyle = '#1d1d22'; c.fillRect(0, 0, w, h); c.fillStyle = '#ffffff'; c.beginPath(); c.moveTo(w / 2 - 46, 0); c.lineTo(w / 2 + 46, 0); c.lineTo(w / 2, h); c.fill(); c.fillStyle = '#1d1d22'; for (const y of [44, 72, 98]) { c.beginPath(); c.arc(w / 2, y, 4, 0, TAU); c.fill(); } }
+    if (i === 4) { c.fillStyle = '#2aa3c9'; c.fillRect(0, 0, w, h); const R = rng(4); for (let k = 0; k < 22; k++) { const x = R() * w, y = R() * h, r = 9 + R() * 8; c.fillStyle = ['#ffd23f', '#ff6f91', '#ffffff'][k % 3]; for (let a = 0; a < 5; a++) { c.beginPath(); c.arc(x + Math.cos(a * 1.26) * r * .7, y + Math.sin(a * 1.26) * r * .7, r * .5, 0, TAU); c.fill(); } c.fillStyle = '#e9711f'; c.beginPath(); c.arc(x, y, r * .3, 0, TAU); c.fill(); } c.fillStyle = '#1b6f8a'; c.fillRect(w / 2 - 2, 0, 4, h); }
+  });
+  tx.wrapS = T.RepeatWrapping; tx.offset.x = .5; TOP_TEX[i] = tx; return tx;
+}
+function applyLook(av, lk, fallback) {
+  const ud = av.userData; if (!ud) return;
+  const col = new T.Color(lk ? HATS[lk[0]][1] : fallback || '#ffffff');
+  if (ud.vis) { ud.vis.color.copy(col); ud.vis.emissive.copy(col).multiplyScalar(.25); }
+  if (ud.outfit) { av.remove(ud.outfit); ud.outfit = null; }
+  const top = lk ? lk[1] : 0; if (!top) return;
+  const o = new T.Group(), r = y => .6 * (y - .2) / 1.7 + .03;
+  const shirt = new T.Mesh(new T.CylinderGeometry(r(1.4), r(.9), .5, 24, 1, true), new T.MeshLambertMaterial({ map: topTexture(top), side: T.DoubleSide }));
+  shirt.position.y = 1.15; o.add(shirt);
+  if (top === 1) for (const s of [-1, 1]) { const cl = new T.Mesh(new T.BoxGeometry(.2, .03, .14), mat(0xf7f7f2)); cl.position.set(s * .1, 1.41, .42); cl.rotation.set(-.5, s * .5, s * .35); o.add(cl); }
+  if (top === 3) { const bm = mat(0xd2442c); const k = new T.Mesh(new T.BoxGeometry(.07, .07, .05), bm); k.position.set(0, 1.36, .45); o.add(k); for (const s of [-1, 1]) { const w = new T.Mesh(new T.ConeGeometry(.07, .12, 4), bm); w.rotation.z = s * Math.PI / 2; w.position.set(s * .08, 1.36, .44); o.add(w); } }
+  av.add(o); ud.outfit = o;
+}
+
 function makeCaddie() {
   const g = new T.Group(); const fur = mat(0xf4f1ea, { emissive: 0x3a3a36 }), vest = mat(0x2e7a3f, { emissive: 0x0c2a12 }), pink = mat(0xf2b5b5), dark = mat(0x222222), orange = mat(0xe9711f, { emissive: 0x5a2400 });
   const body = new T.Mesh(new T.SphereGeometry(.38, 12, 10), fur); body.scale.set(1, 1.2, .9); body.position.y = .62; body.castShadow = true; g.add(body);
@@ -489,7 +522,7 @@ function build() {
   const top = new T.Color(0x7fb9e3), hor = new T.Color(0xe3f0ea);
   for (let i = 0; i < pos.count; i++) { const t = clamp(pos.getY(i) / 600, 0, 1) ** .6; const c = hor.clone().lerp(top, t); cols.push(c.r, c.g, c.b); }
   skyGeo.setAttribute('color', new T.Float32BufferAttribute(cols, 3));
-  scene.add(new T.Mesh(skyGeo, new T.MeshBasicMaterial({ vertexColors: true, side: T.BackSide, fog: false })));
+  skyMesh = new T.Mesh(skyGeo, new T.MeshBasicMaterial({ vertexColors: true, side: T.BackSide, fog: false })); scene.add(skyMesh);
 
   // 빛
   scene.add(new T.HemisphereLight(0xe8f4ff, 0x56743d, .55));
@@ -629,7 +662,7 @@ function build() {
   moveRing = new T.Mesh(new T.RingGeometry(.4, .6, 24), new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false })); moveRing.rotation.x = -Math.PI / 2; scene.add(moveRing);
 
   // 나
-  me.av = makeCarrot('#ffffff'); scene.add(me.av);
+  me.av = makeCarrot('#ffffff'); scene.add(me.av); applyLook(me.av, myLook, '#ffffff');
   me.tag = makeTag(NET.nick || '나', true);
 
   // 토끼
@@ -742,12 +775,12 @@ function showBubble(o, text) {
 // ---- 다른 사람 ----
 function addOther(p) {
   if (NET.others.has(p.id)) removeOther(p.id);
-  const o = { st: p.st || 0, sc: p.sc || 0, dn: p.dn || 0, id: p.id, nick: p.nick, color: p.color, x: (p.x || 0) / 10, z: (p.z || 0) / 10, tx: (p.x || 0) / 10, tz: (p.z || 0) / 10, yaw: 0, tyaw: (p.r || 0) / 10, a: p.a || 0, h: p.h || 0, bx: 0, bz: 0, bv: 0, seen: !!p.x, ph: 0, jump: 0 };
+  const o = { st: p.st || 0, sc: p.sc || 0, dn: p.dn || 0, id: p.id, nick: p.nick, color: p.color, x: (p.x || 0) / 10, z: (p.z || 0) / 10, tx: (p.x || 0) / 10, tz: (p.z || 0) / 10, yaw: 0, tyaw: (p.r || 0) / 10, a: p.a || 0, h: p.h || 0, bx: 0, bz: 0, bv: 0, seen: !!p.x, ph: 0, jump: 0, lk: Array.isArray(p.lk) ? p.lk : null };
   if (built) attachOther(o);
   NET.others.set(p.id, o);
 }
 function attachOther(o) {
-  o.av = makeCarrot(o.color); o.av.position.set(o.x, 0, o.z); scene.add(o.av);
+  o.av = makeCarrot(o.color); o.av.position.set(o.x, 0, o.z); scene.add(o.av); if (o.lk) applyLook(o.av, o.lk, o.color);
   o.tag = makeTag(o.nick, false);
   o.ball = new T.Mesh(new T.SphereGeometry(.2, 10, 8), new T.MeshLambertMaterial({ color: new T.Color(o.color) })); o.ball.castShadow = true; o.ball.visible = false; scene.add(o.ball);
 }
@@ -924,6 +957,7 @@ function updActions() {
   if (S.mode === 'walk') key = `walk${S.ball.state}${near}${inShade}${nearRR}${S.mulligans && S.prev ? 1 : 0}${okReady() ? 1 : 0}${S.okTix}${S.ballVis}`;
   else if (S.mode !== 'aim') key = S.mode;
   if (S.mode === 'ride') key = 'ride';
+  if (S.mode === 'range') key = `range${RG.club}`;
   if (key === lastActKey) return; lastActKey = key;
   const a = $('actions'); let html = '';
   if (S.mode === 'aim') {
@@ -945,6 +979,11 @@ function updActions() {
     if (S.ball.state === 'rest' && S.ballVis) html += '<button class="act sub" id="pickBtn">홀아웃</button>';
   }
   if (S.mode === 'ride') html = '<button class="act sub" id="skipRide">바로 내리기</button>';
+  if (S.mode === 'range') html = `<button class="act sub round" id="aL" aria-label="왼쪽으로">◀</button>
+      <button class="act swing" id="swing">누르고 있다가 떼기</button>
+      <button class="act sub round" id="aR" aria-label="오른쪽으로">▶</button>
+      <button class="act sub" id="rClub">${CLUBS[RG.club].name} ▸</button>
+      <button class="act" id="rTee">1번 홀로 가기</button>`;
   if (S.mode === 'eat') html = '<button class="act sub" id="eatDone">다 먹었어요</button>';
   if (S.mode === 'flight') html = '<button class="act sub" id="skipFlight">공 멈춘 곳 바로 보기 ▸▸</button>';
   a.innerHTML = html;
@@ -952,10 +991,12 @@ function updActions() {
   on('skipRide', skipRide); on('eatDone', () => { EAT.t = EAT_SEC; }); on('skipFlight', skipFlight); on('ready', enterAim); on('goBall', walkToBall); on('cartBall', () => cartTo(S.ball.x, S.ball.z, true)); on('warpBall', warpToBall); on('menuBtn', showShade); on('mull', mulligan); on('okBtn', useOk); on('pickBtn', pickUp);
   on('wcM', () => useRestroom('m')); on('wcW', () => useRestroom('w'));
   on('cancel', exitAim); on('clubBtn', () => { S.club = (S.club + 1) % 4; S.clubAuto = false; lastActKey = ''; clearChance('클럽을 바꿔서 캐디 찬스가 풀렸어요'); }); on('chanceBtn', caddieChance); on('lieBtn', toggleLie);
-  const hold = (id, d) => { const el = $(id); if (!el) return; let iv = 0; const stop = () => clearInterval(iv); el.onpointerdown = e => { e.preventDefault(); iv = setInterval(() => { S.aimYaw += d * .012; }, 16); }; el.onpointerup = stop; el.onpointerleave = stop; el.onpointercancel = stop; };
+  on('rClub', () => { RG.club = (RG.club + 1) % 3; rangeHud(); lastActKey = ''; }); on('rTee', leaveRange);
+  const hold = (id, d) => { const el = $(id); if (!el) return; let iv = 0; const stop = () => clearInterval(iv); el.onpointerdown = e => { e.preventDefault(); iv = setInterval(() => { if (S.mode === 'range') RG.yaw = clamp(RG.yaw + d * .008, -.6, .6); else S.aimYaw += d * .012; }, 16); }; el.onpointerup = stop; el.onpointerleave = stop; el.onpointercancel = stop; };
   hold('aL', 1); hold('aR', -1);
   const sw = $('swing');
-  if (sw) { sw.onpointerdown = e => { e.preventDefault(); try { sw.setPointerCapture(e.pointerId); } catch {} startCharge(); }; sw.onpointerup = e => { e.preventDefault(); releaseCharge(); }; sw.onpointercancel = () => { S.charge = false; swingLabel(); }; }
+  if (sw && S.mode === 'range') { sw.onpointerdown = e => { e.preventDefault(); try { sw.setPointerCapture(e.pointerId); } catch {} rangeCharge(true); }; sw.onpointerup = e => { e.preventDefault(); rangeCharge(false); }; sw.onpointercancel = () => { RG.charge = false; }; }
+  else if (sw) { sw.onpointerdown = e => { e.preventDefault(); try { sw.setPointerCapture(e.pointerId); } catch {} startCharge(); }; sw.onpointerup = e => { e.preventDefault(); releaseCharge(); }; sw.onpointercancel = () => { S.charge = false; swingLabel(); }; }
 }
 
 // ================= 이동 =================
@@ -966,7 +1007,7 @@ function canStand(x, z) {
   if (x > RR.x - 2.7 && x < RR.x + 2.7 && z > RR.z - 3.9 && z < RR.z + 3.9) return false; // 화장실 건물
   return true;
 }
-$('lbSkip') && ($('lbSkip').onclick = () => leaveLobby());
+$('lbSkip') && ($('lbSkip').onclick = () => leaveLobby('tee'));
 // 공 있는 곳으로 순간이동 (뿅!)
 function warpToBall() {
   if (S.mode !== 'walk' || S.ball.state !== 'rest') return;
@@ -1718,11 +1759,13 @@ function storyCard() {
 }
 
 // ================= 명예의 전당 =================
-function relTime(at) { const m = Math.round((Date.now() - at) / 60000); return m < 1 ? '방금' : m < 60 ? `${m}분 전` : m < 1440 ? `${Math.round(m / 60)}시간 전` : `${Math.round(m / 1440)}일 전`; }
+function relTime(at) { const m = Math.round((Date.now() - at) / 60000); if (m >= 1440 * 7) { const d = new Date(at); return `${d.getFullYear() % 100}.${d.getMonth() + 1}.${d.getDate()}`; } return m < 1 ? '방금' : m < 60 ? `${m}분 전` : m < 1440 ? `${Math.round(m / 60)}시간 전` : `${Math.round(m / 1440)}일 전`; }
 function renderHof() {
   const h = NET.hof; if (!h) return;
   document.querySelectorAll('.hofToday').forEach(e => e.textContent = h.today); document.querySelectorAll('.hofTotal').forEach(e => e.textContent = h.total);
-  const html = h.list.length ? h.list.slice(0, 20).map((e, i) => `<li><span class="rk">${i + 1}</span><span class="nm">${esc(e.nick)}<small>${(e.h | 0) + 1}번 홀${e.c ? ' · 캐디 찬스' : ''}</small></span><span class="tm">${relTime(e.at)}</span></li>`).join('')
+  const top = (h.top || []).filter(t => t.n > 1);
+  const topHtml = top.length ? `<li class="hof-top">${top.map((t, i) => `<span>${['🥇', '🥈', '🥉', '4위', '5위'][i]} ${esc(t.nick)} <b>${t.n}회</b></span>`).join('')}</li>` : '';
+  const html = h.list.length ? topHtml + h.list.slice(0, 20).map((e, i) => `<li><span class="rk">#${h.total - i}</span><span class="nm">${esc(e.nick)}<small>${(e.h | 0) + 1}번 홀${e.c ? ' · 캐디 찬스' : ''}</small></span><span class="tm">${relTime(e.at)}</span></li>`).join('')
     : '<li class="empty">아직 아무도 없어요. 첫 주인공이 되어보세요!</li>';
   document.querySelectorAll('.hof-list').forEach(e => e.innerHTML = html);
 }
@@ -2190,7 +2233,7 @@ function updateCritters(dt) {
 }
 
 // ================= 클럽하우스 로비 (입장 체크인) =================
-const LB = { x: 0, z: 520, built: false, step: 0, desk: null, staff: null, cad: null, key: null, walkT: null, camK: 0 };
+const LB = { x: 0, z: 520, built: false, view: 'desk', desk: null, staff: null, doors: null, doorOpen: 0, walkT: null, after: null };
 function buildLobby() {
   if (LB.built) return; LB.built = true;
   const g = new T.Group(), y0 = EDGE_H + .01; g.position.set(LB.x, y0, LB.z); LB.g = g;
@@ -2231,44 +2274,80 @@ function buildLobby() {
   for (const [x, z] of [[-8.6, 8.6], [8.6, 8.6], [-8.6, -8.4], [8.6, -8.4]]) { add(new T.CylinderGeometry(.45, .35, .8, 12), mat(0xb5653a), x, .4, z, true); const lf = add(new T.IcosahedronGeometry(.9, 0), mat(0x3f8a3f, { flatShading: true }), x, 1.5, z, true); lf.scale.y = 1.3; }
   for (const x of [-6.5, 6.5]) { const so = new T.Group(); so.position.set(x, 0, 2); g.add(so); const sm = mat(0x2e5e36); const base = new T.Mesh(new T.BoxGeometry(1.2, .5, 3), sm); base.position.y = .45; so.add(base); const back = new T.Mesh(new T.BoxGeometry(.3, .9, 3), sm); back.position.set(x < 0 ? -.55 : .55, .9, 0); so.add(back); }
   for (const [x, z] of [[-4, -2], [4, -2], [0, 4]]) { const ch = add(new T.SphereGeometry(.35, 12, 8), new T.MeshBasicMaterial({ color: 0xfff1c8 }), x, 6.2, z); const pl = new T.PointLight(0xffe2b0, .7, 16); pl.position.set(x, 5.8, z); g.add(pl); }
-  // 락커 키 (카운터 위에 놓여요)
-  const key = new T.Group(); const tag = new T.Mesh(new T.BoxGeometry(.32, .04, .2), mat(0xe9711f)); key.add(tag); const ring = new T.Mesh(new T.TorusGeometry(.08, .015, 6, 14), mat(0xd9b45a)); ring.rotation.x = Math.PI / 2; ring.position.x = -.22; key.add(ring);
-  key.position.set(.4, 1.3, .25); key.visible = false; desk.add(key); LB.key = key;
-  // 내 캐디
-  const cad = makeCaddie(); cad.position.set(8.5, 0, 6); cad.visible = false; g.add(cad); LB.cad = cad;
+  // 왼쪽 벽 락커 (가운데 하나는 문이 열려요)
+  const lockW = mat(0x6b4a2e), brass = mat(0xd9b45a, { emissive: 0x3a2a00 });
+  add(new T.BoxGeometry(.9, 2.7, 6.6), dark, -9.4, 1.35, -5.2, true);
+  LB.doors = [];
+  for (let i = 0; i < 6; i++) {
+    const z = -7.95 + i * 1.1, num = 101 + i;
+    const pivot = new T.Group(); pivot.position.set(-8.93, 1.35, z - .52); g.add(pivot);
+    const door = new T.Mesh(new T.BoxGeometry(.06, 2.5, 1.02), new T.MeshLambertMaterial({ map: textTexture(64, 160, (c, w, h) => { c.fillStyle = '#7a5233'; c.fillRect(0, 0, w, h); c.strokeStyle = 'rgba(0,0,0,.25)'; c.lineWidth = 3; c.strokeRect(6, 6, w - 12, h - 12); c.fillStyle = 'rgba(0,0,0,.35)'; for (let k = 0; k < 4; k++) c.fillRect(16, 14 + k * 7, 32, 3); c.fillStyle = '#d9b45a'; c.fillRect(18, 52, 28, 16); c.fillStyle = '#3d2a08'; c.font = '700 13px sans-serif'; c.textAlign = 'center'; c.fillText(num, 32, 65); }) }));
+    door.position.z = .51; pivot.add(door);
+    const knob = new T.Mesh(new T.SphereGeometry(.05, 8, 6), brass); knob.position.set(.05, 0, .92); pivot.add(knob);
+    LB.doors.push(pivot);
+  }
+  // 열리는 락커 안: 옷걸이와 셔츠
+  const inside = new T.Group(); inside.position.set(-9.2, 0, -5.75); g.add(inside);
+  const bar = new T.Mesh(new T.CylinderGeometry(.02, .02, .9, 6), brass); bar.rotation.x = Math.PI / 2; bar.position.set(0, 2.25, 0); inside.add(bar);
+  for (const [dz, c] of [[-.25, 0x2aa3c9], [.05, 0xf7f7f2], [.3, 0x1d1d22]]) { const sh = new T.Mesh(new T.BoxGeometry(.12, .7, .26), mat(c)); sh.position.set(.05, 1.85, dz); inside.add(sh); }
+  // 거울 (락커 옆)
+  const mirror = add(new T.PlaneGeometry(1.4, 2.4), new T.MeshPhongMaterial({ color: 0xcfe3ea, shininess: 120, specular: 0xffffff }), -9.82, 1.6, -0.6); mirror.rotation.y = Math.PI / 2;
+  add(new T.BoxGeometry(.08, 2.6, 1.6), wood, -9.86, 1.6, -0.6);
+  // 바깥 연습장 안내판
+  const sign = new T.Mesh(new T.PlaneGeometry(2.2, .8), new T.MeshLambertMaterial({ map: textTexture(320, 116, (c, w, h) => { c.fillStyle = '#2e5e36'; c.fillRect(0, 0, w, h); c.fillStyle = '#f4e9cf'; c.font = `400 40px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('← 락커룸', w / 2, h / 2); }) }));
+  sign.position.set(-5.2, 4.2, -9.82); g.add(sign);
   scene.add(g);
 }
-const LOBBY_STEPS = () => {
-  const lk = 100 + (Math.abs([...(NET.nick || 'a')].reduce((a, c) => a * 31 + c.charCodeAt(0), 7)) % 899);
-  const h = NET.hof;
-  return [
-    { say: '어서 오세요~ 당근 컨트리클럽입니다! 오늘 예약하신 분 성함이 어떻게 되실까요?', btns: [[`${NET.nick} 으로 체크인`, 'next'], ['이름 바꿀래요', 'nick']] },
-    { say: `${NET.nick} 님, 확인됐습니다! 락커 키 ${lk}번 드릴게요. 잃어버리시면 당근 10개예요~`, btns: [['키 받기', 'next']], on: () => { LB.key.visible = true; tone(1400, .08, 'triangle', .1); tone(1800, .1, 'triangle', .08, .08); } },
-    { say: `오늘은 9홀, PAR ${TOTAL_PAR} 코스예요. 3번 악어 홀, 5번 보물찾기 홀, 6번 오리 홀이 인기 많아요. 멀리건·OK권은 그늘집에서 음식 사 드시면 받을 수 있어요!`, btns: [['코스 미리 보기', 'guide'], ['알겠어요', 'next']], on: () => { LB.key.visible = false; } },
-    { say: `${h && h.today ? `오늘 벌써 ${h.today}분이 홀인원 하셨어요. ` : '오늘은 아직 홀인원하신 분이 없어요. '}첫 주인공 되시면 저 벽 명예의 전당에 이름 올려드려요!`, btns: [['도전해 볼게요', 'next']] },
-    { say: '오늘 함께할 캐디는 토끼 캐디예요. 공 있는 데까지 카트로 모셔다 드릴 거예요!', btns: [['잘 부탁해요', 'next']], on: () => { LB.cad.visible = true; LB.cadWalk = 1; } },
-    { say: '그럼 1번 홀 단풍길로 안내해 드릴게요. 즐거운 라운딩 되세요~', btns: [['1번 홀로 출발!', 'go']] },
-  ];
-};
+// 클럽하우스: 인사 → [바로 티업 / 락커에서 옷 갈아입기 / 드라이빙 레인지]
+const LB_SPOT = { desk: [-.6, -3.3], locker: [-7.5, -4.2] };
+function lbShow(name, say, btns) {
+  $('lbName').textContent = name; typeSay(say);
+  $('lbBtns').className = 'lb-btns';
+  $('lbBtns').innerHTML = btns.map(([t, a, cls]) => `<button type="button" class="btn${cls ? ' ' + cls : ''}" data-a="${a}">${esc(t)}</button>`).join('');
+  $('lbBtns').querySelectorAll('[data-a]').forEach(b => b.onclick = () => lobbyAct(b.dataset.a));
+  if (LB.staff) LB.staff.userData.talk = 1.2;
+}
+function lobbyMenu(first) {
+  LB.view = 'desk';
+  const say = first ? `어서 오세요, ${NET.nick} 님! 당근 컨트리클럽입니다. 오늘은 어떻게 하실래요?` : ['잘 어울리세요! 이제 어디로 모실까요?', '오늘 룩 최고예요~ 어디로 가실래요?'][Math.random() * 2 | 0];
+  lbShow('프론트 토끼 매니저', say, [['바로 티업', 'tee'], ['락커에서 옷 갈아입기', 'locker', 'sub'], ['드라이빙 레인지', 'range', 'sub'], ['이름 바꾸기', 'nick', 'link']]);
+}
+function lobbyAct(a) {
+  tone(660, .05, 'square', .04);
+  if (a === 'tee') { lbShow('프론트 토끼 매니저', '1번 홀 단풍길로 모실게요. 즐거운 라운딩 되세요~', []); setTimeout(() => leaveLobby('tee'), 700); }
+  else if (a === 'range') { lbShow('프론트 토끼 매니저', '드라이빙 레인지는 이쪽이에요. 몸 풀고 오세요!', []); setTimeout(() => leaveLobby('range'), 700); }
+  else if (a === 'locker') openLocker();
+  else if (a === 'nick') { $('nick').click(); const iv = setInterval(() => { if ($('overlay').hidden) { clearInterval(iv); lobbyMenu(true); } }, 300); }
+  else if (a === 'lkdone') { saveLook(); LB.walkT = LB_SPOT.desk.slice(); LB.after = () => lobbyMenu(false); LB.view = 'desk'; LB.doorOpen = 0; $('lobbyUI').classList.remove('locker'); lbShow('프론트 토끼 매니저', '', []); }
+}
+function openLocker() {
+  LB.walkT = LB_SPOT.locker.slice(); LB.view = 'locker'; LB.doorOpen = 1; $('lobbyUI').classList.add('locker');
+  LB.after = () => { me.yaw = Math.PI / 2; renderLocker(); };
+  lbShow('락커룸', '락커로 가는 중…', []);
+}
+function renderLocker() {
+  const lk = myLook || [0, 0];
+  $('lbName').textContent = '락커룸 · 오늘의 라운딩 룩';
+  clearInterval(typeT); $('lbSay').textContent = '모자 색과 옷을 골라 보세요. 같이 치는 사람들에게도 이렇게 보여요!';
+  $('lbBtns').className = 'lb-btns lk';
+  $('lbBtns').innerHTML = `<div class="lk-row"><span class="lk-lab">모자</span><div class="lk-sw">${HATS.map(([n, c], i) => `<button type="button" class="sw${i === lk[0] ? ' on' : ''}" data-hat="${i}" style="--c:${c}" aria-label="${n} 모자" title="${n}"></button>`).join('')}</div></div>
+    <div class="lk-row"><span class="lk-lab">옷</span><div class="lk-tops">${TOPS.map((n, i) => `<button type="button" class="tp${i === lk[1] ? ' on' : ''}" data-top="${i}">${n}</button>`).join('')}</div></div>
+    <div class="lk-row end"><button type="button" class="btn" data-a="lkdone">이걸로 입을게요</button></div>`;
+  $('lbBtns').querySelectorAll('[data-hat],[data-top]').forEach(b => b.onclick = () => {
+    const cur = (myLook || [0, 0]).slice();
+    if (b.dataset.hat != null) cur[0] = +b.dataset.hat; else cur[1] = +b.dataset.top;
+    myLook = cur; applyLook(me.av, myLook, '#ffffff'); me.jump = 1; tone(880 + cur[1] * 60, .08, 'triangle', .08); tone(1320, .08, 'triangle', .06, .07);
+    renderLocker();
+  });
+  $('lbBtns').querySelector('[data-a]').onclick = () => lobbyAct('lkdone');
+}
 function startLobby() {
-  buildLobby(); S.mode = 'lobby'; LB.step = -1; LB.cadWalk = 0; LB.cad.visible = false; LB.cad.position.set(8.5, 0, 6); LB.key.visible = false;
-  me.x = LB.x - .6; me.z = LB.z + 5; me.yaw = Math.PI; LB.walkT = [LB.x - .6, LB.z - 3.3];
-  $('app').classList.add('inlobby'); $('lobbyUI').hidden = false; $('lbSay').textContent = ''; $('lbBtns').innerHTML = '';
+  buildLobby(); S.mode = 'lobby'; LB.view = 'desk'; LB.doorOpen = 0; LB.after = () => lobbyMenu(true);
+  me.x = LB.x - .6; me.z = LB.z + 1.5; me.yaw = Math.PI; LB.walkT = LB_SPOT.desk.slice();
+  $('app').classList.add('inlobby'); $('lobbyUI').hidden = false; $('lobbyUI').classList.remove('locker'); $('lbSay').textContent = ''; $('lbBtns').innerHTML = ''; $('lbName').textContent = '프론트 토끼 매니저';
+  lbCam = null;
   // 딩동~ 문 열리는 소리
   tone(880, .4, 'sine', .14); tone(698, .6, 'sine', .14, .35);
-}
-function lobbyStep(i) {
-  const steps = LOBBY_STEPS(); LB.step = i; const st = steps[i]; if (!st) return;
-  st.on && st.on(); typeSay(st.say);
-  $('lbBtns').innerHTML = st.btns.map(([t, a]) => `<button type="button" class="btn${a === 'next' || a === 'go' ? '' : ' sub'}" data-a="${a}">${esc(t)}</button>`).join('');
-  $('lbBtns').querySelectorAll('[data-a]').forEach(b => b.onclick = () => {
-    const a = b.dataset.a; tone(660, .05, 'square', .04);
-    if (a === 'next') lobbyStep(i + 1);
-    else if (a === 'go') leaveLobby();
-    else if (a === 'guide') { showGuide(0); }
-    else if (a === 'nick') { $('nick').click(); const iv = setInterval(() => { if ($('overlay').hidden) { clearInterval(iv); lobbyStep(0); } }, 300); }
-  });
-  LB.staff.userData.talk = 1.2;
 }
 let typeT = 0;
 function typeSay(text) {
@@ -2276,29 +2355,227 @@ function typeSay(text) {
   typeT = setInterval(() => { n += 2; el.textContent = text.slice(0, n); if (n % 6 === 0) tone(1100 + Math.random() * 200, .025, 'square', .015); if (n >= text.length) clearInterval(typeT); }, 30);
   el.onclick = () => { clearInterval(typeT); el.textContent = text; };
 }
-function leaveLobby() {
+function leaveLobby(dest = 'tee') {
+  if (S.mode !== 'lobby') return;
   clearInterval(typeT); $('fade').classList.add('on'); sndCart();
   setTimeout(() => {
     $('lobbyUI').hidden = true; $('app').classList.remove('inlobby');
-    const t = HOLES[0].tee; me.x = t[0] - 1 + rand(-3, 3); me.z = t[1] + 6 + rand(-1, 1.5); me.yaw = Math.PI; cam.yaw = Math.PI; S.mode = 'walk'; snapCam(); lastActKey = '';
-    sendPos(true); setTimeout(() => $('fade').classList.remove('on'), 150);
-    setTimeout(() => { if (S.hole === 0 && S.strokes === 0 && $('overlay').hidden) showGuide(0); }, 900);
-    setTimeout(() => $('help').classList.add('off'), window.innerWidth < 640 ? 7000 : 12000);
+    if (dest === 'range') { startRange(); setTimeout(() => $('fade').classList.remove('on'), 150); return; }
+    goFirstTee();
+    setTimeout(() => $('fade').classList.remove('on'), 150);
   }, 500);
 }
+function goFirstTee() {
+  const t = HOLES[S.hole].tee; me.x = t[0] - 1 + rand(-3, 3); me.z = t[1] + 6 + rand(-1, 1.5); me.yaw = Math.PI; cam.yaw = Math.PI; S.mode = 'walk'; snapCam(); lastActKey = '';
+  if (S.ball.state === 'rest' && S.strokes > 0) { me.x = S.ball.x - 1.5; me.z = S.ball.z - 1.5; snapCam(); }
+  sendPos(true);
+  setTimeout(() => { if (S.hole === 0 && S.strokes === 0 && $('overlay').hidden) showGuide(0); }, 900);
+  setTimeout(() => $('help').classList.add('off'), window.innerWidth < 640 ? 7000 : 12000);
+}
 function updateLobby(dt, t) {
+  if (!LB.built) return;
+  if (LB.doors) LB.doors.forEach((d, i) => { const tgt = i === 2 && LB.doorOpen ? 1.45 : 0; d.rotation.y += (tgt - d.rotation.y) * Math.min(1, dt * 4); });
   if (S.mode !== 'lobby') return;
   if (LB.walkT) {
-    const dx = LB.walkT[0] - me.x, dz = LB.walkT[1] - me.z, d = Math.hypot(dx, dz);
-    if (d < .1) { LB.walkT = null; me.anim = 0; me.yaw = Math.PI; if (LB.step < 0) { setTimeout(() => lobbyStep(0), 250); tone(1568, .5, 'sine', .1); } }
-    else { const sp = Math.min(d, 4.5 * dt); me.x += dx / d * sp; me.z += dz / d * sp; me.yaw = Math.atan2(dx, dz); me.anim = 1; }
+    const tx = LB.x + LB.walkT[0], tz = LB.z + LB.walkT[1], dx = tx - me.x, dz = tz - me.z, d = Math.hypot(dx, dz);
+    if (d < .1) { LB.walkT = null; me.anim = 0; me.yaw = Math.PI; const f = LB.after; LB.after = null; if (f) setTimeout(f, 150); if (LB.view === 'desk') tone(1568, .5, 'sine', .1); }
+    else { const sp = Math.min(d, 5 * dt); me.x += dx / d * sp; me.z += dz / d * sp; me.yaw = Math.atan2(dx, dz); me.anim = 1; }
   } else me.anim = 0;
   const sf = LB.staff; if (sf) { sf.userData.talk = Math.max(0, (sf.userData.talk || 0) - dt); sf.position.y = .55 + (sf.userData.talk > 0 ? Math.abs(Math.sin(t * 10)) * .06 : 0); sf.rotation.z = Math.sin(t * 1.5) * .04; }
-  if (LB.cadWalk && LB.cad) { const c = LB.cad, tx = 1.6, tz = -3.1, dx = tx - c.position.x, dz = tz - c.position.z, d = Math.hypot(dx, dz); if (d > .1) { const sp = Math.min(d, 3 * dt); c.position.x += dx / d * sp; c.position.z += dz / d * sp; c.rotation.y = Math.atan2(dx, dz); c.position.y = Math.abs(Math.sin(t * 10)) * .2; } else { c.position.y = 0; c.rotation.y = Math.PI * .85; } }
 }
-function lobbyCamera() {
-  // 입구 쪽 대각선에서 카운터와 나를 함께 비춰요
-  return { tx: LB.x + .2, ty: EDGE_H + 1.4, tz: LB.z - 4.4, px: LB.x + 4.2, py: EDGE_H + 3.6, pz: LB.z + 3.2 };
+let lbCam = null;
+function lobbyCamera(dt) {
+  // 프론트: 입구 쪽 대각선에서 카운터와 나를 함께 / 락커: 거울 보듯 내 앞모습
+  const y0 = EDGE_H, tg = LB.view === 'locker'
+    ? { tx: LB.x - 7.9, ty: y0 + 1.3, tz: LB.z - 4.7, px: LB.x - 3.6, py: y0 + 2.3, pz: LB.z - 2.6 }
+    : { tx: LB.x + .2, ty: y0 + 1.4, tz: LB.z - 4.4, px: LB.x + 4.2, py: y0 + 3.6, pz: LB.z + 3.2 };
+  if (!lbCam) lbCam = { ...tg };
+  const k = Math.min(1, dt * 3); for (const key in tg) lbCam[key] += (tg[key] - lbCam[key]) * k;
+  return lbCam;
+}
+
+// ================= 드라이빙 레인지 =================
+let skyMesh = null;
+// 클럽하우스 뒤쪽 별도 공간. 점수와 상관없이 클럽별로 마음껏 쳐 보고 비거리를 확인해요.
+const RG = { x: 0, z: 640, built: false, club: 0, yaw: 0, charge: false, power: 0, ball: null, pool: [], npcs: [], shots: 0, waitT: 0, last: '', best: [0, 0, 0], cam: null, targets: [] };
+const RANGE_CLUBS = [0, 1, 2]; // 드라이버·아이언·웨지 (퍼터는 연습 그린에서)
+try { const b = JSON.parse(localStorage.getItem('carrotRangeBest')); if (Array.isArray(b)) RG.best = [0, 1, 2].map(i => +b[i] || 0); } catch {}
+const RANGE_M = d => Math.round(d * M_PER_U);
+function buildRange() {
+  if (RG.built) return; RG.built = true;
+  const g = new T.Group(), y0 = EDGE_H; g.position.set(RG.x, y0, RG.z); RG.g = g;
+  const add = (geo, m, x, y, z, sh = false) => { const o = new T.Mesh(geo, m); o.position.set(x, y, z); o.receiveShadow = true; o.castShadow = sh; g.add(o); return o; };
+  // 잔디: 깎은 줄무늬
+  const gt = textTexture(64, 512, (c, w, h) => { for (let i = 0; i < 16; i++) { c.fillStyle = i % 2 ? '#6db257' : '#7fc568'; c.fillRect(0, i * 32, w, 32); } });
+  gt.wrapS = gt.wrapT = T.RepeatWrapping; gt.repeat.set(6, 3);
+  const field = add(new T.PlaneGeometry(90, 110), new T.MeshLambertMaterial({ map: gt }), 0, .03, 45); field.rotation.x = -Math.PI / 2;
+  // 타석 데크와 지붕
+  add(new T.BoxGeometry(46, .3, 7), mat(0xcfc6b4), 0, .15, -3.2);
+  const roofM = mat(0x2e5e36), postM = mat(0x7a5233);
+  add(new T.BoxGeometry(48, .35, 8), roofM, 0, 4.4, -3.6, true);
+  add(new T.BoxGeometry(48, .5, .3), mat(0xe9711f, { emissive: 0x4a1d00 }), 0, 4.05, .3);
+  for (const x of [-23.8, -12, -4, 4, 12, 23.8]) add(new T.BoxGeometry(.3, 4.3, .3), postM, x, 2.2, .1, true);
+  add(new T.BoxGeometry(48, 4.4, .3), mat(0xf3ead8), 0, 2.2, -7.4);
+  const banner = new T.Mesh(new T.PlaneGeometry(14, 1.6), new T.MeshLambertMaterial({ map: textTexture(900, 104, (c, w, h) => { c.fillStyle = '#2e5e36'; c.fillRect(0, 0, w, h); carrotIcon(c, 60, 52, 2.4); c.fillStyle = '#f4e9cf'; c.font = `400 64px ${FONT}`; c.textBaseline = 'middle'; c.fillText('당근 CC 드라이빙 레인지', 110, 56); }) }));
+  banner.position.set(0, 4.05, .47); g.add(banner);
+  // 타석 매트 5개 (가운데가 내 자리)
+  RG.bays = [-16, -8, 0, 8, 16];
+  for (const x of RG.bays) {
+    add(new T.BoxGeometry(2.6, .08, 2.2), mat(0x2f6b3a), x, .34, .2);
+    const basket = add(new T.CylinderGeometry(.35, .28, .4, 12), mat(0xe9711f), x + 2, .5, -.8, true);
+    for (let k = 0; k < 6; k++) add(new T.SphereGeometry(.12, 8, 6), mat(0xffffff), x + 2 + rand(-.18, .18), .74, -.8 + rand(-.18, .18));
+  }
+  // 거리 표지판과 바닥 선
+  for (const m of [50, 100, 150]) {
+    const z = m / M_PER_U;
+    const line = add(new T.PlaneGeometry(80, .35), new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .55 }), 0, .05, z); line.rotation.x = -Math.PI / 2;
+    for (const sx of [-30, 30]) {
+      const bd = new T.Group(); bd.position.set(sx, 0, z); g.add(bd);
+      for (const px of [-1.1, 1.1]) { const p_ = new T.Mesh(new T.BoxGeometry(.2, 2.4, .2), postM); p_.position.set(px, 1.2, 0); bd.add(p_); }
+      const sg = new T.Mesh(new T.PlaneGeometry(3.4, 1.6), new T.MeshLambertMaterial({ map: textTexture(256, 120, (c, w, h) => { c.fillStyle = m === 100 ? '#e9711f' : '#ffffff'; c.fillRect(0, 0, w, h); c.fillStyle = m === 100 ? '#ffffff' : '#2e5e36'; c.font = `400 76px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(m + 'm', w / 2, h / 2 + 4); }), side: T.DoubleSide }));
+      sg.position.y = 2.6; sg.rotation.y = Math.PI; bd.add(sg);
+    }
+  }
+  // 타깃 그린 (웨지 60m · 아이언 90m · 드라이버 125m 근처)
+  RG.targets = [];
+  for (const [x, m, col] of [[-7, 60, 0xd2442c], [6, 90, 0xffd23f], [-3, 125, 0x4d9de0]]) {
+    const z = m / M_PER_U, r = 4.2;
+    const gr = add(new T.CircleGeometry(r, 36), mat(0x9ee07f), x, .06, z); gr.rotation.x = -Math.PI / 2;
+    const rim = add(new T.RingGeometry(r - .25, r, 36), new T.MeshBasicMaterial({ color: 0xffffff }), x, .07, z); rim.rotation.x = -Math.PI / 2;
+    add(new T.CylinderGeometry(.06, .06, 3.2, 6), mat(0xffffff), x, 1.6, z, true);
+    const fl = add(new T.PlaneGeometry(1.2, .75), new T.MeshBasicMaterial({ color: col, side: T.DoubleSide }), x + .6, 2.8, z); fl.userData.flag = true;
+    RG.targets.push({ x: RG.x + x, z: RG.z + z, r, m, flag: fl });
+  }
+  // 양옆 그물과 끝 펜스
+  const netM = new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .14, side: T.DoubleSide, depthWrite: false }), poleM = mat(0x6b6b6b);
+  for (const sx of [-42, 42]) { const n = add(new T.PlaneGeometry(105, 16), netM, sx, 8, 46); n.rotation.y = Math.PI / 2; for (let z = -5; z <= 100; z += 15) add(new T.CylinderGeometry(.15, .15, 16.5, 6), poleM, sx, 8.2, z, true); }
+  add(new T.PlaneGeometry(84, 16), netM, 0, 8, 99);
+  // 다른 타석의 당근들 (가끔 쳐요)
+  RG.npcs = [];
+  for (const [bx, col, lk] of [[-8, '#4d9de0', [4, 1]], [16, '#e15a97', [6, 4]]]) {
+    const o = { x: RG.x + bx + 1, z: RG.z + .6, yaw: -Math.PI / 2, anim: 2, ph: 0, jump: 0, swingT: 0, chargeP: 0, bx: RG.x + bx, next: rand(2, 5) };
+    o.av = makeCarrot(col); applyLook(o.av, lk, col); scene.add(o.av); RG.npcs.push(o);
+  }
+  scene.add(g);
+}
+function rangeBall() {
+  let b = RG.pool.find(b => b.state === 'free');
+  if (!b) { if (RG.pool.length < 40) { const m = new T.Mesh(new T.SphereGeometry(.2, 12, 10), new T.MeshPhongMaterial({ color: 0xffffff, shininess: 60 })); m.castShadow = true; scene.add(m); b = { m }; RG.pool.push(b); } else { b = RG.pool.filter(b => b.state === 'rest').sort((a, c) => a.t - c.t)[0] || RG.pool[0]; } }
+  b.state = 'tee'; b.t = performance.now(); b.m.visible = true; return b;
+}
+function rangeStep(b, dt) {
+  const y0 = EDGE_H;
+  if (b.state === 'fly') {
+    b.vy -= G * dt; b.x += b.vx * dt; b.y += b.vy * dt; b.z += b.vz * dt;
+    if (b.y <= y0) { b.y = y0; if (b.carry == null) b.carry = [b.x, b.z]; if (b.vy < -4) { b.vy = -b.vy * .3; b.vx *= .72; b.vz *= .72; } else { b.vy = 0; b.state = 'roll'; } }
+  } else if (b.state === 'roll') {
+    const sp = Math.hypot(b.vx, b.vz), ns = Math.max(0, sp - (sp * 1.5 + 1.2) * dt);
+    if (sp > 0) { b.vx *= ns / sp; b.vz *= ns / sp; } b.x += b.vx * dt; b.z += b.vz * dt; b.rollT = (b.rollT || 0) + dt;
+    if (ns < .3 || b.rollT > 6) { b.state = 'rest'; b.vx = b.vz = 0; return 'stop'; }
+  }
+  return null;
+}
+function launchRange(b, club, p, yaw) {
+  const v = launchVel(p, yaw, club, 'tee');
+  Object.assign(b, { vx: v.vx, vy: v.vy, vz: v.vz, state: 'fly', carry: null, rollT: 0, t: performance.now() });
+}
+function startRange() {
+  buildRange(); S.mode = 'range'; RG.charge = false; RG.yaw = 0; RG.cam = null; RG.waitT = 0;
+  $('app').classList.add('inrange'); $('power').hidden = false;
+  if (!RANGE_CLUBS.includes(RG.club)) RG.club = 0;
+  rangeTee(); rangeHud(); lastActKey = '';
+  toast('드라이빙 레인지예요. 마음껏 쳐 보세요!', 2200);
+  setTimeout(() => $('help').classList.add('off'), 100);
+}
+function rangeTee() {
+  const b = RG.ball = rangeBall(); b.x = RG.x; b.z = RG.z + .6; b.y = EDGE_H + .34; b.state = 'tee'; b.vx = b.vy = b.vz = 0;
+}
+function rangeHud() {
+  $('holeNo').textContent = '연'; $('holeName').textContent = '드라이빙 레인지';
+  const c = RG.club;
+  $('holePar').textContent = `${CLUBS[c].name} 최고 ${RG.best[c] ? RG.best[c] + 'm' : '—'}`;
+  $('holeDist').textContent = RG.last || '공을 쳐서 비거리를 재 보세요';
+  $('strokes').textContent = RG.shots; const cs = document.querySelector('.holecard .count span'); if (cs) cs.textContent = '구';
+}
+function rangeCharge(on) {
+  if (S.mode !== 'range') return;
+  if (on) { if (RG.charge || !RG.ball || RG.ball.state !== 'tee') return; audio(); RG.charge = true; S.chargeT = performance.now(); }
+  else {
+    if (!RG.charge) return; RG.charge = false;
+    if (RG.power >= .03) {
+      const p = RG.power, b = RG.ball; me.swingFrom = .2 + p * 2.8; me.swingT = .01; me.chargeP = 0; sndSwish();
+      setTimeout(() => { launchRange(b, RG.club, p, RG.yaw); b.y = EDGE_H; sndHit(p, false); trailReset(); RG.flying = b; RG.shots++; rangeHud(); }, 160);
+    }
+  }
+  const sw = $('swing'); if (sw) { sw.classList.toggle('on', RG.charge); sw.textContent = RG.charge ? '떼면 샷!' : '누르고 있다가 떼기'; }
+}
+function rangeResult(b) {
+  const tx = RG.x, tz = RG.z + .6;
+  const carry = b.carry ? RANGE_M(Math.hypot(b.carry[0] - tx, b.carry[1] - tz)) : 0, total = RANGE_M(Math.hypot(b.x - tx, b.z - tz));
+  const side = RANGE_M(b.x - tx), sideTxt = Math.abs(side) < 3 ? '똑바로' : `${side > 0 ? '왼쪽' : '오른쪽'} ${Math.abs(side)}m`;
+  RG.lastBall = b; RG.last = `캐리 ${carry}m · 총 ${total}m · ${sideTxt}`;
+  const c = RG.club, best = total > RG.best[c] && RG.shots > 0;
+  if (best) { RG.best[c] = total; try { localStorage.setItem('carrotRangeBest', JSON.stringify(RG.best)); } catch {} }
+  const hit = RG.targets.find(t => Math.hypot(b.x - t.x, b.z - t.z) < t.r);
+  if (hit) { toast(`${hit.m}m 타깃 안착! 굿샷`, 1800); tone(1046, .12, 'triangle', .12); tone(1318, .16, 'triangle', .12, .1); tone(1568, .25, 'triangle', .12, .2); rocket(b.x, EDGE_H + 9, b.z, 0); me.jump = 1; }
+  else if (best) { toast(`${CLUBS[c].name} 최고 기록! ${total}m`, 1800); tone(988, .1, 'triangle', .1); tone(1318, .2, 'triangle', .1, .1); }
+  else toast(`${total}m`, 1200);
+  rangeHud();
+}
+function updateRange(dt, t) {
+  // NPC 당근들
+  for (const o of RG.npcs) {
+    o.next -= dt;
+    if (o.next <= 0 && !o.swingT) { o.swingFrom = 2.6; o.swingT = .01; o.next = rand(4, 8); const b = rangeBall(); b.x = o.bx; b.z = RG.z + .6; b.y = EDGE_H; b.npc = true; setTimeout(() => launchRange(b, [0, 1, 2][Math.random() * 3 | 0], rand(.7, .98), rand(-.12, .12)), 160); }
+    animateAvatar(o.av, o, dt, t);
+  }
+  for (const b of RG.pool) {
+    if (b.state === 'fly' || b.state === 'roll') {
+      const ts = b.state === 'roll' ? 1.8 : 1.15;
+      for (let i = 0; i < 4; i++) { const e = rangeStep(b, dt * ts / 4); if (e === 'stop') { if (b === RG.flying) { RG.flying = null; rangeResult(b); RG.waitT = 1.4; } break; } }
+      if (b === RG.flying && b.state === 'fly') { RG.trailT = (RG.trailT || 0) + dt; if (RG.trailT > .025) { RG.trailT = 0; trailPush(b.x, b.y + .2, b.z); } if (trail) trail.material.opacity = .75; }
+    }
+    if (b.state !== 'free') b.m.position.set(b.x, b.y + .2, b.z);
+  }
+  if (S.mode !== 'range') return;
+  if (RG.waitT > 0) { RG.waitT -= dt; if (RG.waitT <= 0) { RG.lastBall = null; rangeTee(); lastActKey = ''; } }
+  for (const k of ['arrowleft', 'a']) if (keys.has(k)) RG.yaw += dt * 1.1;
+  for (const k of ['arrowright', 'd']) if (keys.has(k)) RG.yaw -= dt * 1.1;
+  RG.yaw = clamp(RG.yaw, -.6, .6);
+  // 공 옆에 서서 어드레스
+  const bx = RG.x, bz = RG.z + .6, rx = -Math.cos(RG.yaw), rz = Math.sin(RG.yaw);
+  me.x = bx - rx; me.z = bz - rz; me.yaw = Math.atan2(rx, rz); me.anim = 2;
+  if (RG.charge) { RG.power = chargePower(); $('pow').style.width = (RG.power * 100) + '%'; }
+  me.chargeP = RG.charge ? RG.power : 0;
+  $('powLabel').textContent = RG.charge ? `${CLUBS[RG.club].name} ${Math.round(RG.power * 100)}% · 예상 캐리 ${RANGE_M(rangeCarry(Math.max(RG.power, .05)))}m` : `${CLUBS[RG.club].name} · 풀스윙 캐리 ${RANGE_M(rangeCarry(1))}m`;
+  if (RG.flagT == null) RG.flagT = 0; RG.flagT += dt; for (const tg of RG.targets) tg.flag.rotation.y = Math.sin(RG.flagT * 3 + tg.m) * .25;
+}
+function rangeCarry(p) { const v = launchVel(p, 0, RG.club, 'tee'); return 2 * v.vy / G * Math.hypot(v.vx, v.vz); }
+function rangeCamera(dt) {
+  const y0 = EDGE_H, bx = RG.x, bz = RG.z + .6, fx = Math.sin(RG.yaw), fz = Math.cos(RG.yaw);
+  let tg;
+  const f = RG.flying;
+  if (f && (f.state === 'fly' || f.state === 'roll')) {
+    // 공을 뒤에서 따라가요. 지붕(높이 4) 아래에서는 낮게, 지붕을 벗어나면 조금씩 올라가요
+    const pz = bz - 6 + Math.max(0, f.z - bz) * .55, out = Math.max(0, pz - (RG.z + .8));
+    const py = out > 0 ? y0 + 3 + Math.min(4, out * .12 + Math.max(0, f.y - y0) * .25) : y0 + 2.9;
+    tg = { tx: f.x, ty: f.y + .3, tz: f.z, px: bx + (f.x - bx) * .5 - 1.3, py, pz };
+  }
+  else if (RG.waitT > 0 && RG.lastBall) tg = null;
+  else { const nar = camera.aspect < 1, back = nar ? 8.5 : 6.5; tg = { tx: bx + fx * 26, ty: y0 + .6, tz: bz + fz * 26, px: bx - fx * back + .2, py: y0 + (nar ? 3.5 : 2.9), pz: bz - fz * back }; }
+  if (!tg) tg = RG.cam;
+  if (!RG.cam) RG.cam = { ...tg };
+  const k = Math.min(1, dt * (f ? 4 : 3)); for (const key in tg) RG.cam[key] += (tg[key] - RG.cam[key]) * k;
+  return RG.cam;
+}
+function leaveRange() {
+  if (S.mode !== 'range') return;
+  RG.charge = false; $('fade').classList.add('on'); sndCart();
+  setTimeout(() => {
+    $('app').classList.remove('inrange'); $('power').hidden = true; const cs = document.querySelector('.holecard .count span'); if (cs) cs.textContent = '타';
+    if (RG.ball && RG.ball.state === 'tee') { RG.ball.state = 'free'; RG.ball.m.visible = false; }
+    goFirstTee(); updHud(); setTimeout(() => $('fade').classList.remove('on'), 150);
+  }, 500);
 }
 
 // ================= 아바타 애니메이션 =================
@@ -2360,6 +2637,7 @@ function bindInput() {
     if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y); if (pinch) cam.dist = clamp(cam.dist * pinch / d, 5, 40); pinch = d; return; }
     moved += Math.abs(dx) + Math.abs(dy);
     if (S.aimDrag) { aimFromPointer(e); return; }
+    if (S.mode === 'range' && !RG.charge) { RG.yaw = clamp(RG.yaw - dx * .003, -.6, .6); return; }
     if (moved > 6) {
       cam.yaw -= dx * .006;
       cam.pitch = clamp(cam.pitch + dy * .004, .12, 1.25);
@@ -2376,13 +2654,15 @@ function bindInput() {
     if ($('app').hidden || e.target.closest && e.target.closest('input,textarea')) return;
     const k = e.key.toLowerCase();
     if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) { keys.add(k); e.preventDefault(); }
+    if (k === ' ' && S.mode === 'range') { e.preventDefault(); if (!e.repeat) rangeCharge(true); }
+    if (k === 'c' && S.mode === 'range') { RG.club = (RG.club + 1) % 3; rangeHud(); lastActKey = ''; }
     if (k === ' ' && S.mode === 'aim') { e.preventDefault(); if (!e.repeat) startCharge(); }
     else if (k === ' ' && S.mode === 'flight' && !e.repeat) { e.preventDefault(); skipFlight(); }
     if (k === 'e' && S.mode === 'walk') enterAim();
     if (k === 'escape' && S.mode === 'aim') exitAim();
     if (k === 'c' && S.mode === 'aim') { S.club = (S.club + 1) % 4; S.clubAuto = false; lastActKey = ''; }
   });
-  window.addEventListener('keyup', e => { const k = e.key.toLowerCase(); keys.delete(k); if (k === ' ' && S.mode === 'aim') { e.preventDefault(); releaseCharge(); } });
+  window.addEventListener('keyup', e => { const k = e.key.toLowerCase(); keys.delete(k); if (k === ' ' && S.mode === 'aim') { e.preventDefault(); releaseCharge(); } if (k === ' ' && S.mode === 'range') { e.preventDefault(); rangeCharge(false); } });
   window.addEventListener('blur', () => keys.clear());
 }
 function groundPoint(e) {
@@ -2411,8 +2691,12 @@ function snapCam() { const y = heightAt(me.x, me.z); cam.tx = me.x; cam.ty = y +
 function updateCamera(dt) {
   let tx, ty, tz, px, py, pz;
   if (S.mode === 'lobby') {
-    const c = lobbyCamera(); camera.position.set(c.px, c.py, c.pz); camera.lookAt(c.tx, c.ty, c.tz); cam.px = c.px; cam.py = c.py; cam.pz = c.pz; cam.tx = c.tx; cam.ty = c.ty; cam.tz = c.tz;
+    const c = lobbyCamera(dt); camera.position.set(c.px, c.py, c.pz); camera.lookAt(c.tx, c.ty, c.tz); cam.px = c.px; cam.py = c.py; cam.pz = c.pz; cam.tx = c.tx; cam.ty = c.ty; cam.tz = c.tz;
     sun.position.set(LB.x + 40, 80, LB.z + 25); sun.target.position.set(LB.x, EDGE_H, LB.z); return;
+  }
+  if (S.mode === 'range') {
+    const c = rangeCamera(dt); camera.position.set(c.px, c.py, c.pz); camera.lookAt(c.tx, c.ty, c.tz); cam.px = c.px; cam.py = c.py; cam.pz = c.pz; cam.tx = c.tx; cam.ty = c.ty; cam.tz = c.tz;
+    sun.position.set(RG.x + 40, 80, RG.z + 25); sun.target.position.set(RG.x, EDGE_H, RG.z + 10); return;
   }
   const fc = cam.focus && (S.mode === 'walk' || S.mode === 'ride') ? cam.focus : null;
   if (fc) {
@@ -2477,7 +2761,7 @@ function updateCamera(dt) {
 
 // ================= 위치 전송 =================
 function sendPos(force) {
-  if (!NET.ch || S.mode === 'lobby') return;
+  if (!NET.ch || S.mode === 'lobby' || S.mode === 'range') return;
   const yaw = ((me.yaw % TAU) + TAU) % TAU;
   const bv = S.ballVis && S.ball.state === 'rest' ? 1 : 0;
   const dn = S.scores.filter(x => x != null).length;
@@ -2646,6 +2930,7 @@ function frame() {
     else pathLine.visible = false;
   }
   if (S.mode === 'ride') updateRide(dt);
+  if (RG.built) updateRange(dt, t);
   if (me.swingT > 0) me.anim = 3;
   animateAvatar(me.av, me, dt, t);
 
@@ -2656,7 +2941,7 @@ function frame() {
     if (S.mode === 'flight' && (S.ball.state === 'fly' || S.ball.state === 'roll') && Math.random() < .02) updHud();
   }
   if (S.mode === 'flight' && S.ball.state === 'fly') { trailT = (trailT || 0) + dt; if (trailT > .025) { trailT = 0; trailPush(S.ball.x, S.ball.y + .2, S.ball.z); } }
-  else if (trail && trail.visible && S.mode !== 'flight') { trail.material.opacity = Math.max(0, trail.material.opacity - dt * .5); if (trail.material.opacity <= 0) trail.visible = false; }
+  else if (trail && trail.visible && S.mode !== 'flight' && !(S.mode === 'range' && RG.flying)) { trail.material.opacity = Math.max(0, trail.material.opacity - dt * .5); if (trail.material.opacity <= 0) trail.visible = false; }
   if (S.ball.state === 'rest' || S.ball.state === 'done') S.ball.y = heightAt(S.ball.x, S.ball.z);
   if (S.ball.state === 'sinking') S.ball.y = Math.max(heightAt(S.ball.x, S.ball.z) - .45, S.ball.y - dt * 1.5);
   ballMesh.visible = S.ballVis; ballMesh.position.set(S.ball.x, S.ball.y + .2, S.ball.z);
@@ -2692,7 +2977,7 @@ function frame() {
 
   updateLobby(dt, t); updateLife(dt, t); updateFireworks(dt); updateEat(dt, t); updateCritters(dt); updateDucks(dt, t); updateZones(dt, t); updateGallery(dt, t);
   if (moveRing.material.opacity > 0) { moveRing.material.opacity = Math.max(0, moveRing.material.opacity - dt * 1.2); moveRing.scale.multiplyScalar(1 + dt * .8); }
-  updateCamera(dt);
+  updateCamera(dt); if (skyMesh) skyMesh.position.set(camera.position.x, 0, camera.position.z);
   renderer.render(scene, camera);
   recFrame();
 
