@@ -276,6 +276,15 @@ function joinChannel(ch) {
   pendingJoin = setTimeout(() => { pendingJoin = 0; enterGame(); }, 2500);
 }
 $('teeUp').onclick = () => joinChannel(invitedCh());
+// ---- 언어 (버튼으로만 바꿔요. 바꾸면 새로고침, 라운딩은 저장돼서 이어서 칠 수 있어요) ----
+const LG = window.I18N || { lang: 'ko', LANGS: [['ko', '한국어']], set() {} };
+function renderLangPick() { const el = $('langPick'); if (!el) return; el.innerHTML = LG.LANGS.map(([k, n]) => `<button type="button" data-lang="${k}" class="${k === LG.lang ? 'on' : ''}" aria-pressed="${k === LG.lang}">${n}</button>`).join(''); el.querySelectorAll('[data-lang]').forEach(b => b.onclick = () => { if (b.dataset.lang !== LG.lang) LG.set(b.dataset.lang); }); }
+renderLangPick();
+function openLangMenu() {
+  overlay(`<span class="eyebrow">🌐 Language · 언어</span><div class="langlist">${LG.LANGS.map(([k, n]) => `<button type="button" class="btn${k === LG.lang ? '' : ' sub'}" data-lang="${k}">${n}</button>`).join('')}</div><p class="cs">바꾸면 화면이 새로고침돼요. 라운딩은 그대로 이어서 칠 수 있어요.</p><button type="button" class="linkbtn" id="langClose">닫기</button>`);
+  $('langClose').onclick = closeOverlay;
+  document.querySelectorAll('.langlist [data-lang]').forEach(b => b.onclick = () => { if (b.dataset.lang === LG.lang) return closeOverlay(); try { if (typeof saveRound === 'function' && !['club', 'cine', 'range'].includes(S.mode)) saveRound(); } catch {} LG.set(b.dataset.lang); });
+}
 function exitToEntry() {
   sendNet({ t: 'leave' }); NET.ch = 0; NET.wantCh = 0; clearOthers();
   $('app').hidden = true; $('lobby').hidden = false; running = false; setMaster(false);
@@ -285,11 +294,11 @@ $('exitBtn').onclick = () => openGameMenu();
 // 모바일 ☰ 메뉴: 오른쪽 위 버튼들을 한 곳에 모아요 (원래 버튼을 대신 눌러줘요)
 $('mMenuBtn').onclick = () => {
   const app = $('app'), course = !app.classList.contains('inclub') && !app.classList.contains('inrange');
-  const items = [['exitBtn', '🏛️ 나가기 (클럽하우스·정문)', 'wide'], ['cardBtn', '📋 스코어카드', '', course], ['sound', null, ''], ['goShadeBtn', '🍢 그늘집 가기', '', course], ['goWCBtn', '🚻 화장실 가기', '', course], ['peopleBtn', null, ''], ['clipBtn', null, 'wide'], ['nick', `✏️ 이름표: ${NET.nick}`, 'wide']];
-  const list = items.filter(([id, , , ok]) => ok !== false && $(id) && !$(id).hidden);
+  const items = [['exitBtn', '🏛️ 나가기 (클럽하우스·정문)', 'wide'], ['cardBtn', '📋 스코어카드', '', course], ['sound', null, ''], ['goShadeBtn', '🍢 그늘집 가기', '', course], ['goWCBtn', '🚻 화장실 가기', '', course], ['peopleBtn', null, ''], ['clipBtn', null, 'wide'], ['nick', `✏️ 이름표: ${NET.nick}`, ''], ['langBtnQ', '🌐 Language', '']];
+  const list = items.filter(([id, , , ok]) => ok !== false && (id === 'langBtnQ' || ($(id) && !$(id).hidden)));
   overlay(`<span class="eyebrow">메뉴</span><div class="qmenu">${list.map(([id, label, cls]) => `<button type="button" class="btn sub ${cls}" data-q="${id}">${label || esc($(id).textContent.trim())}</button>`).join('')}</div><button type="button" class="linkbtn" id="qClose">닫기</button>`);
   $('qClose').onclick = closeOverlay;
-  document.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { closeOverlay(); $(b.dataset.q).click(); });
+  document.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { if (b.dataset.q === 'langBtnQ') return openLangMenu(); closeOverlay(); $(b.dataset.q).click(); });
 };
 // ---- 닉네임 ----
 const NICK_RE = /^[가-힣a-zA-Z0-9 _]+$/;
@@ -2627,12 +2636,12 @@ function openGameMenu() {
   if (inCourse) overlay(`<span class="eyebrow">메뉴 · ${NET.ch ? NET.ch + '채널' : '혼자 라운딩'}</span><h2>${S.hole + 1}번 홀 · ${S.strokes}타째</h2>
     <p>합계 ${fmtDiff(totalDiff())} · ${S.scores.filter(x => x != null).length}/${HOLES.length}홀 완료. 클럽하우스에 다녀와도 지금 위치에서 이어서 칠 수 있어요.</p>
     <div class="btns col"><button class="btn" id="gmGo">▶ 라운딩 계속하기</button><button class="btn sub" id="gmClub">🏛️ 클럽하우스 로비로</button><button class="btn sub" id="gmGate">🚪 정문으로 나가기</button></div>
-    <button type="button" class="linkbtn" id="gmExit">입장 화면(채널 선택)으로 나가기</button>`);
+    <button type="button" class="linkbtn" id="gmLang">🌐 Language</button><button type="button" class="linkbtn" id="gmExit">입장 화면(채널 선택)으로 나가기</button>`);
   else overlay(`<span class="eyebrow">메뉴</span><h2>${S.mode === 'range' ? '드라이빙 레인지' : '클럽하우스'}</h2>
     <p>${roundHasProgress() ? `진행 중인 라운딩: ${S.hole + 1}번 홀 · 합계 ${fmtDiff(totalDiff())}` : '스타트 하우스에서 캐디와 만나 티오프할 수 있어요.'}</p>
     <div class="btns col"><button class="btn" id="gmGo">▶ 계속 둘러보기</button><button class="btn sub" id="gmCourse">⛳ 티오프 하러 가기</button>${S.mode === 'range' ? '<button class="btn sub" id="gmLobby">🏛️ 로비로 돌아가기</button>' : ''}<button class="btn sub" id="gmGate">🚪 정문으로 나가기</button></div>
-    <button type="button" class="linkbtn" id="gmExit">입장 화면(채널 선택)으로 나가기</button>`);
-  $('gmGo').onclick = closeOverlay;
+    <button type="button" class="linkbtn" id="gmLang">🌐 Language</button><button type="button" class="linkbtn" id="gmExit">입장 화면(채널 선택)으로 나가기</button>`);
+  $('gmGo').onclick = closeOverlay; $('gmLang').onclick = openLangMenu;
   if ($('gmClub')) $('gmClub').onclick = () => leaveCourse('course');
   if ($('gmLobby')) $('gmLobby').onclick = () => { closeOverlay(); backToClub('range'); };
   if ($('gmCourse')) $('gmCourse').onclick = () => { closeOverlay(); if (S.mode === 'range') backToClub('course'); else { placeClub(8.3, 4.5, -Math.PI / 2); goCourseDoor(); } };
