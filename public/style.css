@@ -316,6 +316,11 @@ td.cur,th.cur{background:color-mix(in srgb,var(--leaf) 14%,transparent)}
 .card .btns.col{flex-direction:column}
 .card .btns.col .btn{flex:none;width:100%;min-height:46px}
 .linkbtn{display:block;margin:10px auto 0;background:none;border:0;color:var(--muted);text-decoration:underline;font:500 13px var(--body);cursor:pointer;padding:6px}
+/* ---- 모바일: 오른쪽 위 버튼들을 ☰ 메뉴 하나로 ---- */
+.hud.tr .mmenu-btn{display:none}
+.qmenu{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px}
+.qmenu .btn{min-height:48px;padding:8px 10px;font-size:15px}
+.qmenu .btn.wide{grid-column:1 / -1}
 /* ---- 버튼 크기 통일: 높이·글자·모서리를 모두 같게 ---- */
 :root{--btn-h:44px;--tbw:112px}
 .act{box-sizing:border-box;height:var(--btn-h);min-width:120px;padding:0 18px;font:600 15px/1.15 var(--body);display:inline-flex;align-items:center;justify-content:center;text-align:center;white-space:nowrap;border-radius:14px;box-shadow:0 3px 0 color-mix(in srgb,var(--carrot) 60%,#000)}
@@ -333,7 +338,10 @@ td.cur,th.cur{background:color-mix(in srgb,var(--leaf) 14%,transparent)}
 @media (max-width:640px){
   :root{--btn-h:44px;--tbw:96px}
   .hud.tr .row .ghost,.hud.tr .chbadge{font-size:12px;height:30px}
-  .hud.tr .chbadge{grid-column:1 / -1}
+  .hud.tr .chbadge{grid-column:auto}
+  .hud.tr .mmenu-btn{display:inline-flex;font-weight:700;border-color:var(--carrot);color:var(--carrot)}
+  .hud.tr .row:not(:first-child){display:none}
+  .hud.tr .mm-cap{display:none}
   .hud.tr .who{display:none}
   .actions{width:100%;max-width:420px;margin:0 auto;gap:8px}
   .act{flex:0 1 calc((100% - 16px) / 3);min-width:0;padding:0 8px;font-size:14px;white-space:normal}

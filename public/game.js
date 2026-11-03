@@ -282,6 +282,15 @@ function exitToEntry() {
 }
 $('toLobby').onclick = () => openGameMenu();
 $('exitBtn').onclick = () => openGameMenu();
+// 모바일 ☰ 메뉴: 오른쪽 위 버튼들을 한 곳에 모아요 (원래 버튼을 대신 눌러줘요)
+$('mMenuBtn').onclick = () => {
+  const app = $('app'), course = !app.classList.contains('inclub') && !app.classList.contains('inrange');
+  const items = [['exitBtn', '🏛️ 나가기 (클럽하우스·정문)', 'wide'], ['cardBtn', '📋 스코어카드', '', course], ['sound', null, ''], ['goShadeBtn', '🍢 그늘집 가기', '', course], ['goWCBtn', '🚻 화장실 가기', '', course], ['peopleBtn', null, ''], ['clipBtn', null, 'wide'], ['nick', `✏️ 이름표: ${NET.nick}`, 'wide']];
+  const list = items.filter(([id, , , ok]) => ok !== false && $(id) && !$(id).hidden);
+  overlay(`<span class="eyebrow">메뉴</span><div class="qmenu">${list.map(([id, label, cls]) => `<button type="button" class="btn sub ${cls}" data-q="${id}">${label || esc($(id).textContent.trim())}</button>`).join('')}</div><button type="button" class="linkbtn" id="qClose">닫기</button>`);
+  $('qClose').onclick = closeOverlay;
+  document.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { closeOverlay(); $(b.dataset.q).click(); });
+};
 // ---- 닉네임 ----
 const NICK_RE = /^[가-힣a-zA-Z0-9 _]+$/;
 const NICK_BANNED = ['씨발', '시발', 'ㅅㅂ', '병신', 'ㅂㅅ', '개새', '좆', '지랄', '꺼져', '섹스', '자지', '보지', '니미', '애미', '애비', '느금', 'fuck', 'shit', 'sex', 'bitch', '관리자', '운영자', '운영진', 'admin', '캐디봇'];
