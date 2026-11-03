@@ -190,6 +190,15 @@ td.cur,th.cur{background:color-mix(in srgb,var(--leaf) 14%,transparent)}
 .how{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;font-size:13px}
 .how li::marker{color:var(--carrot)}
 .how b{font-weight:600}
+.guide-map{width:100%;max-width:340px;align-self:center;aspect-ratio:560/640;border-radius:12px;box-shadow:0 0 0 1px var(--line);background:#4c8b40}
+#guideMap[height="500"]{aspect-ratio:560/500}
+.guide-tabs{display:flex;gap:4px;background:color-mix(in srgb,var(--fg) 6%,transparent);padding:3px;border-radius:999px;align-self:flex-start}
+.guide-tabs button{border:0;background:transparent;color:var(--muted);font:600 12px var(--body);padding:5px 12px;border-radius:999px;cursor:pointer}
+.guide-tabs button.on{background:var(--surface);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.guide-tip{font-size:13px}
+.guide-tip b{color:var(--leaf)}
+.mm-cap{font-size:11px;color:#fff;background:rgba(12,22,15,.6);padding:2px 8px;border-radius:999px;margin-top:-4px}
+.tag.balltag .nm{background:rgba(233,113,31,.92);font-size:12px;padding:2px 9px}
 .demo-note{color:var(--carrot);border:1px dashed var(--carrot);border-radius:10px;padding:8px 12px;max-width:none;font-size:12px;margin:0}
 .nogl{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center;color:var(--fg);background:var(--bg);z-index:40}
 @media (max-width:640px){

@@ -410,6 +410,21 @@ function makeMiniCarrot(scale = 1) {
 // ---- 장면 만들기 ----
 const FLAGS = [], CROCS = [], RABBITS = [], BIRDS = [], SPLASHES = [], CLOUDS = [];
 let aimTipPos = null;
+const GUIDE_N = 220; let guideDots, ballBeacon, ballTag, guideKey = '';
+// 공에서 그린까지 남은 공략 경로를 땅 위에 노란 점으로 찍어요
+function updateGuideDots() {
+  const h = hole(), dc = distToCup(), key = `${S.hole},${S.ball.x.toFixed(1)},${S.ball.z.toFixed(1)}`;
+  if (key === guideKey) return; guideKey = key;
+  const pts = [[S.ball.x, S.ball.z]];
+  for (const w of h.fair.slice(1, -1)) if (Math.hypot(w[0] - h.cup[0], w[1] - h.cup[1]) < dc - 6) pts.push(w);
+  pts.push(h.cup);
+  const a = guideDots.geometry.attributes.position.array; let n = 0, carry = 1.8;
+  for (let i = 1; i < pts.length && n < GUIDE_N; i++) {
+    const [x0, z0] = pts[i - 1], [x1, z1] = pts[i], L = Math.hypot(x1 - x0, z1 - z0);
+    for (let d = carry; d < L && n < GUIDE_N; d += 2.4) { const x = x0 + (x1 - x0) * d / L, z = z0 + (z1 - z0) * d / L; a[n * 3] = x; a[n * 3 + 1] = heightAt(x, z) + .15; a[n * 3 + 2] = z; n++; carry = d + 2.4 - L; }
+  }
+  guideDots.geometry.attributes.position.needsUpdate = true; guideDots.geometry.setDrawRange(0, n);
+}
 const TRAIL_N = 160; let trail, trailN = 0, trailFade = 0;
 function trailReset() { trailN = 0; trailFade = 1; if (trail) { trail.geometry.setDrawRange(0, 0); trail.material.opacity = .75; trail.visible = true; } }
 function trailPush(x, y, z) {
@@ -577,6 +592,10 @@ function build() {
   landRing = new T.Mesh(new T.RingGeometry(.9, 1.25, 32), new T.MeshBasicMaterial({ color: 0xffd166, transparent: true, opacity: .85, depthWrite: false })); landRing.rotation.x = -Math.PI / 2; landRing.visible = false; scene.add(landRing);
   const tg = new T.BufferGeometry(); tg.setAttribute('position', new T.BufferAttribute(new Float32Array(TRAIL_N * 3), 3)); tg.setDrawRange(0, 0);
   trail = new T.Points(tg, new T.PointsMaterial({ color: 0xffffff, size: 5, sizeAttenuation: false, transparent: true, opacity: .75, depthWrite: false })); trail.frustumCulled = false; scene.add(trail);
+  const gdg = new T.BufferGeometry(); gdg.setAttribute('position', new T.BufferAttribute(new Float32Array(GUIDE_N * 3), 3)); gdg.setDrawRange(0, 0);
+  guideDots = new T.Points(gdg, new T.PointsMaterial({ color: 0xffd166, size: 7, sizeAttenuation: false, transparent: true, opacity: .85, depthWrite: false })); guideDots.frustumCulled = false; scene.add(guideDots);
+  ballBeacon = new T.Mesh(new T.CylinderGeometry(.22, .22, 16, 10, 1, true), new T.MeshBasicMaterial({ color: 0xffb84d, transparent: true, opacity: .38, depthWrite: false, side: T.DoubleSide })); ballBeacon.visible = false; scene.add(ballBeacon);
+  ballTag = makeTag('내 공', false); ballTag.classList.add('balltag'); ballTag.style.display = 'none';
   pathLine = new T.Line(new T.BufferGeometry(), new T.LineDashedMaterial({ color: 0xffb27a, dashSize: .6, gapSize: .4 })); pathLine.visible = false; pathLine.frustumCulled = false; scene.add(pathLine);
   moveRing = new T.Mesh(new T.RingGeometry(.4, .6, 24), new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false })); moveRing.rotation.x = -Math.PI / 2; scene.add(moveRing);
 
@@ -913,7 +932,7 @@ function walkToBall() {
 }
 // 카트: 토끼 캐디가 운전하고 나는 옆자리. 카트 도로를 따라 달려요
 const RIDE = { x: 0, z: 0, yaw: 0, sp: 0, pts: [], i: 0, dest: null, face: null, mid: '', midSaid: false, total: 0 };
-const HOLE_TIPS = ['그린 앞 양쪽 벙커만 조심하세요.', '왼쪽에 악어 연못 있어요. 꺾이는 데까지 끊어 가세요.', '그린 양옆에 벙커가 있어요. 짧게 치면 안전해요.', '정면 연못 넘기지 말고 오른쪽으로 돌아가세요.'];
+const HOLE_TIPS = ['그린 앞 양쪽 벙커만 조심하세요.', '오른쪽에 악어 연못 있어요. 왼쪽으로 꺾이는 데까지 끊어 가세요.', '그린 양옆에 벙커가 있어요. 짧게 치면 안전해요.', '그린 쪽으로 바로 치면 오른쪽 악어 연못에 빠져요. 왼쪽으로 돌아가세요.'];
 const holeTalk = i => `${i + 1}번 홀 ${HOLES[i].name}, PAR ${HOLES[i].par}이에요. ${HOLE_TIPS[i] || ''}`;
 const ballTalk = () => `남은 거리 ${Math.round(distToCup() * M_PER_U)}m예요. ${CLUBS[autoClub()].name} 잡으시면 될 것 같아요.`;
 let caddieT = 0;
@@ -1211,11 +1230,13 @@ function nextHoleCard(s) {
   const done = S.hole, n = HOLES[done + 1];
   const shade = done === 1 && !S.buff;
   overlay(`<span class="eyebrow">${done + 1}번 홀 ${s}타 (${fmtDiff(s - HOLES[done].par)}) · 합계 ${fmtDiff(totalDiff())}</span>
-    <h2>다음은 ${done + 2}번 홀, ${esc(n.name)}</h2><p>PAR ${n.par}. ${shade ? '전반이 끝났어요. 그늘집에 들러 쉬었다 가도 돼요.' : '티잉 구역으로 이동해 주세요.'}</p>
-    <div class="btns">${shade ? '<button class="btn" id="goShade">그늘집 들르기</button>' : ''}<button class="btn${shade ? ' sub' : ''}" id="goCart">카트 타고 티로</button><button class="btn sub" id="goWalk">걸어가기</button></div>`, true);
+    <h2>다음은 ${done + 2}번 홀, ${esc(n.name)}</h2><p>PAR ${n.par}. ${shade ? '전반이 끝났어요. 그늘집에 들러 쉬었다 가도 돼요.' : '노란 점선이 공략 경로예요. 아래 T가 티, 위 깃발이 그린이에요.'}</p>
+    <canvas class="guide-map" id="guideMap" width="560" height="500" aria-label="다음 홀 지도"></canvas>
+    <p class="guide-tip"><b>토끼 캐디</b> ${esc(HOLE_TIPS[done + 1] || '')}</p>
+    <div class="btns">${shade ? '<button class="btn" id="goShade">그늘집 들르기</button>' : ''}<button class="btn${shade ? ' sub' : ''}" id="goCart">카트 타고 티로</button><button class="btn sub" id="goWalk">걸어가기</button></div>`);
   S.hole = done + 1; S.strokes = 0; S.prev = null; S.last = null;
   const t = HOLES[S.hole].tee; Object.assign(S.ball, { x: t[0], y: 0, z: t[1], vx: 0, vy: 0, vz: 0, state: 'rest' }); S.ballVis = true;
-  S.mode = 'walk'; lastActKey = ''; updHud(); renderCard();
+  S.mode = 'walk'; lastActKey = ''; updHud(); renderCard(); bindGuide(S.hole);
   $('goCart').onclick = () => { closeOverlay(); cartTo(t[0], t[1], true, '다음 홀로 모실게요~', holeTalk(S.hole)); };
   $('goWalk').onclick = () => { closeOverlay(); walkToBall(); };
   if (shade) $('goShade').onclick = () => { closeOverlay(); cartTo(SHADE.x + rand(-2, 0), SHADE.z + rand(-1, 1), false, '그늘집으로 모실게요~', '당근주스가 진짜 맛있어요. 꼭 드셔보세요!'); };
@@ -1502,24 +1523,101 @@ function sendPos(force) {
 
 // ================= 미니맵 =================
 const mm = $('minimap'), mctx = mm.getContext('2d');
-function drawMinimap() {
-  const W = mm.width, s = W / (MAP * 2), px = x => (x + MAP) * s;
-  mctx.drawImage(groundCanvas, 0, 0, W, W);
-  for (const h of HOLES) { mctx.fillStyle = '#d2442c'; mctx.fillRect(px(h.cup[0]) - 1.5, px(h.cup[1]) - 9, 3, 9); }
-  const c = hole().cup; mctx.strokeStyle = '#fff'; mctx.lineWidth = 3; mctx.beginPath(); mctx.arc(px(c[0]), px(c[1]), 9, 0, TAU); mctx.stroke();
-  mctx.fillStyle = '#5e3d24'; mctx.fillRect(px(SHADE.x) - 7, px(SHADE.z) - 6, 14, 12);
-  mctx.fillStyle = '#2f6fd6'; mctx.fillRect(px(RR.x) - 6, px(RR.z) - 8, 12, 16); mctx.fillStyle = '#fff'; mctx.font = '700 9px sans-serif'; mctx.fillText('WC', px(RR.x) - 6, px(RR.z) + 3);
-  mctx.font = '600 15px "IBM Plex Sans KR",sans-serif'; mctx.textAlign = 'center';
-  for (const o of NET.others.values()) {
-    const ox = px(o.x), oz = px(o.z);
-    mctx.fillStyle = o.color; mctx.strokeStyle = 'rgba(0,0,0,.45)'; mctx.lineWidth = 2; mctx.beginPath(); mctx.arc(ox, oz, 6, 0, TAU); mctx.fill(); mctx.stroke();
-    if (NET.others.size <= 8 || o.id === focusId) { const label = o.nick.length > 5 ? o.nick.slice(0, 5) + '…' : o.nick; mctx.lineWidth = 4; mctx.strokeStyle = 'rgba(0,0,0,.6)'; mctx.strokeText(label, ox, oz - 10); mctx.fillStyle = '#fff'; mctx.fillText(label, ox, oz - 10); }
-  }
-  mctx.textAlign = 'start';
-  if (S.ballVis) { mctx.fillStyle = '#fff'; mctx.beginPath(); mctx.arc(px(S.ball.x), px(S.ball.z), 4, 0, TAU); mctx.fill(); }
-  mctx.save(); mctx.translate(px(me.x), px(me.z)); mctx.rotate(-me.yaw);
-  mctx.fillStyle = '#f08a2f'; mctx.strokeStyle = '#fff'; mctx.lineWidth = 2; mctx.beginPath(); mctx.moveTo(0, 10); mctx.lineTo(7, -6); mctx.lineTo(-7, -6); mctx.closePath(); mctx.fill(); mctx.stroke(); mctx.restore();
+// ---- 지도: 이번 홀을 티가 아래, 그린이 위로 오게 돌려서 그려요 (야디지북처럼) ----
+let mmMode = 'hole'; // 'hole' | 'course'
+function routeOf(hi) { const h = HOLES[hi]; return [h.tee, ...h.fair.slice(1, -1), h.cup]; }
+function holeView(hi, W, H, pad) {
+  const h = HOLES[hi], d = [h.cup[0] - h.tee[0], h.cup[1] - h.tee[1]];
+  const r = -Math.PI / 2 - Math.atan2(d[1], d[0]), cr = Math.cos(r), sr = Math.sin(r);
+  const rot = (x, z) => [x * cr - z * sr, x * sr + z * cr];
+  let a = [1e9, -1e9, 1e9, -1e9];
+  const grow = (x, z, m) => { const q = rot(x, z); a = [Math.min(a[0], q[0] - m), Math.max(a[1], q[0] + m), Math.min(a[2], q[1] - m), Math.max(a[3], q[1] + m)]; };
+  for (const p of h.fair) grow(p[0], p[1], h.fw / 2 + 5);
+  grow(h.tee[0], h.tee[1], 8); grow(h.cup[0], h.cup[1], h.green + 5);
+  const s = Math.min((W - 2 * pad) / (a[1] - a[0]), (H - 2 * pad) / (a[3] - a[2]));
+  const cx = (a[0] + a[1]) / 2, cy = (a[2] + a[3]) / 2;
+  return { r, s, cx, cy, to: (x, z) => { const q = rot(x, z); return [W / 2 + (q[0] - cx) * s, H / 2 + (q[1] - cy) * s]; } };
 }
+function courseView(W, H) { const s = Math.min(W, H) / (MAP * 2); return { r: 0, s, cx: 0, cy: 0, to: (x, z) => [W / 2 + x * s, H / 2 + z * s] }; }
+function pin(g, x, y, k) { g.strokeStyle = '#fff'; g.lineWidth = 2 * k; g.beginPath(); g.moveTo(x, y); g.lineTo(x, y - 16 * k); g.stroke(); g.fillStyle = '#e9711f'; g.beginPath(); g.moveTo(x, y - 16 * k); g.lineTo(x + 11 * k, y - 12 * k); g.lineTo(x, y - 8 * k); g.fill(); g.fillStyle = '#111'; g.beginPath(); g.arc(x, y, 2.5 * k, 0, TAU); g.fill(); }
+function label(g, text, x, y, k, bg) {
+  g.font = `600 ${12 * k}px "IBM Plex Sans KR",sans-serif`; const w = g.measureText(text).width + 10 * k;
+  g.fillStyle = bg || 'rgba(12,22,15,.78)'; g.beginPath(); g.roundRect ? g.roundRect(x - w / 2, y - 9 * k, w, 18 * k, 9 * k) : g.rect(x - w / 2, y - 9 * k, w, 18 * k); g.fill();
+  g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, x, y + .5 * k); g.textAlign = 'start'; g.textBaseline = 'alphabetic';
+}
+function drawMap(g, W, H, hi, mode, big) {
+  const k = big ? 1.6 : 1, v = mode === 'course' ? courseView(W, H) : holeView(hi, W, H, big ? 34 : 20);
+  g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = '#4c8b40'; g.fillRect(0, 0, W, H);
+  g.save(); g.translate(W / 2 - v.cx * v.s, H / 2 - v.cy * v.s); g.scale(v.s, v.s); g.rotate(v.r); g.translate(-MAP, -MAP); g.scale(1 / PPU, 1 / PPU);
+  g.drawImage(groundCanvas, 0, 0); g.restore();
+  const P = (x, z) => v.to(x, z);
+  // 나무 (장애물이 보이도록)
+  g.fillStyle = 'rgba(25,60,28,.85)';
+  for (const t of TREES) { const [x, y] = P(t.x, t.z); if (x < -10 || y < -10 || x > W + 10 || y > H + 10) continue; g.beginPath(); g.arc(x, y, Math.max(2, t.cr * v.s * .8), 0, TAU); g.fill(); }
+  const holes = mode === 'course' ? HOLES.map((_, i) => i) : [hi];
+  for (const i of holes) {
+    const h = HOLES[i], route = routeOf(i), cur = i === S.hole;
+    // 공략 경로: 티 → 꺾이는 지점 → 그린
+    g.setLineDash([8 * k, 6 * k]); g.lineWidth = (cur ? 3 : 2) * k; g.strokeStyle = cur ? '#ffd166' : 'rgba(255,255,255,.6)';
+    g.beginPath(); route.forEach((p, j) => { const [x, y] = P(p[0], p[1]); j ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke(); g.setLineDash([]);
+    const [tx, ty] = P(h.tee[0], h.tee[1]);
+    g.fillStyle = '#fff'; g.strokeStyle = '#2e7a3f'; g.lineWidth = 2 * k; g.beginPath(); g.arc(tx, ty, 8 * k, 0, TAU); g.fill(); g.stroke();
+    g.fillStyle = '#2e7a3f'; g.font = `700 ${10 * k}px "IBM Plex Sans KR",sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(mode === 'course' ? String(i + 1) : 'T', tx, ty + .5); g.textAlign = 'start'; g.textBaseline = 'alphabetic';
+    const [fx, fy] = P(h.cup[0], h.cup[1]); pin(g, fx, fy, k);
+    if (mode !== 'course' && cur) {
+      // 꺾이는 지점마다 티에서부터의 거리
+      let acc = 0;
+      for (let j = 1; j < route.length; j++) {
+        acc += Math.hypot(route[j][0] - route[j - 1][0], route[j][1] - route[j - 1][1]);
+        const [x, y] = P(route[j][0], route[j][1]), last = j === route.length - 1;
+        if (!last) { g.fillStyle = '#ffd166'; g.beginPath(); g.arc(x, y, 5 * k, 0, TAU); g.fill(); label(g, `1타 목표 · ${Math.round(acc * M_PER_U)}m`, x, y - 16 * k, k); }
+        else label(g, `그린 · ${Math.round(acc * M_PER_U)}m`, x, y - 28 * k, k, 'rgba(210,68,44,.9)');
+      }
+      label(g, '티잉 구역', tx, ty + 22 * k, k, 'rgba(46,122,63,.92)');
+    }
+  }
+  if (mode === 'course') {
+    const [sx, sy] = P(SHADE.x, SHADE.z); g.fillStyle = '#5e3d24'; g.fillRect(sx - 6 * k, sy - 5 * k, 12 * k, 10 * k);
+    const [wx, wy] = P(RR.x, RR.z); g.fillStyle = '#2f6fd6'; g.fillRect(wx - 5 * k, wy - 7 * k, 10 * k, 14 * k);
+  }
+  // 다른 사람
+  g.font = `600 ${11 * k}px "IBM Plex Sans KR",sans-serif`; g.textAlign = 'center';
+  for (const o of NET.others.values()) {
+    const [ox, oy] = P(o.x, o.z); if (ox < 0 || oy < 0 || ox > W || oy > H) continue;
+    g.fillStyle = o.color; g.strokeStyle = 'rgba(0,0,0,.5)'; g.lineWidth = 2; g.beginPath(); g.arc(ox, oy, 5 * k, 0, TAU); g.fill(); g.stroke();
+    if (big || NET.others.size <= 6 || o.id === focusId) { const lb = o.nick.length > 5 ? o.nick.slice(0, 5) + '…' : o.nick; g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,.6)'; g.strokeText(lb, ox, oy - 9 * k); g.fillStyle = '#fff'; g.fillText(lb, ox, oy - 9 * k); }
+  }
+  g.textAlign = 'start';
+  // 내 공과 나
+  if (S.ballVis) { const [bx, by] = P(S.ball.x, S.ball.z); g.fillStyle = '#fff'; g.strokeStyle = '#111'; g.lineWidth = 1.5; g.beginPath(); g.arc(bx, by, 4.5 * k, 0, TAU); g.fill(); g.stroke(); }
+  const [mx, my] = P(me.x, me.z);
+  g.save(); g.translate(mx, my); g.rotate(v.r - me.yaw); g.scale(k, k);
+  g.fillStyle = '#f08a2f'; g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.moveTo(0, 10); g.lineTo(7, -6); g.lineTo(-7, -6); g.closePath(); g.fill(); g.stroke(); g.restore();
+  if (!big) { g.fillStyle = 'rgba(12,22,15,.72)'; g.fillRect(0, 0, W, 34); g.fillStyle = '#fff'; g.font = '600 19px "IBM Plex Sans KR",sans-serif'; g.fillText(mode === 'course' ? '전체 코스' : `${S.hole + 1}번 홀 · PAR ${HOLES[S.hole].par}`, 10, 24); }
+}
+function drawMinimap() { drawMap(mctx, mm.width, mm.height, S.hole, mmMode, false); }
+// 홀 공략도: 미니맵을 누르거나 새 홀에 들어설 때 크게 보여줘요
+function guideHTML(hi) {
+  const h = HOLES[hi], len = Math.round(routeOf(hi).reduce((a, p, j, r) => j ? a + Math.hypot(p[0] - r[j - 1][0], p[1] - r[j - 1][1]) : 0, 0) * M_PER_U);
+  return `<span class="eyebrow">${hi + 1}번 홀 공략도 · PAR ${h.par} · ${len}m</span><h2>${esc(h.name)}</h2>
+    <div class="guide-tabs" role="tablist"><button type="button" role="tab" class="on" data-gm="hole">이번 홀</button><button type="button" role="tab" data-gm="course">전체 코스</button></div>
+    <canvas class="guide-map" id="guideMap" width="560" height="640" aria-label="${hi + 1}번 홀 지도"></canvas>
+    <p class="guide-tip"><b>토끼 캐디</b> ${esc(HOLE_TIPS[hi] || '')} 노란 점선을 따라가면 돼요. 아래 T가 티, 위의 깃발이 그린이에요.</p>`;
+}
+function bindGuide(hi) {
+  let mode = 'hole';
+  const draw = () => { const c = $('guideMap'); if (c) drawMap(c.getContext('2d'), c.width, c.height, hi, mode, true); };
+  document.querySelectorAll('[data-gm]').forEach(b => b.onclick = () => { mode = b.dataset.gm; document.querySelectorAll('[data-gm]').forEach(x => x.classList.toggle('on', x === b)); draw(); });
+  draw(); return draw;
+}
+function showGuide(hi = S.hole) {
+  closeSheets();
+  overlay(`${guideHTML(hi)}<button class="btn" type="button" id="guideOk">확인했어요</button>`);
+  const draw = bindGuide(hi); const iv = setInterval(() => { if ($('guideMap')) draw(); else clearInterval(iv); }, 500);
+  $('guideOk').onclick = closeOverlay; $('guideOk').focus();
+}
+mm.style.cursor = 'pointer'; mm.title = '눌러서 홀 공략도 크게 보기';
+mm.addEventListener('click', () => { if (!$('app').hidden) showGuide(); });
 
 // ================= 메인 루프 =================
 let mmT = 0, sendT = 0, actT = 0, trailT = 0;
@@ -1585,6 +1683,10 @@ function frame() {
   if (S.ball.state === 'rest' || S.ball.state === 'done') S.ball.y = heightAt(S.ball.x, S.ball.z);
   if (S.ball.state === 'sinking') S.ball.y = Math.max(heightAt(S.ball.x, S.ball.z) - .45, S.ball.y - dt * 1.5);
   ballMesh.visible = S.ballVis; ballMesh.position.set(S.ball.x, S.ball.y + .2, S.ball.z);
+  const guideOn = S.mode === 'walk' && S.ball.state === 'rest' && S.ballVis;
+  if (guideOn) updateGuideDots(); guideDots.visible = guideOn;
+  const ballFar = Math.hypot(me.x - S.ball.x, me.z - S.ball.z);
+  ballBeacon.visible = guideOn && ballFar > 10; ballBeacon.position.set(S.ball.x, S.ball.y + 8, S.ball.z);
 
   // 그늘집에 처음 들어오면 메뉴 안내
   const inShade = Math.hypot(me.x - SHADE.x, me.z - SHADE.z) < 6;
@@ -1620,12 +1722,13 @@ function frame() {
   const W = stage.clientWidth, H = stage.clientHeight;
   const place = (tag, x, y, z) => {
     tmpV.set(x, y, z); const d = camera.position.distanceTo(tmpV); tmpV.project(camera);
-    if (tmpV.z > 1 || d > 70) { tag.style.display = 'none'; return; }
+    if (tmpV.z > 1 || (d > 70 && tag !== ballTag)) { tag.style.display = 'none'; return; }
     tag.style.display = ''; tag.style.transform = `translate(${(tmpV.x * .5 + .5) * W}px, ${(-tmpV.y * .5 + .5) * H}px) translate(-50%,-100%)`;
-    tag.style.opacity = d > 45 ? String(1 - (d - 45) / 25) : '1';
+    tag.style.opacity = d > 45 && tag !== ballTag ? String(1 - (d - 45) / 25) : '1';
   };
   place(me.tag, me.x, (me.anim === 4 && me.seat ? me.seat.y + 2.4 : heightAt(me.x, me.z) + 3) + (me.jump > 0 ? .9 : 0), me.z);
   for (const o of NET.others.values()) if (o.tag) place(o.tag, o.x, o.anim === 4 && o.seat ? o.seat.y + 2.4 : heightAt(o.x, o.z) + 3, o.z);
+  if (ballBeacon.visible) { ballTag.querySelector('.nm').textContent = `${S.strokes === 0 ? '티잉 구역 · ' : ''}내 공 · ${Math.round(ballFar * M_PER_U)}m`; place(ballTag, S.ball.x, S.ball.y + 2.6, S.ball.z); } else ballTag.style.display = 'none';
   if (me.cart && me.cart.visible) { const v = new T.Vector3(.38, 3.1, -.3); me.cart.localToWorld(v); place(caddieTag, v.x, v.y, v.z); } else caddieTag.style.display = 'none';
   if (S.mode === 'aim' && aimTipPos) { const tip = $('aimTip'); tip.hidden = false; place(tip, aimTipPos[0], aimTipPos[1], aimTipPos[2]); } else $('aimTip').hidden = true;
 
@@ -1646,6 +1749,7 @@ function enterGame() {
   const t = HOLES[0].tee; me.x = t[0] - 1 + rand(-3, 3); me.z = t[1] + 6 + rand(-1, 1.5); me.yaw = Math.PI; cam.yaw = Math.PI; snapCam();
   updChannelBadge(); resize();
   sendPos(true);
+  setTimeout(() => { if (S.hole === 0 && S.strokes === 0 && $('overlay').hidden) showGuide(0); }, 900);
   if (!running) { running = true; clock.getDelta(); requestAnimationFrame(frame); }
   if (window.innerWidth < 640) $('help').textContent = '드래그: 시점 · 땅 탭: 걷기 · 두 손가락: 확대';
   setTimeout(() => $('help').classList.add('off'), window.innerWidth < 640 ? 7000 : 12000);
