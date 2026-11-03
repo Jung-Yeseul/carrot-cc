@@ -1160,6 +1160,8 @@ function onBallEvent(e) {
     const s = surface(b.x, b.z), d = distToCup();
     if (s === 'green' && d < 1.1) { S.strokes++; S.mode = 'wait'; finishHole('OK! 컨시드'); return; }
     if (S.strokes >= h.par * 2) { S.mode = 'wait'; finishHole('양파! 픽업'); return; }
+    const thief = crocNear(b.x, b.z);
+    if (thief && Math.random() < .6) { crocSteal(thief); return; }
     toast(`${LIE[s]} · 핀까지 ${Math.round(d * M_PER_U)}m`, 1600);
     S.mode = 'wait'; setTimeout(() => { S.mode = 'walk'; cam.mode = 'follow'; lastActKey = ''; updActions(); }, 250);
   }
@@ -1563,6 +1565,30 @@ function crocEats(x, z) {
   if (!c) return false;
   c.tx = x; c.tz = z; c.chomp = 2.2; c.state = 'swim'; setTimeout(sndChomp, 700); return true;
 }
+// 물가(연못 가장자리에서 6유닛 안)에 멈춘 공 근처의 악어
+function crocNear(x, z) { return CROCS.find(c => { const d = Math.hypot(x - c.w[0], z - c.w[1]); return d > c.w[2] && d < c.w[2] + 6 && c.chomp <= 0 && !c.steal; }); }
+function crocSteal(c) {
+  S.mode = 'wait'; cam.mode = 'steal';
+  const b = S.ball, dx = b.x - c.w[0], dz = b.z - c.w[1], dl = Math.hypot(dx, dz);
+  const edge = [c.w[0] + dx / dl * (c.w[2] - 1), c.w[1] + dz / dl * (c.w[2] - 1)];
+  c.x = edge[0]; c.z = edge[1]; c.y = -.04; c.state = 'swim';
+  c.steal = { ph: 'look', t: 0, edge, ball: [b.x, b.z] };
+  // 공과 악어가 옆에서 같이 보이게 카메라를 옮겨요
+  const nx = -dz / dl, nz = dx / dl, mx = (b.x + edge[0]) / 2, mz = (b.z + edge[1]) / 2;
+  cam.steal = { tx: mx, tz: mz, px: mx + nx * 9 + dx / dl * 2, pz: mz + nz * 9 + dz / dl * 2 };
+  toast('어? 물가에서 뭔가 움직여요…', 1600); tone(140, .5, 'sine', .08); tone(150, .5, 'sine', .08, .6);
+}
+function updateSteal(c, dt) {
+  const st = c.steal; st.t += dt; const [bx, bz] = st.ball, [ex, ez] = st.edge;
+  const face = (x, z) => { c.yaw += angDiff(c.yaw, Math.atan2(x - c.x, z - c.z)) * Math.min(1, dt * 8); };
+  if (st.ph === 'look') { face(bx, bz); c.y = -.04 + Math.min(1, st.t) * .1; if (st.t > 1.2) { st.ph = 'crawl'; st.t = 0; toast('악어다!! 내 공!!', 1800); showBubble(me, '안돼 내 공!!'); me.jump = 1; sndChomp(); } }
+  else if (st.ph === 'crawl') { face(bx, bz); const d = Math.hypot(bx - c.x, bz - c.z); if (d > 1.3) { const sp = 5 * dt; c.x += (bx - c.x) / d * sp; c.z += (bz - c.z) / d * sp; } else { st.ph = 'bite'; st.t = 0; } c.jaw.rotation.x = -Math.abs(Math.sin(st.t * 6)) * .35; }
+  else if (st.ph === 'bite') { c.jaw.rotation.x = -Math.abs(Math.sin(st.t * 9)) * .7; if (st.t > .5 && S.ballVis) { S.ballVis = false; sndChomp(); } if (st.t > 1) { st.ph = 'back'; st.t = 0; } }
+  else if (st.ph === 'back') { face(c.w[0], c.w[1]); const d = Math.hypot(ex - c.x, ez - c.z); if (d > .4) { const sp = 6 * dt; c.x += (ex - c.x) / d * sp; c.z += (ez - c.z) / d * sp; } else { st.ph = 'dive'; st.t = 0; splash(c.x, c.z); sndSplash(); } c.jaw.rotation.x = -.15; }
+  else if (st.ph === 'dive') { c.y -= dt * .8; c.jaw.rotation.x = 0; if (st.t > 1.4) { c.steal = null; c.state = 'dive'; toast('악어가 공을 훔쳐갔어요! 1벌타', 2200); setTimeout(() => { cam.mode = 'follow'; penaltyReturn(); }, 1400); } }
+  const onLand = Math.hypot(c.x - c.w[0], c.z - c.w[1]) > c.w[2] - .5;
+  c.g.position.set(c.x, onLand ? heightAt(c.x, c.z) + .22 : c.wy - .06 + c.y, c.z); c.g.rotation.y = c.yaw;
+}
 function splash(x, z) {
   const m = new T.Mesh(new T.RingGeometry(.3, .45, 24), new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .9, depthWrite: false }));
   m.rotation.x = -Math.PI / 2; m.position.set(x, Math.max(heightAt(x, z), ...CROCS.map(c => Math.hypot(c.x - x, c.z - z) < c.w[2] + 2 ? c.wy : -9)) + .06, z); scene.add(m); SPLASHES.push({ m, t: 0 });
@@ -1571,6 +1597,7 @@ function randInPond(w) { const a = Math.random() * TAU, d = Math.random() * (w[2
 let nextBirds = 8;
 function updateLife(dt, t) {
   for (const c of CROCS) {
+    if (c.steal) { updateSteal(c, dt); continue; }
     if (c.chomp > 0) {
       c.chomp -= dt; c.x += (c.tx - c.x) * Math.min(1, dt * 4); c.z += (c.tz - c.z) * Math.min(1, dt * 4); c.y += (.05 - c.y) * dt * 6;
       const a = Math.atan2(c.tx - c.x, c.tz - c.z); if (Math.hypot(c.tx - c.x, c.tz - c.z) > .3) c.yaw += angDiff(c.yaw, a) * Math.min(1, dt * 6);
@@ -1632,6 +1659,121 @@ function updateLife(dt, t) {
     for (let i = 0; i < p.count; i++) { const x = f.base[i * 3]; p.setZ(i, Math.sin(x * 4 - t * 5) * .12 * (x / 1.4)); }
     p.needsUpdate = true;
   }
+}
+
+// ================= 깜짝 동물: 고라니, 멧돼지, 거위 가족, 까마귀 =================
+const CRITTERS = []; let nextCritter = 18, shakeT = 0, lastKind = '';
+function legs(g, m, xs, zs, y, h, r) { const out = []; for (const x of xs) for (const z of zs) { const l = new T.Mesh(new T.CylinderGeometry(r, r * .8, h, 6), m); l.position.set(x, y - h / 2, z); l.geometry.translate(0, 0, 0); g.add(l); out.push(l); } return out; }
+function makeDeer() {
+  const g = new T.Group(), fur = mat(0x9a7350, { flatShading: true }), dark = mat(0x3a2a1c), light = mat(0xd9c3a3);
+  const body = new T.Mesh(new T.BoxGeometry(.55, .55, 1.25), fur); body.position.y = 1.05; g.add(body);
+  const belly = new T.Mesh(new T.BoxGeometry(.5, .12, 1.1), light); belly.position.y = .79; g.add(belly);
+  const neck = new T.Mesh(new T.BoxGeometry(.25, .6, .25), fur); neck.position.set(0, 1.45, .55); neck.rotation.x = .5; g.add(neck);
+  const head = new T.Mesh(new T.BoxGeometry(.3, .3, .5), fur); head.position.set(0, 1.75, .78); g.add(head);
+  for (const s of [-1, 1]) { const ear = new T.Mesh(new T.ConeGeometry(.08, .28, 5), fur); ear.position.set(s * .15, 1.95, .65); ear.rotation.z = s * -.6; g.add(ear);
+    const tusk = new T.Mesh(new T.ConeGeometry(.025, .16, 4), mat(0xfafaf0)); tusk.position.set(s * .08, 1.58, .98); tusk.rotation.x = Math.PI; g.add(tusk); // 고라니 송곳니
+    const eye = new T.Mesh(new T.SphereGeometry(.04, 6, 5), dark); eye.position.set(s * .15, 1.8, .9); g.add(eye); }
+  const nose = new T.Mesh(new T.SphereGeometry(.06, 6, 5), dark); nose.position.set(0, 1.72, 1.04); g.add(nose);
+  const tail = new T.Mesh(new T.SphereGeometry(.09, 6, 5), light); tail.position.set(0, 1.2, -.66); g.add(tail);
+  g.userData.legs = legs(g, fur, [-.18, .18], [-.45, .45], .8, .8, .05); g.userData.gait = 'gallop';
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; }); return g;
+}
+function makeBoar() {
+  const g = new T.Group(), fur = mat(0x4a3b30, { flatShading: true }), dark = mat(0x1e1712);
+  const body = new T.Mesh(new T.SphereGeometry(.6, 10, 8), fur); body.scale.set(.85, .8, 1.35); body.position.y = .75; g.add(body);
+  const mane = new T.Mesh(new T.BoxGeometry(.12, .25, 1.1), dark); mane.position.set(0, 1.25, .05); g.add(mane);
+  const head = new T.Mesh(new T.ConeGeometry(.38, .8, 7), fur); head.rotation.x = Math.PI / 2; head.position.set(0, .72, 1.05); g.add(head);
+  const snout = new T.Mesh(new T.CylinderGeometry(.12, .12, .08, 10), mat(0x8a6a5a)); snout.rotation.x = Math.PI / 2; snout.position.set(0, .7, 1.45); g.add(snout);
+  for (const s of [-1, 1]) { const tusk = new T.Mesh(new T.ConeGeometry(.035, .22, 5), mat(0xf4efe0)); tusk.position.set(s * .14, .78, 1.3); tusk.rotation.set(-.6, 0, s * .4); g.add(tusk);
+    const ear = new T.Mesh(new T.ConeGeometry(.09, .2, 4), fur); ear.position.set(s * .22, 1.08, .78); g.add(ear);
+    const eye = new T.Mesh(new T.SphereGeometry(.04, 6, 5), mat(0xff5a3a, { emissive: 0x5a0a00 })); eye.position.set(s * .17, .9, 1.12); g.add(eye); }
+  g.userData.legs = legs(g, dark, [-.25, .25], [-.45, .45], .4, .4, .07); g.userData.gait = 'trot';
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; }); return g;
+}
+function makeGoose(scale) {
+  const g = new T.Group(), white = mat(scale < 1 ? 0xf4e7a8 : 0xfafaf5), orange = mat(0xf08a2f), dark = mat(0x222222);
+  const body = new T.Mesh(new T.SphereGeometry(.3, 10, 8), white); body.scale.set(.8, .75, 1.2); body.position.y = .42; g.add(body);
+  const neck = new T.Mesh(new T.CylinderGeometry(.07, .09, .5, 8), white); neck.position.set(0, .78, .25); neck.rotation.x = -.15; g.add(neck);
+  const head = new T.Mesh(new T.SphereGeometry(.11, 8, 6), white); head.position.set(0, 1.04, .3); g.add(head);
+  const beak = new T.Mesh(new T.ConeGeometry(.05, .18, 6), orange); beak.rotation.x = Math.PI / 2; beak.position.set(0, 1.02, .46); g.add(beak);
+  for (const s of [-1, 1]) { const e = new T.Mesh(new T.SphereGeometry(.022, 5, 4), dark); e.position.set(s * .07, 1.07, .37); g.add(e); }
+  g.userData.legs = legs(g, orange, [-.1, .1], [0], .2, .2, .025); g.userData.gait = 'waddle'; g.userData.body = body;
+  g.scale.setScalar(scale); g.traverse(o => { if (o.isMesh) o.castShadow = true; }); return g;
+}
+function makeCrow() {
+  const g = new T.Group(), black = mat(0x1b1b22, { flatShading: true });
+  const body = new T.Mesh(new T.SphereGeometry(.2, 8, 6), black); body.scale.set(.8, .8, 1.4); g.add(body);
+  const head = new T.Mesh(new T.SphereGeometry(.12, 8, 6), black); head.position.set(0, .1, .27); g.add(head);
+  const beak = new T.Mesh(new T.ConeGeometry(.04, .16, 5), mat(0x333333)); beak.rotation.x = Math.PI / 2; beak.position.set(0, .08, .42); g.add(beak);
+  const wm = new T.MeshLambertMaterial({ color: 0x1b1b22, side: T.DoubleSide });
+  const wl = new T.Mesh(new T.PlaneGeometry(.55, .22).rotateX(-Math.PI / 2).translate(-.28, 0, 0), wm), wr = new T.Mesh(new T.PlaneGeometry(.55, .22).rotateX(-Math.PI / 2).translate(.28, 0, 0), wm);
+  g.add(wl, wr); g.userData.wings = [wl, wr];
+  const held = new T.Mesh(new T.SphereGeometry(.1, 8, 6), mat(0xffffff)); held.position.set(0, .02, .5); held.visible = false; g.add(held); g.userData.held = held;
+  return g;
+}
+const sndGorani = () => { const a = audio(), m = out(); if (!a || !m) return; for (let i = 0; i < 2; i++) { const t0 = a.currentTime + i * .45, o = a.createOscillator(), g = a.createGain(); o.type = 'sawtooth'; o.frequency.setValueAtTime(700, t0); o.frequency.linearRampToValueAtTime(1500, t0 + .08); o.frequency.exponentialRampToValueAtTime(500, t0 + .38); g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(.08, t0 + .03); g.gain.exponentialRampToValueAtTime(.001, t0 + .4); o.connect(g).connect(m); o.start(t0); o.stop(t0 + .42); noise(.35, 2200, 1, .06, i * .45); } };
+const sndBoar = () => { for (let i = 0; i < 3; i++) { tone(85 + Math.random() * 20, .22, 'sawtooth', .12, i * .28); noise(.2, 300, 1, .15, i * .28); } };
+const sndHonk = (n = 3) => { for (let i = 0; i < n; i++) { tone(420, .14, 'square', .06, i * .3); tone(380, .12, 'sawtooth', .05, i * .3 + .05); } };
+const sndCaw = () => { tone(520, .2, 'sawtooth', .06); tone(470, .22, 'sawtooth', .06, .3); };
+function spawnCritter() {
+  const pool = ['deer', 'boar', 'geese'].filter(k => k !== lastKind);
+  if (S.ball.state === 'rest' && S.ballVis && S.strokes > 0 && Math.hypot(me.x - S.ball.x, me.z - S.ball.z) > 18 && lastKind !== 'crow' && Math.random() < .35) pool.splice(0, pool.length, 'crow');
+  const kind = pool[Math.random() * pool.length | 0]; lastKind = kind;
+  const fx = Math.sin(cam.yaw), fz = Math.cos(cam.yaw), rx = -fz, rz = fx, side = Math.random() < .5 ? 1 : -1;
+  if (kind === 'crow') {
+    const c = makeCrow(), sx = S.ball.x + rand(-25, 25), sz = S.ball.z + rand(-25, 25);
+    c.position.set(sx, heightAt(sx, sz) + 14, sz); scene.add(c);
+    CRITTERS.push({ kind, g: c, st: 'in', t: 0, sx, sz }); sndCaw(); return;
+  }
+  // 고라니·멧돼지는 카메라와 나 사이를 휙 지나가서 깜짝 놀라게, 거위는 바로 앞을 천천히
+  const ahead = kind === 'geese' ? rand(3, 5) : rand(4, 6);
+  const cx = me.x + fx * ahead, cz = me.z + fz * ahead, half = kind === 'geese' ? 10 : kind === 'deer' ? 22 : 20;
+  const from = [cx - rx * side * half, cz - rz * side * half], to = [cx + rx * side * half, cz + rz * side * half];
+  const n = kind === 'geese' ? 4 : 1, members = [];
+  for (let i = 0; i < n; i++) { const g = kind === 'deer' ? makeDeer() : kind === 'boar' ? makeBoar() : makeGoose(i ? .75 : 1.35); if (kind !== 'geese') g.scale.setScalar(1.3); scene.add(g); members.push({ g, lag: i * 1.3 }); }
+  const speed = kind === 'deer' ? 12 : kind === 'boar' ? 8 : 2.2;
+  CRITTERS.push({ kind, members, from, to, len: Math.hypot(to[0] - from[0], to[1] - from[1]), d: 0, speed, yaw: Math.atan2(to[0] - from[0], to[1] - from[1]), said: false, t: 0 });
+  if (kind === 'deer') { sndGorani(); toast('앗! 고라니다!!', 1800); setTimeout(() => showBubble(me, '깜짝이야!!'), 300); me.jump = .8; }
+  if (kind === 'boar') { sndBoar(); toast('멧돼지 출몰 주의!!', 1800); shakeT = 1.2; setTimeout(() => showBubble(me, '으악 멧돼지!'), 300); me.jump = 1; }
+  if (kind === 'geese') { sndHonk(); toast('거위 가족이 길을 건너요~ 잠깐 멈춤!', 2200); }
+}
+function animLegs(g, ph, amp) { const L = g.userData.legs; if (!L) return; L.forEach((l, i) => { l.rotation.x = Math.sin(ph + (i % 2 ? Math.PI : 0) + (i > 1 ? Math.PI / 2 : 0)) * amp; }); }
+function updateCritters(dt) {
+  if (!scene) return;
+  const free = S.mode === 'walk' || S.mode === 'ride';
+  if (free) nextCritter -= dt;
+  if (nextCritter <= 0 && free && !$('app').hidden && CRITTERS.length === 0) { nextCritter = rand(35, 70); spawnCritter(); }
+  for (let i = CRITTERS.length - 1; i >= 0; i--) {
+    const c = CRITTERS[i]; c.t += dt;
+    if (c.kind === 'crow') {
+      const g = c.g, ws = g.userData.wings; ws[0].rotation.z = Math.sin(c.t * 14) * .7; ws[1].rotation.z = -Math.sin(c.t * 14) * .7;
+      const by = heightAt(S.ball.x, S.ball.z);
+      if (c.st === 'in') { const k = Math.min(1, c.t / 2.2); g.position.set(c.sx + (S.ball.x - c.sx) * k, by + .25 + 14 * (1 - k) ** 2, c.sz + (S.ball.z - c.sz) * k); g.rotation.y = Math.atan2(S.ball.x - c.sx, S.ball.z - c.sz);
+        if (k >= 1) { c.st = 'grab'; c.t = 0; sndCaw(); g.userData.held.visible = true; S.ballVis = false;
+          const a = Math.random() * TAU; let nx, nz, ok = false; for (let k2 = 0; k2 < 30 && !ok; k2++) { const d = rand(2, 4); nx = S.ball.x + Math.cos(a + k2) * d; nz = S.ball.z + Math.sin(a + k2) * d; ok = ['fairway', 'rough', 'green'].includes(surface(nx, nz)) && canStand(nx, nz); }
+          c.drop = ok ? [nx, nz] : [S.ball.x, S.ball.z]; c.from = [S.ball.x, S.ball.z]; } }
+      else if (c.st === 'grab') { const k = Math.min(1, c.t / 1.6); const x = c.from[0] + (c.drop[0] - c.from[0]) * k, z = c.from[1] + (c.drop[1] - c.from[1]) * k; g.position.set(x, heightAt(x, z) + .3 + Math.sin(k * Math.PI) * 3, z); g.rotation.y = Math.atan2(c.drop[0] - c.from[0], c.drop[1] - c.from[1]);
+        if (k >= 1) { g.userData.held.visible = false; S.ball.x = c.drop[0]; S.ball.z = c.drop[1]; S.ballVis = true; guideKey = ''; c.st = 'out'; c.t = 0; sndCaw();
+          toast(`까마귀가 공을 ${Math.round(Math.hypot(c.drop[0] - c.from[0], c.drop[1] - c.from[1]) * M_PER_U)}m 옮겨놨어요! (무벌타)`, 2400); showBubble(me, '야! 내 공!!'); lastActKey = ''; } }
+      else { g.position.y += dt * 6; g.position.x += Math.sin(g.rotation.y) * dt * 8; g.position.z += Math.cos(g.rotation.y) * dt * 8; if (c.t > 3) { scene.remove(g); CRITTERS.splice(i, 1); } }
+      continue;
+    }
+    c.d += c.speed * dt;
+    let alive = false;
+    for (const m of c.members) {
+      const d = c.d - m.lag; const k = d / c.len; m.g.visible = k > 0 && k < 1; if (k < 1) alive = true;
+      const kk = clamp(k, 0, 1), x = c.from[0] + (c.to[0] - c.from[0]) * kk, z = c.from[1] + (c.to[1] - c.from[1]) * kk;
+      const ph = c.t * (c.kind === 'deer' ? 16 : c.kind === 'boar' ? 14 : 9) - m.lag;
+      const bob = c.kind === 'deer' ? Math.abs(Math.sin(ph)) * .55 : c.kind === 'boar' ? Math.abs(Math.sin(ph)) * .12 : 0;
+      m.g.position.set(x, heightAt(x, z) + bob, z); m.g.rotation.y = c.yaw;
+      if (c.kind === 'deer') m.g.rotation.x = Math.sin(ph) * .12;
+      if (c.kind === 'geese') m.g.rotation.z = Math.sin(ph) * .12;
+      animLegs(m.g, ph, c.kind === 'deer' ? .9 : c.kind === 'boar' ? .6 : .5);
+    }
+    if (c.kind === 'geese' && !c.said && c.d > c.len * .4) { c.said = true; sndHonk(2); if (me.cart && me.cart.visible) caddieSay('잠깐만요~ 거위 지나가요!', 2200); }
+    if (!alive) { for (const m of c.members) scene.remove(m.g); CRITTERS.splice(i, 1); }
+  }
+  if (shakeT > 0) shakeT = Math.max(0, shakeT - dt);
 }
 
 // ================= 아바타 애니메이션 =================
@@ -1740,7 +1882,9 @@ function clickMove(e) {
 function snapCam() { const y = heightAt(me.x, me.z); cam.tx = me.x; cam.ty = y + 1.6; cam.tz = me.z; cam.px = me.x - Math.sin(cam.yaw) * cam.dist; cam.py = y + 6; cam.pz = me.z - Math.cos(cam.yaw) * cam.dist; }
 function updateCamera(dt) {
   let tx, ty, tz, px, py, pz;
-  if (S.mode === 'eat') {
+  if (cam.mode === 'steal' && cam.steal) {
+    const c = cam.steal; tx = c.tx; tz = c.tz; ty = heightAt(tx, tz) + .6; px = c.px; pz = c.pz; py = heightAt(px, pz) + 4.2;
+  } else if (S.mode === 'eat') {
     // 먹는 동안은 테이블 맞은편에서 클로즈업
     tx = me.x; ty = SHADE_LV + 1.55; tz = SHADE.z + .8;
     px = me.x + 1.3; py = SHADE_LV + 2.25; pz = SHADE.z - 1.9; cam.yaw = Math.PI;
@@ -1777,7 +1921,8 @@ function updateCamera(dt) {
   cam.tx += (tx - cam.tx) * kt; cam.ty += (ty - cam.ty) * kt; cam.tz += (tz - cam.tz) * kt;
   cam.px += (px - cam.px) * k; cam.py += (py - cam.py) * k; cam.pz += (pz - cam.pz) * k;
   const floor = heightAt(cam.px, cam.pz) + 1; if (cam.py < floor) cam.py = floor;
-  camera.position.set(cam.px, cam.py, cam.pz); camera.lookAt(cam.tx, cam.ty, cam.tz);
+  const sh = shakeT > 0 ? shakeT * .18 : 0;
+  camera.position.set(cam.px + rand(-sh, sh), cam.py + rand(-sh, sh), cam.pz + rand(-sh, sh)); camera.lookAt(cam.tx, cam.ty, cam.tz);
   for (const t of TREES) if (t.g) t.g.visible = Math.hypot(t.x - cam.px, t.z - cam.pz) > t.cr + 4.5;
   sun.position.set(me.x + 40, 80, me.z + 25); sun.target.position.set(me.x, heightAt(me.x, me.z), me.z);
 }
@@ -1988,7 +2133,7 @@ function frame() {
     o.ball.visible = !!o.bv; o.ball.position.set(o.bx, heightAt(o.bx, o.bz) + .2, o.bz);
   }
 
-  updateLife(dt, t); updateFireworks(dt); updateEat(dt, t);
+  updateLife(dt, t); updateFireworks(dt); updateEat(dt, t); updateCritters(dt);
   if (moveRing.material.opacity > 0) { moveRing.material.opacity = Math.max(0, moveRing.material.opacity - dt * 1.2); moveRing.scale.multiplyScalar(1 + dt * .8); }
   updateCamera(dt);
   renderer.render(scene, camera);
