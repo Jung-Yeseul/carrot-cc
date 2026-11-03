@@ -304,6 +304,7 @@ td.cur,th.cur{background:color-mix(in srgb,var(--leaf) 14%,transparent)}
 /* ---- 클럽하우스 ---- */
 .app.inclub .holecard,.app.inclub #minimap,.app.inclub .mm-cap,.app.inclub #goShadeBtn,.app.inclub #goWCBtn,.app.inclub #cardBtn,.app.inclub #buffChip,.app.inclub #tixChip,.app.inclub .tags .tag:not(.me),.app.inclub .help,.app.inclub .feed{display:none}
 .lb-skip{z-index:24}
+.app.inclub.dlg .hud.bottom{visibility:hidden}
 .clubtitle{position:absolute;left:50%;top:11%;transform:translateX(-50%);z-index:22;text-align:center;pointer-events:none;color:#fff;display:flex;flex-direction:column;align-items:center;gap:6px;width:min(92%,640px);opacity:0}
 .clubtitle.on{animation:ctIn 3.6s ease forwards}
 .clubtitle b{font:400 clamp(24px,6.2vw,46px)/1 var(--display);letter-spacing:.05em;white-space:nowrap;color:#f4dc93;text-shadow:0 3px 0 #2d5a3a,0 10px 30px rgba(0,0,0,.45)}

@@ -2297,7 +2297,8 @@ function buildLobby() {
   const plazaRim = add(new T.RingGeometry(6.2, 6.6, 40), mat(0xc9b48a), 0, .026, 24); plazaRim.rotation.x = -Math.PI / 2;
 
   // ---- 벽 (안팎 모두 크림색) ----
-  const wall = (w, h, d, x, z, y = h / 2, m = cream) => add(new T.BoxGeometry(w, h, d), m, x, y, z, true);
+  // 실내가 어두워지지 않게 벽·지붕은 그림자를 만들지 않아요
+  const wall = (w, h, d, x, z, y = h / 2, m = cream) => add(new T.BoxGeometry(w, h, d), m, x, y, z, false);
   wall(20.8, 7, .4, 0, -10);                                   // 로비 뒷벽
   wall(8.2, 7, .4, -6.1, 10); wall(8.2, 7, .4, 6.1, 10); wall(4, 2, .4, 0, 10, 6);   // 정문 벽 (문 높이 5)
   wall(.4, 7, 8.8, -10, -5.8); wall(.4, 7, 8.8, -10, 5.8); wall(.4, 2.4, 2.8, -10, 0, 5.8); // 락커룸 쪽 벽
@@ -2309,15 +2310,15 @@ function buildLobby() {
   plane(20, 20, mat(0xfbf6ea), 0, 7, 0, 0, Math.PI / 2); plane(12, 14, mat(0xfbf6ea), -16, 6, 0, 0, Math.PI / 2);
 
   // ---- 지붕 (딥그린) ----
-  const pyramid = (sx, h, sz, x, y, z) => { const o = add(new T.ConeGeometry(Math.SQRT1_2, 1, 4), roofM, x, y + h / 2, z, true); o.rotation.y = Math.PI / 4; o.scale.set(sx, h, sz); return o; };
-  add(new T.BoxGeometry(22.6, .4, 22.6), deep, 0, 7.2, 0, true); pyramid(22.6, 4.6, 22.6, 0, 7.4, 0);
-  add(new T.BoxGeometry(12.8, .35, 15), deep, -16, 6.2, 0, true); pyramid(12.8, 3, 15, -16, 6.35, 0);
+  const pyramid = (sx, h, sz, x, y, z) => { const o = add(new T.ConeGeometry(Math.SQRT1_2, 1, 4), roofM, x, y + h / 2, z, false); o.rotation.y = Math.PI / 4; o.scale.set(sx, h, sz); return o; };
+  add(new T.BoxGeometry(22.6, .4, 22.6), deep, 0, 7.2, 0, false); pyramid(22.6, 4.6, 22.6, 0, 7.4, 0);
+  add(new T.BoxGeometry(12.8, .35, 15), deep, -16, 6.2, 0, false); pyramid(12.8, 3, 15, -16, 6.35, 0);
   // 정면 박공 + 금색 간판
   wall(22, 2.2, .5, 0, 10.05, 8.3);
   const sign = plane(15, 1.8, new T.MeshLambertMaterial({ map: signTex(1200, 144, 'CARROT COUNTRY CLUB', '') }), 0, 8.35, 10.32);
   // 기둥과 캐노피
   for (const x of [-3, 3]) { add(new T.CylinderGeometry(.42, .5, 5.2, 14), cream, x, 2.6, 12.2, true); add(new T.BoxGeometry(1.2, .3, 1.2), brass, x, .15, 12.2); add(new T.BoxGeometry(1.1, .25, 1.1), brass, x, 5.1, 12.2); }
-  add(new T.BoxGeometry(8.8, .45, 3.6), deep, 0, 5.35, 11.9, true);
+  add(new T.BoxGeometry(8.8, .45, 3.6), deep, 0, 5.35, 11.9, false);
   plane(8.8, .45, new T.MeshLambertMaterial({ map: signTex(880, 46, 'EST. 2026 · PRIVATE GOLF CLUB', '', '#2d5a3a', '#e8c873') }), 0, 5.35, 13.71);
   // 바깥 창문 (따뜻한 실내 불빛)
   for (const x of [-6.5, 6.5]) { plane(3.4, 2.6, new T.MeshBasicMaterial({ color: 0xffe9bb }), x, 3, 10.22); for (const [w, h, ox, oy] of [[3.6, .16, 0, 1.38], [3.6, .16, 0, -1.38], [.16, 2.9, 1.72, 0], [.16, 2.9, -1.72, 0], [.1, 2.6, 0, 0], [3.4, .1, 0, 0]]) add(new T.BoxGeometry(w, h, .1), wood, x + ox, 3 + oy, 10.25); }
@@ -2392,7 +2393,7 @@ function buildLobby() {
   const lockN = 10; LB.lockers = [];
   for (let i = 0; i < lockN; i++) {
     const z = -5.85 + i * 1.3, num = 101 + i;
-    add(new T.BoxGeometry(1, 3, 1.3), darkWood, -21.5, 1.5, z, true);
+    add(new T.BoxGeometry(1, 3, 1.3), darkWood, -21.5, 1.5, z, false);
     const pivot = new T.Group(); pivot.position.set(-20.98, 1.5, z - .62); g.add(pivot);
     const door = new T.Mesh(new T.BoxGeometry(.06, 2.8, 1.22), new T.MeshLambertMaterial({ map: textTexture(64, 160, (c, w, h) => { c.fillStyle = '#7a5233'; c.fillRect(0, 0, w, h); c.strokeStyle = 'rgba(0,0,0,.25)'; c.lineWidth = 3; c.strokeRect(6, 6, w - 12, h - 12); c.fillStyle = 'rgba(0,0,0,.3)'; for (let k = 0; k < 4; k++) c.fillRect(16, 14 + k * 7, 32, 3); c.fillStyle = '#e8c873'; c.fillRect(18, 52, 28, 16); c.fillStyle = '#3d2a08'; c.font = '700 13px sans-serif'; c.textAlign = 'center'; c.fillText(num, 32, 65); }) }));
     door.position.z = .61; pivot.add(door);
@@ -2421,7 +2422,7 @@ function buildLobby() {
 
 // ---- 상태 전환 ----
 function setClubUI(on) { $('app').classList.toggle('inclub', on); $('app').classList.remove('inlobby'); if (!on) { $('lobbyUI').hidden = true; $('clubTitle').hidden = true; $('lbSkip').hidden = true; } }
-function placeClub(lx, lz, yaw) { me.x = LB.x + lx; me.z = LB.z + lz; me.yaw = yaw; me.moveT = null; me.path = null; cam.yaw = yaw; LB.cam = null; }
+function placeClub(lx, lz, yaw) { LB.zone = clubZone(lx, lz); me.x = LB.x + lx; me.z = LB.z + lz; me.yaw = yaw; me.moveT = null; me.path = null; cam.yaw = yaw; LB.cam = null; }
 // where: 'outside'(정원) | 'lobby' | 'range'(연습장 출입구) | 'course'(코스 출입구) | 'gate'(정문으로 나가는 연출)
 function startClubAt(where) {
   buildLobby(); closeOverlay(); setClubUI(true); $('power').hidden = true; landRing.visible = false;
@@ -2455,7 +2456,7 @@ function finishCine() {
   const c = LB.cine; if (!c) return; LB.cine = null; $('lbSkip').hidden = true;
   const end = c.path.length ? c.path[c.path.length - 1] : null;
   if (end) { me.x = LB.x + end[0]; me.z = LB.z + end[1]; }
-  S.mode = 'club'; me.anim = 0; lastActKey = ''; LB.cam = null;
+  S.mode = 'club'; me.anim = 0; lastActKey = ''; LB.cam = null; LB.zone = clubZone(me.x - LB.x, me.z - LB.z);
   if (c.kind === 'enter') {
     me.yaw = Math.PI; cam.yaw = Math.PI;
     setTimeout(() => { $('clubTitle').hidden = true; }, 900);
@@ -2618,6 +2619,7 @@ function updateLobby(dt, t) {
   for (const [i, L] of LB.lockers.entries()) { const tgt = LB.lockerUI && i === LB.myLocker ? 1.5 : 0; L.pivot.rotation.y += (tgt - L.pivot.rotation.y) * Math.min(1, dt * 4); }
   const sf = LB.staff; if (sf) { sf.userData.talk = Math.max(0, (sf.userData.talk || 0) - dt); sf.position.y = .55 + (sf.userData.talk > 0 ? Math.abs(Math.sin(t * 10)) * .06 : 0); sf.rotation.z = Math.sin(t * 1.5) * .04; }
   if (LB.statue) LB.statue.rotation.y = Math.sin(t * .4) * .25;
+  $('app').classList.toggle('dlg', !$('lobbyUI').hidden);
   if (!here) return;
   if (S.mode === 'cine') {
     const c = LB.cine; c.t += dt;
