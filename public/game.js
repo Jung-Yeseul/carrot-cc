@@ -41,7 +41,7 @@ const HOLES = [
 const HOLE_EV = {
   warm: ['몸풀기 홀', '천천히 감 잡는 홀이에요. 특별한 이벤트는 없어요.'],
   rabbit: ['토끼 도우미 홀', '공이 러프에 멈추면 토끼가 핀 쪽으로 공을 밀어줄 때가 있어요.'],
-  croc: ['악어 홀', '연못에 악어가 세 마리! 물가 근처에 공이 멈추면 무조건 훔쳐가요.'],
+  croc: ['악어 홀', '연못에 악어가 세 마리! 물가에 공이 멈추면 훔쳐가요. 단, 한 홀에 한 번만이에요.'],
   wind: ['바람 홀', '언덕 위라 바람이 세게 불어요. 공이 바람에 밀려요.'],
   zones: ['보물찾기 홀', '페어웨이 위 트램펄린·황금 당근·물음표 상자를 맞혀 보세요!'],
   duck: ['오리 홀', '연못에 오리 가족이 살아요. 공이 빠져도 오리가 건져다 줘요(무벌타).'],
@@ -1210,7 +1210,7 @@ function onBallEvent(e) {
   if (e === 'water' && h.ev === 'duck') { duckRescue(); updHud(); return; }
   if (e === 'water') {
     S.mode = 'wait'; S.ballVis = false; sndSplash(); splash(b.x, b.z);
-    const eaten = crocEats(b.x, b.z);
+    const eaten = !S.crocDone && crocEats(b.x, b.z); if (eaten) S.crocDone = true;
     toast(eaten ? '악어가 공을 물어갔어요! 1벌타' : '퐁당! 해저드 1벌타', 2200);
     if (eaten) { S.st.croc++; recMark('악어가 공을 물어감', `${S.hole + 1}번 홀 · 1벌타`); recStopIn(3200); } else { S.st.water++; recStopIn(1500); }
     setTimeout(() => penaltyReturn(), eaten ? 2200 : 1300);
@@ -1224,7 +1224,7 @@ function onBallEvent(e) {
     if (s === 'green' && d < 1.6 && !S.okTix && !S.okHinted) { S.okHinted = true; setTimeout(() => toast('OK 거리인데 OK권이 없어요. 그늘집에서 사 먹으면 받아요!', 2400), 900); }
     if (S.strokes >= h.par * 2) { S.mode = 'wait'; finishHole('양파! 픽업'); return; }
     const thief = crocNear(b.x, b.z);
-    if (thief && (h.ev === 'croc' || Math.random() < .6)) { crocSteal(thief); return; }
+    if (thief && !S.crocDone && (h.ev === 'croc' || Math.random() < .6)) { S.crocDone = true; crocSteal(thief); return; }
     if (holeStopEvent(s)) return;
     toast(`${LIE[s]} · 핀까지 ${Math.round(d * M_PER_U)}m`, 1600);
     S.mode = 'wait'; setTimeout(() => { S.mode = 'walk'; cam.mode = 'follow'; lastActKey = ''; updActions(); }, 250);
@@ -1327,7 +1327,7 @@ function nextHoleCard(s) {
     <canvas class="guide-map" id="guideMap" width="560" height="500" aria-label="다음 홀 지도"></canvas>
     <p class="guide-tip"><b>토끼 캐디</b> ${esc(HOLE_TIPS[done + 1] || '')}</p>
     <div class="btns">${shade ? '<button class="btn" id="goShade">그늘집 들르기</button>' : ''}<button class="btn${shade ? ' sub' : ''}" id="goCart">카트 타고 티로</button><button class="btn sub" id="goWalk">걸어가기</button></div>`);
-  S.hole = done + 1; S.strokes = 0; S.prev = null; S.last = null; S.zoneUsed = {}; S.okHinted = false;
+  S.hole = done + 1; S.strokes = 0; S.prev = null; S.last = null; S.zoneUsed = {}; S.okHinted = false; S.crocDone = false;
   const t = HOLES[S.hole].tee; Object.assign(S.ball, { x: t[0], y: 0, z: t[1], vx: 0, vy: 0, vz: 0, state: 'rest' }); S.ballVis = true;
   S.mode = 'walk'; lastActKey = ''; updHud(); renderCard(); bindGuide(S.hole);
   $('goCart').onclick = () => { closeOverlay(); cartTo(t[0], t[1], true, '다음 홀로 모실게요~', holeTalk(S.hole)); };
@@ -1378,7 +1378,7 @@ function renderCard() {
   $('sc').innerHTML = h + '<th>합계</th></tr>' + p + `<td>${TOTAL_PAR}</td></tr>` + s + `<td>${played.length ? tot : ''}</td></tr>`;
 }
 function resetRound(teleport) {
-  closeOverlay(); S.scores.fill(null); S.buff = null; S.mulligans = 0; S.okTix = 0; S.zoneUsed = {}; S.okHinted = false; S.chance = CHANCE_MAX; S.spent = 0; renderSpent(); S.st = newStats(); S.hole = 0; S.strokes = 0; S.prev = null; S.last = null; S.mode = 'walk';
+  closeOverlay(); S.scores.fill(null); S.buff = null; S.mulligans = 0; S.okTix = 0; S.zoneUsed = {}; S.okHinted = false; S.crocDone = false; S.chance = CHANCE_MAX; S.spent = 0; renderSpent(); S.st = newStats(); S.hole = 0; S.strokes = 0; S.prev = null; S.last = null; S.mode = 'walk';
   $('buffChip').hidden = true;
   const t = HOLES[0].tee; Object.assign(S.ball, { x: t[0], y: 0, z: t[1], vx: 0, vy: 0, vz: 0, state: 'rest' }); S.ballVis = true;
   if (teleport) cartTo(t[0], t[1], true, '1번 홀로 다시 모실게요~', holeTalk(0));
