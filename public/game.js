@@ -2422,14 +2422,14 @@ function buildLobby() {
 
 // ---- 상태 전환 ----
 function setClubUI(on) { $('app').classList.toggle('inclub', on); $('app').classList.remove('inlobby'); if (!on) { $('lobbyUI').hidden = true; $('clubTitle').hidden = true; $('lbSkip').hidden = true; } }
-function placeClub(lx, lz, yaw) { LB.zone = clubZone(lx, lz); me.x = LB.x + lx; me.z = LB.z + lz; me.yaw = yaw; me.moveT = null; me.path = null; cam.yaw = yaw; LB.cam = null; }
+function placeClub(lx, lz, yaw, camYaw = yaw) { LB.zone = clubZone(lx, lz); me.x = LB.x + lx; me.z = LB.z + lz; me.yaw = yaw; me.moveT = null; me.path = null; cam.yaw = camYaw; LB.cam = null; }
 // where: 'outside'(정원) | 'lobby' | 'range'(연습장 출입구) | 'course'(코스 출입구) | 'gate'(정문으로 나가는 연출)
 function startClubAt(where) {
   buildLobby(); closeOverlay(); setClubUI(true); $('power').hidden = true; landRing.visible = false;
   LB.lockerUI = false; LB.desk = 'idle'; LB.deskSnooze = false; LB.welcome = null; LB.portalLock = true; LB.cine = null; $('lobbyUI').hidden = true; $('lobbyUI').classList.remove('locker');
   if (where === 'outside') placeClub(0, 31, Math.PI);
-  else if (where === 'range') placeClub(8.2, -4.5, -Math.PI / 2);
-  else if (where === 'course') placeClub(8.2, 4.5, -Math.PI / 2);
+  else if (where === 'range') placeClub(7.6, -4.5, -Math.PI / 2, Math.PI / 2);
+  else if (where === 'course') placeClub(7.6, 4.5, -Math.PI / 2, Math.PI / 2);
   else if (where === 'gate') { placeClub(0, 5, 0); startCine('exit'); return; }
   else placeClub(0, 2, Math.PI);
   S.mode = 'club'; lastActKey = '';
@@ -2508,7 +2508,7 @@ function openDress() {
   if (S.mode !== 'club') return;
   const go = () => { LB.lockerUI = true; me.yaw = Math.PI; LB.cam = null; LB.myLocker = myLockerIdx(); closeDesk(); renderLocker(); lastActKey = ''; };
   const lx = me.x - LB.x, lz = me.z - LB.z;
-  if (Math.hypot(lx + 16, lz + 3.8) < .6) go(); else { walkPath(lz > 1.8 || lz < .2 ? [[-16, -3.8]] : [[-12.5, -1.5], [-16, -3.8]]); LB.afterWalk = go; }
+  if (Math.hypot(lx + 16, lz + 2.6) < .6) go(); else { walkPath(lz > 1.8 || lz < .2 ? [[-16, -2.6]] : [[-12.5, -1.5], [-16, -2.6]]); LB.afterWalk = go; }
 }
 function closeLocker() { LB.lockerUI = false; LB.myLocker = null; $('lobbyUI').hidden = true; $('lobbyUI').classList.remove('locker'); LB.cam = null; lastActKey = ''; toast('오늘 룩 저장했어요. 어디서든 이 옷으로 보여요', 1800); }
 function renderLocker() {
@@ -2538,7 +2538,7 @@ function goCourseDoor() {
   const saved = !roundHasProgress() && loadRound();
   if (!roundHasProgress() && !saved) { if (S.scores.every(x => x != null)) resetRound(false); enterCourse(false); return; }
   const d = roundHasProgress() ? { hole: S.hole, strokes: S.strokes, sc: totalDiff(), done: S.scores.filter(x => x != null).length } : { hole: saved.hole, strokes: saved.strokes, sc: saved.scores.reduce((d, s, i) => s == null ? d : d + s - HOLES[i].par, 0), done: saved.scores.filter(x => x != null).length };
-  me.x = LB.x + 8.3; lastActKey = '';
+  me.x = LB.x + 7.6; me.yaw = -Math.PI / 2; cam.yaw = Math.PI / 2; LB.cam = null; lastActKey = '';
   overlay(`<span class="eyebrow">골프 코스 입구</span><h2>다시 오셨군요! 이어서 라운딩하시겠어요?</h2>
     <p>${d.hole + 1}번 홀 · 이번 홀 ${d.strokes}타 · 합계 ${fmtDiff(d.sc)} (${d.done}/${HOLES.length}홀 완료)</p>
     <div class="btns col"><button class="btn" id="rcGo">이어서 라운딩하기</button><button class="btn sub" id="rcNew">새 라운딩 시작하기</button><button class="btn sub" id="rcBack">클럽하우스로 돌아가기</button></div>`);
@@ -2659,12 +2659,12 @@ function lobbyCamera(dt) {
     if (c.kind === 'enter') tg = lz > 9.6 ? { tx: LB.x, ty: y0 + 2.6, tz: LB.z + 10, px: LB.x + 2.2, py: y0 + 3.4, pz: me.z + 8 } : { tx: me.x, ty: y0 + 1.5, tz: me.z - 2.5, px: LB.x + 4.6, py: y0 + 3.9, pz: LB.z + 8.8 };
     else tg = { tx: me.x, ty: y0 + 2, tz: me.z, px: LB.x + 4.5, py: y0 + 3.8, pz: LB.z + 24 };
   } else if (LB.lockerUI) {
-    tg = { tx: me.x, ty: y0 + 1.3, tz: me.z, px: me.x + .35, py: y0 + 1.9, pz: LB.z - 6.5 };
+    tg = { tx: me.x, ty: y0 + 1.45, tz: me.z, px: me.x + .5, py: y0 + 2.15, pz: LB.z - 6.45 };
   } else {
     const zone = clubZone(lx, lz), cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
     const dist = zone === 'out' ? Math.max(9, cam.dist) : Math.min(cam.dist, 7.5);
     let px = me.x - Math.sin(cam.yaw) * cp * dist, pz = me.z - Math.cos(cam.yaw) * cp * dist, py = y0 + 1.6 + sp * dist;
-    const r = zone === 'lobby' ? [-9.3, 9.3, -9.3, 9.3] : zone === 'locker' ? [-21.2, -10.5, -6.5, 6.5] : null;
+    const r = zone === 'lobby' ? [-9.3, 9.3, -9.3, 9.3] : zone === 'locker' ? [-21.2, -10.9, -6.5, 6.5] : null;
     if (r) { px = clamp(px, LB.x + r[0], LB.x + r[1]); pz = clamp(pz, LB.z + r[2], LB.z + r[3]); py = Math.min(py, y0 + (zone === 'lobby' ? 6.2 : 5.3)); }
     else if (pz < LB.z + 11 && px > LB.x - 23 && px < LB.x + 11) pz = LB.z + 11;
     tg = { tx: me.x, ty: y0 + 1.5, tz: me.z, px, py: Math.max(py, y0 + 1.2), pz };
