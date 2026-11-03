@@ -6,6 +6,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { WebSocketServer } = require('ws');
+const metamoa = require('./metamoa');
 
 // ---- 설정 (환경변수로 바꿀 수 있어요) ----
 const PORT = Number(process.env.PORT) || 3000;
@@ -84,7 +85,7 @@ const XY = 1300;  // 좌표 범위 (코스 ±120 유닛 × 10, 여유 포함)
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.json': 'application/json',
-  '.webmanifest': 'application/manifest+json', '.txt': 'text/plain; charset=utf-8',
+  '.webmanifest': 'application/manifest+json', '.glb': 'model/gltf-binary', '.txt': 'text/plain; charset=utf-8',
 };
 
 const server = http.createServer((req, res) => {
@@ -98,6 +99,10 @@ const server = http.createServer((req, res) => {
     return res.end(JSON.stringify(hofPayload()));
   }
   if (url.pathname === '/healthz') { res.writeHead(200); return res.end('ok'); }
+  if (url.pathname === '/metamoa' || url.pathname.startsWith('/metamoa/')) {
+    metamoa.handle(req, res, url, { publicDir: PUBLIC_DIR, count: () => total() }).catch(e => { if (!res.headersSent) res.writeHead(500); res.end('error'); console.log('[metamoa]', e.message); });
+    return;
+  }
 
   let file = decodeURIComponent(url.pathname);
   if (file === '/' || file === '') file = '/index.html';
@@ -113,7 +118,7 @@ const server = http.createServer((req, res) => {
       'X-Content-Type-Options': 'nosniff',
     });
     // 배포할 때마다 서버가 새로 켜지므로, 그 시각을 버전으로 붙여 예전 파일이 남아 있어도 새 파일을 받게 해요
-    if (ext === '.html') data = data.toString('utf8').replace(/(["'])\/(game\.js|style\.css)\1/g, `$1/$2?v=${BOOT_VERSION}$1`);
+    if (ext === '.html') data = data.toString('utf8').replace(/(["'])\/(game\.js|style\.css)\1/g, `$1/$2?v=${BOOT_VERSION}$1`).replace('</head>', metamoa.headTags() + '</head>');
     res.end(data);
   });
 });
@@ -279,4 +284,4 @@ setInterval(() => {
   for (const p of sockets) if (p.ch) send(p.ws, t);
 }, 3000);
 
-server.listen(PORT, () => { console.log(`당근 CC 개장: http://localhost:${PORT}  (채널 ${CHANNELS}개 × 정원 ${CAPACITY}명)`); loadGist(); });
+server.listen(PORT, () => { metamoa.startLive(() => total()); console.log(`당근 CC 개장: http://localhost:${PORT}  (채널 ${CHANNELS}개 × 정원 ${CAPACITY}명)`); loadGist(); });

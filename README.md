@@ -92,3 +92,14 @@ Render 무료 플랜은 재배포·재시작 때 서버 안의 파일이 지워�
 5. 배포 로그에 `명예의 전당 Gist 연결됨` 이 보이면 끝. 이후 기록은 재배포해도 계속 누적돼요.
 
 토큰을 안 넣어도 게임은 똑같이 돌아가고, 서버가 재시작되기 전까지는 기록이 쌓여요.
+
+## 6. 메타모아(metamoa.com) 연동
+
+키는 코드에 적지 않고 Render 환경변수에만 넣어요.
+
+1. Render → Environment에 `METAMOA_ADMIN` 추가 (관리 코드: 직접 정한 아무 문자열) → 저장
+2. `https://carrot-cc.onrender.com/metamoa?code=관리코드` 접속 → 약관 동의 체크 → **신청하기**
+3. 화면에 나온 `METAMOA_SUBMIT_ID`, `METAMOA_REQUEST_KEY`를 Render 환경변수에 넣기 (화면을 닫으면 다시 볼 수 없어요)
+4. 같은 페이지에서 심사 결과 확인 → 승인되면 메타모아 소유자 확인 페이지에서 받은 코드를 `METAMOA_VERIFY`에 넣기 (사이트 `<head>`에 자동으로 들어가요)
+5. 받은 공간 키를 `METAMOA_KEY`에 넣기 (공간 번호가 신청 번호와 다르면 `METAMOA_SPACE_ID`도)
+6. 그 뒤로 서버가 10분마다 접속자 수를 보내요. 업데이트 글·이벤트·야영지 캐릭터(`public/carrot-character.glb`)는 같은 페이지에서 올려요.
