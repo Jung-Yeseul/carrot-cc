@@ -889,7 +889,7 @@ function updActions() {
   const near = Math.hypot(me.x - S.ball.x, me.z - S.ball.z) < 3.2;
   const inShade = Math.hypot(me.x - SHADE.x, me.z - SHADE.z) < 6;
   let key;
-  if (S.mode === 'aim') key = `aim${S.club}${S.chance}${S.chanceBusy ? 1 : 0}`;
+  if (S.mode === 'aim') key = `aim${S.club}${S.chance}${S.chanceBusy ? 1 : 0}${S.readLie ? 1 : 0}`;
   const nearRR = Math.hypot(me.x - RR_DOORS.m[0], me.z - (RR_DOORS.m[1] + RR_DOORS.w[1]) / 2) < 5;
   if (S.mode === 'walk') key = `walk${S.ball.state}${near}${inShade}${nearRR}${S.mulligans && S.prev ? 1 : 0}`;
   else if (S.mode !== 'aim') key = S.mode;
@@ -901,6 +901,7 @@ function updActions() {
       <button class="act swing" id="swing">누르고 있다가 떼기</button>
       <button class="act sub round" id="aR" aria-label="오른쪽으로">▶</button>
       <button class="act sub" id="clubBtn">${CLUBS[S.club].name}</button>
+      ${S.club === 3 ? `<button class="act sub lie" id="lieBtn">${S.readLie ? '일어나기' : '쪼그려서 라이 보기'}</button>` : ''}
       <button class="act chance" id="chanceBtn" ${S.chance <= 0 || S.chanceBusy ? 'disabled' : ''}>${S.chanceBusy ? '캐디가 보는 중…' : `캐디 찬스 ${S.chance}`}</button>
       <button class="act sub" id="cancel">취소</button>`;
   } else if (S.mode === 'walk') {
@@ -919,7 +920,7 @@ function updActions() {
   const on = (id, f) => { const el = $(id); if (el) el.onclick = f; };
   on('skipRide', skipRide); on('eatDone', () => { EAT.t = EAT_SEC; }); on('skipFlight', skipFlight); on('ready', enterAim); on('goBall', walkToBall); on('cartBall', () => cartTo(S.ball.x, S.ball.z, true)); on('menuBtn', showShade); on('mull', mulligan);
   on('wcM', () => useRestroom('m')); on('wcW', () => useRestroom('w'));
-  on('cancel', exitAim); on('clubBtn', () => { S.club = (S.club + 1) % 4; S.clubAuto = false; lastActKey = ''; clearChance('클럽을 바꿔서 캐디 찬스가 풀렸어요'); }); on('chanceBtn', caddieChance);
+  on('cancel', exitAim); on('clubBtn', () => { S.club = (S.club + 1) % 4; S.clubAuto = false; lastActKey = ''; clearChance('클럽을 바꿔서 캐디 찬스가 풀렸어요'); }); on('chanceBtn', caddieChance); on('lieBtn', toggleLie);
   const hold = (id, d) => { const el = $(id); if (!el) return; let iv = 0; const stop = () => clearInterval(iv); el.onpointerdown = e => { e.preventDefault(); iv = setInterval(() => { S.aimYaw += d * .012; }, 16); }; el.onpointerup = stop; el.onpointerleave = stop; el.onpointercancel = stop; };
   hold('aL', 1); hold('aR', -1);
   const sw = $('swing');
@@ -1037,9 +1038,35 @@ function aimTarget() {
   }
   return h.cup;
 }
-function exitAim() { clearChance(); S.mode = 'walk'; S.charge = false; S.aimDrag = false; $('power').hidden = true; aimArrow.visible = landRing.visible = pathLine.visible = ribbon.visible = false; lastActKey = ''; }
+// ---- 퍼팅 라이 읽기 ----
+let lieArrows = null;
+function buildLieArrows() {
+  if (lieArrows) scene.remove(lieArrows);
+  lieArrows = new T.Group(); const h = hole(), [cx, cz] = h.cup, R = h.green;
+  const geo = new T.ConeGeometry(.16, .55, 3); geo.rotateX(Math.PI / 2);
+  for (let x = -R; x <= R; x += 1.4) for (let z = -R; z <= R; z += 1.4) {
+    if (x * x + z * z > (R - .6) ** 2) continue;
+    const px = cx + x, pz = cz + z, [gx, gz] = slopeAt(px, pz), m = Math.hypot(gx, gz); if (m < .008) continue;
+    const k = Math.min(1, m / .07), col = new T.Color().setHSL(.33 - .33 * k, .9, .55);
+    const a = new T.Mesh(geo, new T.MeshBasicMaterial({ color: col, transparent: true, opacity: .85, depthWrite: false }));
+    a.position.set(px, heightAt(px, pz) + .06, pz); a.rotation.y = Math.atan2(-gx, -gz); a.scale.setScalar(.7 + k * .6); lieArrows.add(a);
+  }
+  scene.add(lieArrows);
+}
+function lieAdvice() {
+  const b = S.ball, cup = hole().cup, dx = cup[0] - b.x, dz = cup[1] - b.z, L = Math.hypot(dx, dz) || 1, fx = dx / L, fz = dz / L;
+  const up = heightAt(cup[0], cup[1]) - heightAt(b.x, b.z), deg = Math.atan(up / L) * 180 / Math.PI;
+  let side = 0; for (const t of [.25, .5, .75]) { const x = b.x + dx * t, z = b.z + dz * t; side += heightAt(x - fz * 1.5, z + fx * 1.5) - heightAt(x + fz * 1.5, z - fx * 1.5); } side /= 3;
+  const cups = Math.min(4, Math.round(Math.abs(side) * L * 2.2 * 2) / 2);
+  const slope = Math.abs(deg) < .4 ? '거의 평지예요' : deg > 0 ? `오르막 ${deg.toFixed(1)}°라 조금 세게` : `내리막 ${(-deg).toFixed(1)}°라 살살`;
+  const brk = cups < .5 ? '거의 똑바로 가요. 컵 정면을 보세요.' : side > 0 ? `오른쪽으로 휘어요. 컵 ${cups}개 왼쪽을 보세요.` : `왼쪽으로 휘어요. 컵 ${cups}개 오른쪽을 보세요.`;
+  return `<b>라이 읽기</b> 핀까지 ${(L * M_PER_U).toFixed(1)}m, ${slope}. ${brk}<br><small>화살표는 공이 흘러내리는 방향이에요. 빨갈수록 가팔라요.</small>`;
+}
+function toggleLie() { if (S.readLie) { stopLie(); return; } if (S.mode !== 'aim' || S.club !== 3) return; S.readLie = true; buildLieArrows(); lieArrows.visible = true; showCaddieTip(lieAdvice()); tone(220, .1, 'triangle', .08); tone(180, .14, 'triangle', .08, .1); showBubble(me, ['흠…', '어디 보자…', '살짝 휘는데?'][Math.random() * 3 | 0]); lastActKey = ''; }
+function stopLie() { if (!S.readLie) return; S.readLie = false; if (lieArrows) lieArrows.visible = false; if (!S.chanceT) $('caddieTip').hidden = true; lastActKey = ''; }
+function exitAim() { stopLie(); clearChance(); S.mode = 'walk'; S.charge = false; S.aimDrag = false; $('power').hidden = true; aimArrow.visible = landRing.visible = pathLine.visible = ribbon.visible = false; lastActKey = ''; }
 function swingLabel() { const sw = $('swing'); if (!sw) return; sw.classList.toggle('on', S.charge); sw.textContent = S.charge ? '떼면 샷!' : '누르고 있다가 떼기'; }
-function startCharge() { if (S.mode !== 'aim' || S.charge) return; audio(); S.charge = true; S.chargeT = performance.now(); swingLabel(); }
+function startCharge() { if (S.mode !== 'aim' || S.charge) return; stopLie(); audio(); S.charge = true; S.chargeT = performance.now(); swingLabel(); }
 function releaseCharge() {
   if (!S.charge) return; S.charge = false; swingLabel();
   if (S.power < .03) return;
@@ -1997,6 +2024,9 @@ function animateAvatar(av, o, dt, t) {
     else if (k < .9) club.rotation.set(.15, 0, -1.9 - Math.sin((k - .16) * 3) * .15);
     else { o.swingT = 0; o.swingFrom = null; }
     av.rotation.y = o.yaw + (k < .16 ? -.5 * (top / 3) * (1 - k / .16) : .25 * Math.min(1, (k - .16) * 5));
+  } else if (o === me && S.readLie && S.mode === 'aim') {
+    // 쪼그려 앉아 한쪽 눈 감고 라인 읽기
+    av.scale.set(1.1, .55, 1.1); av.position.y -= .05; av.rotation.x = .25; club.rotation.set(1.3, 0, .5);
   } else if (aiming && o.chargeP > 0) {
     // 누르고 있는 동안 파워만큼 채가 뒤로 올라가요
     club.rotation.set(.15, 0, .2 + o.chargeP * 2.8); av.rotation.y = o.yaw - .5 * o.chargeP;
@@ -2092,6 +2122,13 @@ function updateCamera(dt) {
     // 먹는 동안은 테이블 맞은편에서 클로즈업
     tx = me.x; ty = SHADE_LV + 1.55; tz = SHADE.z + .8;
     px = me.x + 1.3; py = SHADE_LV + 2.25; pz = SHADE.z - 1.9; cam.yaw = Math.PI;
+  } else if (S.mode === 'aim' && S.readLie) {
+    // 공 뒤에 쪼그려 앉아 땅바닥 높이에서 컵을 봐요
+    if (!S.aimDrag) cam.aimYaw += angDiff(cam.aimYaw, S.aimYaw) * Math.min(1, dt * 3);
+    const f = [Math.sin(cam.aimYaw), Math.cos(cam.aimYaw)], cup = hole().cup;
+    // 쪼그린 내 어깨 너머로 낮게
+    px = S.ball.x - f[0] * 2.6; pz = S.ball.z - f[1] * 2.6; py = heightAt(px, pz) + .45;
+    tx = cup[0]; tz = cup[1]; ty = heightAt(cup[0], cup[1]) + .15; cam.yaw = cam.aimYaw;
   } else if (S.mode === 'aim' || S.mode === 'swing') {
     if (!S.aimDrag) cam.aimYaw += angDiff(cam.aimYaw, S.aimYaw) * Math.min(1, dt * 3);
     const f = [Math.sin(cam.aimYaw), Math.cos(cam.aimYaw)], by = heightAt(S.ball.x, S.ball.z);
@@ -2272,8 +2309,16 @@ function frame() {
     for (const k of ['arrowleft', 'a']) if (keys.has(k)) S.aimYaw += dt * 1.1;
     for (const k of ['arrowright', 'd']) if (keys.has(k)) S.aimYaw -= dt * 1.1;
     const rx = -Math.cos(S.aimYaw), rz = Math.sin(S.aimYaw);
-    me.x += (S.ball.x - rx * 1.0 - me.x) * Math.min(1, dt * 10); me.z += (S.ball.z - rz * 1.0 - me.z) * Math.min(1, dt * 10);
-    me.yaw += angDiff(me.yaw, Math.atan2(rx, rz)) * Math.min(1, dt * 10); me.anim = 2;
+    if (S.readLie) { // 공 바로 뒤에 쪼그려 앉아 컵을 바라봐요
+      const fx = Math.sin(S.aimYaw), fz = Math.cos(S.aimYaw);
+      const tx2 = S.ball.x - rx * 1.9 - fx * .5, tz2 = S.ball.z - rz * 1.9 - fz * .5;
+      me.x += (tx2 - me.x) * Math.min(1, dt * 8); me.z += (tz2 - me.z) * Math.min(1, dt * 8);
+      me.yaw += angDiff(me.yaw, S.aimYaw) * Math.min(1, dt * 8);
+    } else {
+      me.x += (S.ball.x - rx * 1.0 - me.x) * Math.min(1, dt * 10); me.z += (S.ball.z - rz * 1.0 - me.z) * Math.min(1, dt * 10);
+      me.yaw += angDiff(me.yaw, Math.atan2(rx, rz)) * Math.min(1, dt * 10);
+    }
+    me.anim = 2;
     if (S.charge) { S.power = chargePower(); $('pow').style.width = (S.power * 100) + '%'; }
     me.chargeP = S.charge ? S.power * (S.club === 3 ? .35 : 1) : 0;
     $('powLabel').textContent = `${CLUBS[S.club].name}${S.charge ? ' ' + Math.round(S.power * 100) + '%' : ''} · ${S.lieText || ''}`;
