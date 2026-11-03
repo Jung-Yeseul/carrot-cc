@@ -931,7 +931,6 @@ function updActions() {
       <button class="act swing" id="swing">누르고 있다가 떼기</button>
       <button class="act sub round" id="aR" aria-label="오른쪽으로">▶</button>
       <button class="act sub" id="clubBtn">${CLUBS[S.club].name}</button>
-      ${S.club === 3 ? `<button class="act sub lie" id="lieBtn">${S.readLie ? '일어나기' : '쪼그려서 라이 보기'}</button>` : ''}
       <button class="act chance" id="chanceBtn" ${S.chance <= 0 || S.chanceBusy ? 'disabled' : ''}>${S.chanceBusy ? '캐디가 보는 중…' : `캐디 찬스 ${S.chance}`}</button>
       <button class="act sub" id="cancel">취소</button>`;
   } else if (S.mode === 'walk') {
