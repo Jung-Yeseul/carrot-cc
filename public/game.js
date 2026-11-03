@@ -967,6 +967,7 @@ function canStand(x, z) {
   if (x > RR.x - 2.7 && x < RR.x + 2.7 && z > RR.z - 3.9 && z < RR.z + 3.9) return false; // 화장실 건물
   return true;
 }
+$('lbSkip') && ($('lbSkip').onclick = () => leaveLobby());
 // 공 있는 곳으로 순간이동 (뿅!)
 function warpToBall() {
   if (S.mode !== 'walk' || S.ball.state !== 'rest') return;
@@ -2189,6 +2190,118 @@ function updateCritters(dt) {
   if (shakeT > 0) shakeT = Math.max(0, shakeT - dt);
 }
 
+// ================= 클럽하우스 로비 (입장 체크인) =================
+const LB = { x: 0, z: 520, built: false, step: 0, desk: null, staff: null, cad: null, key: null, walkT: null, camK: 0 };
+function buildLobby() {
+  if (LB.built) return; LB.built = true;
+  const g = new T.Group(), y0 = EDGE_H + .01; g.position.set(LB.x, y0, LB.z); LB.g = g;
+  const add = (geo, m, x, y, z, sh = false) => { const o = new T.Mesh(geo, m); o.position.set(x, y, z); o.receiveShadow = true; o.castShadow = sh; g.add(o); return o; };
+  // 바닥: 체크무늬 원목
+  const floorT = textTexture(512, 512, (c, w, h) => { for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) { c.fillStyle = (i + j) % 2 ? '#b98a5e' : '#a87850'; c.fillRect(i * 64, j * 64, 64, 64); } c.strokeStyle = 'rgba(0,0,0,.12)'; for (let i = 0; i <= 8; i++) { c.beginPath(); c.moveTo(i * 64, 0); c.lineTo(i * 64, h); c.moveTo(0, i * 64); c.lineTo(w, i * 64); c.stroke(); } });
+  floorT.wrapS = floorT.wrapT = T.RepeatWrapping; floorT.repeat.set(3, 3);
+  const fl = add(new T.PlaneGeometry(20, 20), new T.MeshLambertMaterial({ map: floorT }), 0, 0, 0); fl.rotation.x = -Math.PI / 2;
+  const carpet = add(new T.PlaneGeometry(3, 14), mat(0x2e5e36), 0, .02, 2); carpet.rotation.x = -Math.PI / 2;
+  const carpetB = add(new T.PlaneGeometry(3.4, 14.2), mat(0xd9b45a), 0, .015, 2); carpetB.rotation.x = -Math.PI / 2;
+  // 벽과 천장
+  const wallM = mat(0xf3ead8), wood = mat(0x7a5233), dark = mat(0x4a301c);
+  add(new T.BoxGeometry(20, 7, .3), wallM, 0, 3.5, -10); add(new T.BoxGeometry(.3, 7, 20), wallM, -10, 3.5, 0); add(new T.BoxGeometry(.3, 7, 20), wallM, 10, 3.5, 0);
+  add(new T.BoxGeometry(8, 7, .3), wallM, -6, 3.5, 10); add(new T.BoxGeometry(8, 7, .3), wallM, 6, 3.5, 10); add(new T.BoxGeometry(4, 2.4, .3), wallM, 0, 5.8, 10);
+  for (const [w, x, z, ry] of [[20, 0, -9.84, 0], [20, -9.84, 0, Math.PI / 2], [20, 9.84, 0, Math.PI / 2]]) { const wn = add(new T.BoxGeometry(w, 1.2, .05), wood, x, .6, z); wn.rotation.y = ry; }
+  const ceil = add(new T.PlaneGeometry(20, 20), mat(0xfbf6ea), 0, 7, 0); ceil.rotation.x = Math.PI / 2;
+  // 유리문 (바깥 잔디가 비쳐요)
+  const glass = add(new T.PlaneGeometry(4, 4.6), new T.MeshBasicMaterial({ color: 0x9fd08a }), 0, 2.3, 10.1); glass.rotation.y = Math.PI;
+  for (const x of [-2, 0, 2]) add(new T.BoxGeometry(.12, 4.6, .12), dark, x, 2.3, 10);
+  // 프론트 카운터
+  const desk = new T.Group(); desk.position.set(0, 0, -5.2); g.add(desk); LB.desk = desk;
+  const dm = new T.Mesh(new T.BoxGeometry(7, 1.15, 1.2), wood); dm.position.y = .58; desk.add(dm);
+  const top = new T.Mesh(new T.BoxGeometry(7.3, .12, 1.45), mat(0xe9711f, { emissive: 0x4a1d00 })); top.position.y = 1.2; desk.add(top);
+  const front = new T.Mesh(new T.PlaneGeometry(4.2, .7), new T.MeshLambertMaterial({ map: textTexture(512, 90, (c, w, h) => { c.fillStyle = '#7a5233'; c.fillRect(0, 0, w, h); c.fillStyle = '#f4e9cf'; c.font = `400 64px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('FRONT · 프론트', w / 2, h / 2 + 3); }) })); front.position.set(0, .62, .61); desk.add(front);
+  const bell = new T.Mesh(new T.SphereGeometry(.14, 12, 8, 0, TAU, 0, Math.PI / 2), mat(0xd9b45a, { emissive: 0x3a2a00 })); bell.position.set(2.2, 1.27, .2); desk.add(bell);
+  const book = new T.Mesh(new T.BoxGeometry(.7, .06, .5), mat(0x2e5e36)); book.position.set(-1.6, 1.29, .2); book.rotation.y = .2; desk.add(book);
+  // 직원 토끼 (나비넥타이)
+  const staff = makeCaddie(); staff.position.set(.3, .55, -6.2); staff.scale.setScalar(1.2); g.add(staff); LB.staff = staff;
+  const bow = new T.Mesh(new T.BoxGeometry(.22, .1, .05), mat(0xd2442c)); bow.position.set(0, 1.05, .33); staff.add(bow);
+  // 뒷벽 간판, 트로피, 액자
+  const logo = new T.Mesh(new T.PlaneGeometry(8, 1.8), new T.MeshLambertMaterial({ map: textTexture(1024, 230, (c, w, h) => { c.fillStyle = '#2e5e36'; c.fillRect(0, 0, w, h); c.strokeStyle = '#d9b45a'; c.lineWidth = 10; c.strokeRect(10, 10, w - 20, h - 20); carrotIcon(c, 120, 118, 5); c.fillStyle = '#ff9248'; c.font = `400 110px ${FONT}`; c.textBaseline = 'middle'; c.fillText('당근 컨트리클럽', 210, 104); c.fillStyle = '#f4e9cf'; c.font = `600 34px "IBM Plex Mono",monospace`; c.fillText('CARROT COUNTRY CLUB · EST. 2026', 214, 180); }) }));
+  logo.position.set(0, 4.6, -9.82); g.add(logo);
+  const shelf = add(new T.BoxGeometry(3.4, .12, .6), wood, -6.2, 2.4, -9.6);
+  for (let i = 0; i < 4; i++) { const cup = new T.Group(); cup.position.set(-7.4 + i * .8, 2.46, -9.55); const gold = mat(0xd9b45a, { emissive: 0x3a2a00 }); const b = new T.Mesh(new T.CylinderGeometry(.06, .12, .1, 10), gold); b.position.y = .05; cup.add(b); const st = new T.Mesh(new T.CylinderGeometry(.03, .03, .25, 6), gold); st.position.y = .22; cup.add(st); const bw = new T.Mesh(new T.CylinderGeometry(.16, .08, .22, 12), gold); bw.position.y = .44; cup.add(bw); g.add(cup); }
+  const hof = new T.Mesh(new T.PlaneGeometry(2.6, 1.8), new T.MeshLambertMaterial({ map: textTexture(320, 220, (c, w, h) => { c.fillStyle = '#3d2a08'; c.fillRect(0, 0, w, h); c.fillStyle = '#d9b45a'; c.fillRect(10, 10, w - 20, h - 20); c.fillStyle = '#3d2a08'; c.textAlign = 'center'; c.font = `400 38px ${FONT}`; c.fillText('명예의 전당', w / 2, 60); c.font = `400 26px ${FONT}`; c.fillText('HOLE IN ONE', w / 2, 100); c.font = `400 22px ${FONT}`; c.fillText('홀인원하면 이름이 올라가요', w / 2, 150); }) }));
+  hof.position.set(6.3, 3, -9.82); g.add(hof);
+  // 화분, 소파, 샹들리에
+  for (const [x, z] of [[-8.6, 8.6], [8.6, 8.6], [-8.6, -8.4], [8.6, -8.4]]) { add(new T.CylinderGeometry(.45, .35, .8, 12), mat(0xb5653a), x, .4, z, true); const lf = add(new T.IcosahedronGeometry(.9, 0), mat(0x3f8a3f, { flatShading: true }), x, 1.5, z, true); lf.scale.y = 1.3; }
+  for (const x of [-6.5, 6.5]) { const so = new T.Group(); so.position.set(x, 0, 2); g.add(so); const sm = mat(0x2e5e36); const base = new T.Mesh(new T.BoxGeometry(1.2, .5, 3), sm); base.position.y = .45; so.add(base); const back = new T.Mesh(new T.BoxGeometry(.3, .9, 3), sm); back.position.set(x < 0 ? -.55 : .55, .9, 0); so.add(back); }
+  for (const [x, z] of [[-4, -2], [4, -2], [0, 4]]) { const ch = add(new T.SphereGeometry(.35, 12, 8), new T.MeshBasicMaterial({ color: 0xfff1c8 }), x, 6.2, z); const pl = new T.PointLight(0xffe2b0, .7, 16); pl.position.set(x, 5.8, z); g.add(pl); }
+  // 락커 키 (카운터 위에 놓여요)
+  const key = new T.Group(); const tag = new T.Mesh(new T.BoxGeometry(.32, .04, .2), mat(0xe9711f)); key.add(tag); const ring = new T.Mesh(new T.TorusGeometry(.08, .015, 6, 14), mat(0xd9b45a)); ring.rotation.x = Math.PI / 2; ring.position.x = -.22; key.add(ring);
+  key.position.set(.4, 1.3, .25); key.visible = false; desk.add(key); LB.key = key;
+  // 내 캐디
+  const cad = makeCaddie(); cad.position.set(8.5, 0, 6); cad.visible = false; g.add(cad); LB.cad = cad;
+  scene.add(g);
+}
+const LOBBY_STEPS = () => {
+  const lk = 100 + (Math.abs([...(NET.nick || 'a')].reduce((a, c) => a * 31 + c.charCodeAt(0), 7)) % 899);
+  const h = NET.hof;
+  return [
+    { say: '어서 오세요~ 당근 컨트리클럽입니다! 오늘 예약하신 분 성함이 어떻게 되실까요?', btns: [[`${NET.nick} 으로 체크인`, 'next'], ['이름 바꿀래요', 'nick']] },
+    { say: `${NET.nick} 님, 확인됐습니다! 락커 키 ${lk}번 드릴게요. 잃어버리시면 당근 10개예요~`, btns: [['키 받기', 'next']], on: () => { LB.key.visible = true; tone(1400, .08, 'triangle', .1); tone(1800, .1, 'triangle', .08, .08); } },
+    { say: `오늘은 9홀, PAR ${TOTAL_PAR} 코스예요. 3번 악어 홀, 5번 보물찾기 홀, 6번 오리 홀이 인기 많아요. 멀리건·OK권은 그늘집에서 음식 사 드시면 받을 수 있어요!`, btns: [['코스 미리 보기', 'guide'], ['알겠어요', 'next']], on: () => { LB.key.visible = false; } },
+    { say: `${h && h.today ? `오늘 벌써 ${h.today}분이 홀인원 하셨어요. ` : '오늘은 아직 홀인원하신 분이 없어요. '}첫 주인공 되시면 저 벽 명예의 전당에 이름 올려드려요!`, btns: [['도전해 볼게요', 'next']] },
+    { say: '오늘 함께할 캐디는 토끼 캐디예요. 공 있는 데까지 카트로 모셔다 드릴 거예요!', btns: [['잘 부탁해요', 'next']], on: () => { LB.cad.visible = true; LB.cadWalk = 1; } },
+    { say: '그럼 1번 홀 단풍길로 안내해 드릴게요. 즐거운 라운딩 되세요~', btns: [['1번 홀로 출발!', 'go']] },
+  ];
+};
+function startLobby() {
+  buildLobby(); S.mode = 'lobby'; LB.step = -1; LB.cadWalk = 0; LB.cad.visible = false; LB.cad.position.set(8.5, 0, 6); LB.key.visible = false;
+  me.x = LB.x - .6; me.z = LB.z + 5; me.yaw = Math.PI; LB.walkT = [LB.x - .6, LB.z - 3.3];
+  $('app').classList.add('inlobby'); $('lobbyUI').hidden = false; $('lbSay').textContent = ''; $('lbBtns').innerHTML = '';
+  // 딩동~ 문 열리는 소리
+  tone(880, .4, 'sine', .14); tone(698, .6, 'sine', .14, .35);
+}
+function lobbyStep(i) {
+  const steps = LOBBY_STEPS(); LB.step = i; const st = steps[i]; if (!st) return;
+  st.on && st.on(); typeSay(st.say);
+  $('lbBtns').innerHTML = st.btns.map(([t, a]) => `<button type="button" class="btn${a === 'next' || a === 'go' ? '' : ' sub'}" data-a="${a}">${esc(t)}</button>`).join('');
+  $('lbBtns').querySelectorAll('[data-a]').forEach(b => b.onclick = () => {
+    const a = b.dataset.a; tone(660, .05, 'square', .04);
+    if (a === 'next') lobbyStep(i + 1);
+    else if (a === 'go') leaveLobby();
+    else if (a === 'guide') { showGuide(0); }
+    else if (a === 'nick') { $('nick').click(); const iv = setInterval(() => { if ($('overlay').hidden) { clearInterval(iv); lobbyStep(0); } }, 300); }
+  });
+  LB.staff.userData.talk = 1.2;
+}
+let typeT = 0;
+function typeSay(text) {
+  clearInterval(typeT); const el = $('lbSay'); let n = 0; el.textContent = '';
+  typeT = setInterval(() => { n += 2; el.textContent = text.slice(0, n); if (n % 6 === 0) tone(1100 + Math.random() * 200, .025, 'square', .015); if (n >= text.length) clearInterval(typeT); }, 30);
+  el.onclick = () => { clearInterval(typeT); el.textContent = text; };
+}
+function leaveLobby() {
+  clearInterval(typeT); $('fade').classList.add('on'); sndCart();
+  setTimeout(() => {
+    $('lobbyUI').hidden = true; $('app').classList.remove('inlobby');
+    const t = HOLES[0].tee; me.x = t[0] - 1 + rand(-3, 3); me.z = t[1] + 6 + rand(-1, 1.5); me.yaw = Math.PI; cam.yaw = Math.PI; S.mode = 'walk'; snapCam(); lastActKey = '';
+    sendPos(true); setTimeout(() => $('fade').classList.remove('on'), 150);
+    setTimeout(() => { if (S.hole === 0 && S.strokes === 0 && $('overlay').hidden) showGuide(0); }, 900);
+    setTimeout(() => $('help').classList.add('off'), window.innerWidth < 640 ? 7000 : 12000);
+  }, 500);
+}
+function updateLobby(dt, t) {
+  if (S.mode !== 'lobby') return;
+  if (LB.walkT) {
+    const dx = LB.walkT[0] - me.x, dz = LB.walkT[1] - me.z, d = Math.hypot(dx, dz);
+    if (d < .1) { LB.walkT = null; me.anim = 0; me.yaw = Math.PI; if (LB.step < 0) { setTimeout(() => lobbyStep(0), 250); tone(1568, .5, 'sine', .1); } }
+    else { const sp = Math.min(d, 4.5 * dt); me.x += dx / d * sp; me.z += dz / d * sp; me.yaw = Math.atan2(dx, dz); me.anim = 1; }
+  } else me.anim = 0;
+  const sf = LB.staff; if (sf) { sf.userData.talk = Math.max(0, (sf.userData.talk || 0) - dt); sf.position.y = .55 + (sf.userData.talk > 0 ? Math.abs(Math.sin(t * 10)) * .06 : 0); sf.rotation.z = Math.sin(t * 1.5) * .04; }
+  if (LB.cadWalk && LB.cad) { const c = LB.cad, tx = 1.6, tz = -3.1, dx = tx - c.position.x, dz = tz - c.position.z, d = Math.hypot(dx, dz); if (d > .1) { const sp = Math.min(d, 3 * dt); c.position.x += dx / d * sp; c.position.z += dz / d * sp; c.rotation.y = Math.atan2(dx, dz); c.position.y = Math.abs(Math.sin(t * 10)) * .2; } else { c.position.y = 0; c.rotation.y = Math.PI * .85; } }
+}
+function lobbyCamera() {
+  // 입구 쪽 대각선에서 카운터와 나를 함께 비춰요
+  return { tx: LB.x + .2, ty: EDGE_H + 1.4, tz: LB.z - 4.4, px: LB.x + 4.2, py: EDGE_H + 3.6, pz: LB.z + 3.2 };
+}
+
 // ================= 아바타 애니메이션 =================
 function animateAvatar(av, o, dt, t) {
   av.rotation.order = 'YXZ';
@@ -2298,6 +2411,10 @@ function clickMove(e) {
 function snapCam() { const y = heightAt(me.x, me.z); cam.tx = me.x; cam.ty = y + 1.6; cam.tz = me.z; cam.px = me.x - Math.sin(cam.yaw) * cam.dist; cam.py = y + 6; cam.pz = me.z - Math.cos(cam.yaw) * cam.dist; }
 function updateCamera(dt) {
   let tx, ty, tz, px, py, pz;
+  if (S.mode === 'lobby') {
+    const c = lobbyCamera(); camera.position.set(c.px, c.py, c.pz); camera.lookAt(c.tx, c.ty, c.tz); cam.px = c.px; cam.py = c.py; cam.pz = c.pz; cam.tx = c.tx; cam.ty = c.ty; cam.tz = c.tz;
+    sun.position.set(LB.x + 40, 80, LB.z + 25); sun.target.position.set(LB.x, EDGE_H, LB.z); return;
+  }
   const fc = cam.focus && (S.mode === 'walk' || S.mode === 'ride') ? cam.focus : null;
   if (fc) {
     // 동물이 지나가는 동안 그 장면에 카메라를 고정해요
@@ -2361,7 +2478,7 @@ function updateCamera(dt) {
 
 // ================= 위치 전송 =================
 function sendPos(force) {
-  if (!NET.ch) return;
+  if (!NET.ch || S.mode === 'lobby') return;
   const yaw = ((me.yaw % TAU) + TAU) % TAU;
   const bv = S.ballVis && S.ball.state === 'rest' ? 1 : 0;
   const dn = S.scores.filter(x => x != null).length;
@@ -2574,7 +2691,7 @@ function frame() {
     o.ball.visible = !!o.bv; o.ball.position.set(o.bx, heightAt(o.bx, o.bz) + .2, o.bz);
   }
 
-  updateLife(dt, t); updateFireworks(dt); updateEat(dt, t); updateCritters(dt); updateDucks(dt, t); updateZones(dt, t); updateGallery(dt, t);
+  updateLobby(dt, t); updateLife(dt, t); updateFireworks(dt); updateEat(dt, t); updateCritters(dt); updateDucks(dt, t); updateZones(dt, t); updateGallery(dt, t);
   if (moveRing.material.opacity > 0) { moveRing.material.opacity = Math.max(0, moveRing.material.opacity - dt * 1.2); moveRing.scale.multiplyScalar(1 + dt * .8); }
   updateCamera(dt);
   renderer.render(scene, camera);
@@ -2610,13 +2727,10 @@ function enterGame() {
   me.tag.querySelector('.nm').textContent = NET.nick;
   audio(); startAmbience(); setMaster(true);
   resetRound(false);
-  const t = HOLES[0].tee; me.x = t[0] - 1 + rand(-3, 3); me.z = t[1] + 6 + rand(-1, 1.5); me.yaw = Math.PI; cam.yaw = Math.PI; snapCam();
+  startLobby();
   updChannelBadge(); resize();
-  sendPos(true);
-  setTimeout(() => { if (S.hole === 0 && S.strokes === 0 && $('overlay').hidden) showGuide(0); }, 900);
   if (!running) { running = true; clock.getDelta(); requestAnimationFrame(frame); }
   if (window.innerWidth < 640) $('help').textContent = '드래그: 시점 · 땅 탭: 걷기 · 두 손가락: 확대';
-  setTimeout(() => $('help').classList.add('off'), window.innerWidth < 640 ? 7000 : 12000);
 }
 
 renderCard();
