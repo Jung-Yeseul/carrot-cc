@@ -61,6 +61,7 @@
       <div class="chgrid" id="chGrid"></div>
     </details>
     <p class="fine">채팅은 없어요. 같은 채널 사람들이 코스를 걸어 다니는 게 보이고, 짧은 인사만 주고받을 수 있어요.</p>
+    <button type="button" class="credit" data-credit>© 2026 Kaylee Jung · 만든 사람</button>
   </div>
 </main>
 
@@ -116,6 +117,7 @@
     <div class="sheet-head"><h3>스코어카드</h3><button class="xbtn" id="cardClose" aria-label="스코어카드 닫기">✕</button></div>
     <div class="sc-wrap"><table id="sc"></table></div>
     <div class="legend">○ 버디 · ◎ 이글 · □ 보기 · ▣ 더블 보기 이상</div>
+    <button type="button" class="credit credit-sheet" data-credit>© 2026 Kaylee Jung · 만든 사람</button>
     <h3>플레이 방법</h3>
     <ul class="how">
       <li>공 근처로 걸어가서 <b>샷 준비</b>를 누르면 클럽이 자동으로 골라져요. 멀면 <b>카트</b>를 부르면 토끼 캐디가 태워줘요.</li>
@@ -128,6 +130,16 @@
     </ul>
   </aside>
   <div class="overlay" id="overlay" hidden></div>
+</div>
+
+<div class="credit-card" id="creditCard" role="dialog" aria-modal="true" aria-labelledby="creditTitle" hidden>
+  <div class="card">
+    <span class="eyebrow">만든 사람</span>
+    <h2 id="creditTitle">Kaylee Jung</h2>
+    <p>당근 컨트리클럽을 만든 사람이에요. 온라인 산사에서 영감을 받아, 말없이 공만 치다 쉬어가는 골프장을 만들었어요.</p>
+    <p class="credit-small">© 2026 Kaylee Jung. All rights reserved.</p>
+    <button class="btn" type="button" id="creditClose">닫기</button>
+  </div>
 </div>
 
 <script src="/game.js"></script>

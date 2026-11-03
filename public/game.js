@@ -791,7 +791,11 @@ function closeOverlay() { $('overlay').hidden = true; clearInterval(shadeTimer);
 $('cardBtn').onclick = () => { const s = $('cardSheet'); s.hidden = !s.hidden; $('peopleSheet').hidden = true; $('cardBtn').setAttribute('aria-expanded', String(!s.hidden)); $('peopleBtn').setAttribute('aria-expanded', 'false'); };
 function closeSheets() { $('cardSheet').hidden = true; $('peopleSheet').hidden = true; $('cardBtn').setAttribute('aria-expanded', 'false'); $('peopleBtn').setAttribute('aria-expanded', 'false'); }
 $('cardClose').onclick = closeSheets;
-window.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheets(); });
+window.addEventListener('keydown', e => { if (e.key === 'Escape') { closeSheets(); $('creditCard').hidden = true; } });
+// 만든 사람 정보
+document.querySelectorAll('[data-credit]').forEach(b => b.onclick = () => { closeSheets(); $('creditCard').hidden = false; $('creditClose').focus(); });
+$('creditClose').onclick = () => { $('creditCard').hidden = true; };
+$('creditCard').onclick = e => { if (e.target.id === 'creditCard') $('creditCard').hidden = true; };
 
 // ---- 같이 치는 사람: 누가 몇 번 홀 어디에 있는지 ----
 let focusId = 0;
