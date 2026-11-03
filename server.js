@@ -13,6 +13,7 @@ const CHANNELS = Number(process.env.CHANNELS) || 50;   // 채널 개수
 const CAPACITY = Number(process.env.CAPACITY) || 30;   // 채널당 정원
 const MAX_TOTAL = Number(process.env.MAX_TOTAL) || CHANNELS * CAPACITY;
 const PUBLIC_DIR = path.join(__dirname, 'public');
+const BOOT_VERSION = Date.now().toString(36);
 
 const ADJ = ['아삭한', '주황빛', '느긋한', '조용한', '바람같은', '침착한', '오늘도', '은은한', '흔들리는', '한가로운', '산뜻한', '나른한', '포근한', '단단한'];
 const NOUN = ['버디', '이글', '퍼터', '캐디', '티샷', '디봇', '당근', '파세이브', '그린', '페어웨이', '드라이버', '웨지', '티박스'];
@@ -49,6 +50,8 @@ const server = http.createServer((req, res) => {
       'Cache-Control': ['.html', '.js', '.css'].includes(ext) ? 'no-cache' : 'public, max-age=3600',
       'X-Content-Type-Options': 'nosniff',
     });
+    // 배포할 때마다 서버가 새로 켜지므로, 그 시각을 버전으로 붙여 예전 파일이 남아 있어도 새 파일을 받게 해요
+    if (ext === '.html') data = data.toString('utf8').replace(/(["'])\/(game\.js|style\.css)\1/g, `$1/$2?v=${BOOT_VERSION}$1`);
     res.end(data);
   });
 });
