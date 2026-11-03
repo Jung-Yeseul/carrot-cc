@@ -118,7 +118,7 @@ const server = http.createServer((req, res) => {
       'X-Content-Type-Options': 'nosniff',
     });
     // 배포할 때마다 서버가 새로 켜지므로, 그 시각을 버전으로 붙여 예전 파일이 남아 있어도 새 파일을 받게 해요
-    if (ext === '.html') data = data.toString('utf8').replace(/(["'])\/(game\.js|style\.css)\1/g, `$1/$2?v=${BOOT_VERSION}$1`).replace('</head>', metamoa.headTags() + '</head>');
+    if (ext === '.html') data = data.toString('utf8').replace(/(["'])\/(game\.js|style\.css|i18n\.js)\1/g, `$1/$2?v=${BOOT_VERSION}$1`).replace('</head>', metamoa.headTags() + '</head>');
     res.end(data);
   });
 });
