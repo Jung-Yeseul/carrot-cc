@@ -111,7 +111,14 @@ button{font-family:inherit}
 .feed div{background:rgba(12,22,15,.66);color:#f6f3ea;font-size:12px;padding:3px 10px;border-radius:999px;animation:fade 5s forwards;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @keyframes fade{0%{opacity:0;transform:translateY(4px)}6%,82%{opacity:1;transform:none}100%{opacity:0}}
 .power{display:flex;align-items:center;gap:10px;background:rgba(12,22,15,.7);color:#f6f3ea;border-radius:999px;padding:6px 14px;font-family:var(--mono);font-size:12px;width:min(360px,90%)}
-.power .bar{flex:1;height:10px;border-radius:999px;background:rgba(255,255,255,.2);overflow:hidden}
+.power .bar{flex:1;height:10px;border-radius:999px;background:rgba(255,255,255,.2);overflow:hidden;position:relative}
+.power .pt{position:absolute;top:0;bottom:0;border-radius:999px;background:rgba(255,255,255,.55);box-shadow:inset 0 0 0 2px #fff;z-index:1;animation:ptblink 1s ease-in-out infinite}
+@keyframes ptblink{50%{background:rgba(255,209,102,.8)}}
+.caddietip{max-width:min(440px,92%);background:#fffaf3;color:#1a2a1c;border-radius:14px;padding:8px 14px;font-size:13px;line-height:1.45;box-shadow:0 8px 20px -10px rgba(0,0,0,.5);position:relative}
+.caddietip b{color:#2e7a3f}
+.caddietip::after{content:"";position:absolute;left:50%;bottom:-6px;transform:translateX(-50%) rotate(45deg);width:12px;height:12px;background:#fffaf3}
+.act.chance{background:#2e7a3f;color:#fff;box-shadow:0 4px 0 #1b4d27}
+.act.chance:disabled{opacity:.45}
 .power i{display:block;height:100%;width:0;background:linear-gradient(90deg,#78c587,#ffd166 60%,#ff6a3d)}
 .actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;align-items:center;min-height:48px}
 .act{font:600 15px var(--body);border:0;border-radius:999px;padding:12px 20px;cursor:pointer;background:var(--carrot);color:var(--carrot-ink);box-shadow:0 4px 0 color-mix(in srgb,var(--carrot) 60%,#000);touch-action:none;user-select:none;-webkit-user-select:none}
@@ -229,4 +236,4 @@ td.cur,th.cur{background:color-mix(in srgb,var(--leaf) 14%,transparent)}
   .hud.tr .who{display:none}
   .help{bottom:calc(120px + env(safe-area-inset-bottom,0px))}
 }
-@media (prefers-reduced-motion:reduce){.toast,.fade,.help{transition:none}.mascot,.aimtip,.celebrate .big span,.celebrate .sub{animation:none}}
+@media (prefers-reduced-motion:reduce){.toast,.fade,.help{transition:none}.mascot,.aimtip,.celebrate .big span,.celebrate .sub,.power .pt{animation:none}}

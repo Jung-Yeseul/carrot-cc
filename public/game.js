@@ -731,7 +731,7 @@ function clearOthers() { for (const id of [...NET.others.keys()]) removeOther(id
 const me = { x: 0, z: 0, yaw: 0, anim: 0, ph: 0, moveT: null, av: null, tag: null, swingT: 0, jump: 0 };
 const cam = { yaw: 0, aimYaw: 0, pitch: .38, dist: 13, mode: 'follow', tx: 0, ty: 0, tz: 0, px: 0, py: 10, pz: 0 };
 const S = { hole: 0, strokes: 0, scores: Array(HOLES.length).fill(null), buff: null, mulligans: 0, mode: 'walk', club: 0, clubAuto: true, aimYaw: 0,
-  charge: false, chargeT: 0, power: 0, prev: null, last: null, ball: { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, state: 'rest' }, ballVis: true, shadeSeen: false, shots: 0 };
+  charge: false, chargeT: 0, chance: 2, chanceT: null, chanceBusy: false, chanceHit: false, power: 0, prev: null, last: null, ball: { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, state: 'rest' }, ballVis: true, shadeSeen: false, shots: 0 };
 const keys = new Set();
 
 function getBest() { try { const v = localStorage.getItem('carrot-cc-best3d'); return v ? +v : null; } catch { return null; } }
@@ -883,7 +883,7 @@ function updActions() {
   const near = Math.hypot(me.x - S.ball.x, me.z - S.ball.z) < 3.2;
   const inShade = Math.hypot(me.x - SHADE.x, me.z - SHADE.z) < 6;
   let key;
-  if (S.mode === 'aim') key = `aim${S.club}`;
+  if (S.mode === 'aim') key = `aim${S.club}${S.chance}${S.chanceBusy ? 1 : 0}`;
   const nearRR = Math.hypot(me.x - RR_DOORS.m[0], me.z - (RR_DOORS.m[1] + RR_DOORS.w[1]) / 2) < 5;
   if (S.mode === 'walk') key = `walk${S.ball.state}${near}${inShade}${nearRR}${S.mulligans && S.prev ? 1 : 0}`;
   else if (S.mode !== 'aim') key = S.mode;
@@ -895,6 +895,7 @@ function updActions() {
       <button class="act swing" id="swing">누르고 있다가 떼기</button>
       <button class="act sub round" id="aR" aria-label="오른쪽으로">▶</button>
       <button class="act sub" id="clubBtn">${CLUBS[S.club].name}</button>
+      <button class="act chance" id="chanceBtn" ${S.chance <= 0 || S.chanceBusy ? 'disabled' : ''}>${S.chanceBusy ? '캐디가 보는 중…' : `캐디 찬스 ${S.chance}`}</button>
       <button class="act sub" id="cancel">취소</button>`;
   } else if (S.mode === 'walk') {
     if (S.ball.state === 'rest') {
@@ -911,7 +912,7 @@ function updActions() {
   const on = (id, f) => { const el = $(id); if (el) el.onclick = f; };
   on('skipRide', skipRide); on('skipFlight', skipFlight); on('ready', enterAim); on('goBall', walkToBall); on('cartBall', () => cartTo(S.ball.x, S.ball.z, true)); on('menuBtn', showShade); on('mull', mulligan);
   on('wcM', () => useRestroom('m')); on('wcW', () => useRestroom('w'));
-  on('cancel', exitAim); on('clubBtn', () => { S.club = (S.club + 1) % 4; S.clubAuto = false; lastActKey = ''; });
+  on('cancel', exitAim); on('clubBtn', () => { S.club = (S.club + 1) % 4; S.clubAuto = false; lastActKey = ''; clearChance('클럽을 바꿔서 캐디 찬스가 풀렸어요'); }); on('chanceBtn', caddieChance);
   const hold = (id, d) => { const el = $(id); if (!el) return; let iv = 0; const stop = () => clearInterval(iv); el.onpointerdown = e => { e.preventDefault(); iv = setInterval(() => { S.aimYaw += d * .012; }, 16); }; el.onpointerup = stop; el.onpointerleave = stop; el.onpointercancel = stop; };
   hold('aL', 1); hold('aR', -1);
   const sw = $('swing');
@@ -1029,12 +1030,16 @@ function aimTarget() {
   }
   return h.cup;
 }
-function exitAim() { S.mode = 'walk'; S.charge = false; S.aimDrag = false; $('power').hidden = true; aimArrow.visible = landRing.visible = pathLine.visible = ribbon.visible = false; lastActKey = ''; }
+function exitAim() { clearChance(); S.mode = 'walk'; S.charge = false; S.aimDrag = false; $('power').hidden = true; aimArrow.visible = landRing.visible = pathLine.visible = ribbon.visible = false; lastActKey = ''; }
 function swingLabel() { const sw = $('swing'); if (!sw) return; sw.classList.toggle('on', S.charge); sw.textContent = S.charge ? '떼면 샷!' : '누르고 있다가 떼기'; }
 function startCharge() { if (S.mode !== 'aim' || S.charge) return; audio(); S.charge = true; S.chargeT = performance.now(); swingLabel(); }
 function releaseCharge() {
   if (!S.charge) return; S.charge = false; swingLabel();
   if (S.power < .03) return;
+  // 캐디 찬스: 반짝이는 칸에서 떼면 캐디가 계산한 그대로
+  if (S.chanceT && Math.abs(S.power - S.chanceT.p) <= CHANCE_BAND && Math.abs(angDiff(S.aimYaw, S.chanceT.yaw)) < .004) { S.power = S.chanceT.p; S.chanceHit = true; toast('캐디 말 들었더니 딱이네요!', 1400); }
+  else if (S.chanceT) { S.chanceHit = false; toast(Math.abs(S.power - S.chanceT.p) > CHANCE_BAND ? (S.power > S.chanceT.p ? '앗, 조금 셌어요' : '앗, 조금 약했어요') : '라인이 조금 틀어졌어요', 1400); }
+  clearChance();
   shoot(S.power);
 }
 function chargePower() { const t = (performance.now() - S.chargeT) / 1000 * .75; const f = t % 2; return f < 1 ? f : 2 - f; }
@@ -1046,7 +1051,7 @@ function launchVel(p, yaw, club, lie) {
   return { vx: Math.sin(yaw) * h, vy: Math.sin(c.loft) * v, vz: Math.cos(yaw) * h, putt: club === 3 };
 }
 function shoot(p) {
-  let yaw = S.aimYaw; if (S.buff === 'makgeolli') yaw += rand(-.05, .05);
+  let yaw = S.aimYaw; if (S.buff === 'makgeolli' && !S.chanceHit) yaw += rand(-.05, .05); S.chanceHit = false;
   const lie = surface(S.ball.x, S.ball.z);
   const v = launchVel(p, yaw, S.club, lie);
   S.prev = { x: S.ball.x, z: S.ball.z, strokes: S.strokes }; S.last = { x: S.ball.x, z: S.ball.z };
@@ -1290,11 +1295,60 @@ function renderCard() {
   $('sc').innerHTML = h + '<th>합계</th></tr>' + p + `<td>${TOTAL_PAR}</td></tr>` + s + `<td>${played.length ? tot : ''}</td></tr>`;
 }
 function resetRound(teleport) {
-  closeOverlay(); S.scores.fill(null); S.buff = null; S.mulligans = 0; S.hole = 0; S.strokes = 0; S.prev = null; S.last = null; S.mode = 'walk';
+  closeOverlay(); S.scores.fill(null); S.buff = null; S.mulligans = 0; S.chance = CHANCE_MAX; S.hole = 0; S.strokes = 0; S.prev = null; S.last = null; S.mode = 'walk';
   $('buffChip').hidden = true;
   const t = HOLES[0].tee; Object.assign(S.ball, { x: t[0], y: 0, z: t[1], vx: 0, vy: 0, vz: 0, state: 'rest' }); S.ballVis = true;
   if (teleport) cartTo(t[0], t[1], true, '1번 홀로 다시 모실게요~', holeTalk(0));
   lastActKey = ''; updHud(); renderCard();
+}
+
+// ================= 캐디 찬스: 캐디가 방향과 파워를 미리 계산해 줘요 =================
+const CHANCE_MAX = 2, CHANCE_BAND = .025;
+function simShot(yaw, p, club, dt) {
+  const lie = surface(S.ball.x, S.ball.z), v = launchVel(p, yaw, club, lie);
+  const b = { x: S.ball.x, y: heightAt(S.ball.x, S.ball.z), z: S.ball.z, vx: v.vx, vy: v.vy, vz: v.vz, state: v.putt ? 'roll' : 'fly' };
+  for (let i = 0; i < 3000; i++) {
+    const e = stepBall(b, dt, true);
+    if (e === 'sink') return { sink: true, d: 0, x: b.x, z: b.z };
+    if (e === 'water' || e === 'ob') return { sink: false, d: 999, x: b.x, z: b.z };
+    if (e === 'stop') break;
+  }
+  const h = hole(); return { sink: false, d: Math.hypot(b.x - h.cup[0], b.z - h.cup[1]), x: b.x, z: b.z };
+}
+function caddieChance() {
+  if (S.mode !== 'aim' || S.chanceBusy) return;
+  if (S.chance <= 0) { toast('캐디 찬스를 다 썼어요', 1400); return; }
+  S.chanceBusy = true; lastActKey = '';
+  showCaddieTip('<b>토끼 캐디</b> 잠깐만요, 라이 좀 볼게요…');
+  setTimeout(() => {
+    const h = hole(), onGreen = surface(S.ball.x, S.ball.z) === 'green';
+    const base = Math.atan2(h.cup[0] - S.ball.x, h.cup[1] - S.ball.z), tg = aimTarget(), base2 = Math.atan2(tg[0] - S.ball.x, tg[1] - S.ball.z);
+    const ac = autoClub(), clubs = onGreen ? [3] : [...new Set([ac, Math.max(0, ac - 1), Math.min(2, ac + 1)])];
+    let best = null;
+    const consider = (yaw, p, club, dt) => { const r = simShot(yaw, p, club, dt); const score = r.sink ? -1 : r.d; if (!best || score < best.score) best = { yaw, p, club, score, r }; };
+    // 1단계: 넓게 훑기 (핀 방향과 공략 지점 방향 둘 다)
+    const bases = Math.abs(angDiff(base, base2)) < .05 ? [base] : [base, base2];
+    for (const club of clubs) for (const b0 of bases) for (let dy = -.35; dy <= .351; dy += .07) for (let p = .16; p <= 1.001; p += .08) consider(b0 + dy, Math.min(1, p), club, 1 / 40);
+    // 2단계: 가장 좋은 곳 주변을 촘촘하게
+    const c = best;
+    for (let dy = -.05; dy <= .051; dy += .01) for (let dp = -.07; dp <= .071; dp += .014) { const p = clamp(c.p + dp, .05, 1); consider(c.yaw + dy, p, c.club, 1 / 100); }
+    // 실제 샷과 같은 촘촘한 계산으로 한 번 더 확인
+    const fin = simShot(best.yaw, best.p, best.club, 1 / 200); best.r = fin;
+    S.chanceBusy = false; S.chance--; S.club = best.club; S.clubAuto = false; S.aimYaw = best.yaw; cam.aimYaw = best.yaw;
+    S.chanceT = { yaw: best.yaw, p: best.p, club: best.club };
+    const exp = fin.sink ? S.strokes + 1 : S.strokes + 2, nm = scoreName(exp, h.par).replace('!', '');
+    const side = angDiff(base, best.yaw), dir = Math.abs(side) < .03 ? '핀 정면' : side > 0 ? '핀 왼쪽' : '핀 오른쪽';
+    const pct = Math.round(best.p * 100);
+    const line = fin.sink ? (S.strokes === 0 ? `이대로만 치면 <b>홀인원 각</b>이에요!!` : `이대로면 <b>들어가요</b>! ${nm} 찬스!`)
+      : fin.d < 1.1 ? `OK 거리에 붙어요. 성공하면 <b>${nm}</b>!` : `핀까지 ${Math.round(fin.d * M_PER_U)}m 남기는 게 최선이에요.`;
+    showCaddieTip(`<b>토끼 캐디</b> ${dir} 보고 <b>${CLUBS[best.club].name} ${pct}%</b>로 치세요. ${line} <br><small>파워바 반짝이는 칸에서 떼면 캐디 말대로 쳐져요 · 남은 찬스 ${S.chance}번</small>`);
+    const pt = $('powTarget'); pt.hidden = false; pt.style.left = `${Math.max(0, (best.p - CHANCE_BAND) * 100)}%`; pt.style.width = `${CHANCE_BAND * 200}%`;
+    lastActKey = ''; tone(880, .08, 'sine', .1); tone(1175, .12, 'sine', .1, .1);
+  }, 60);
+}
+function showCaddieTip(html) { const el = $('caddieTip'); el.innerHTML = html; el.hidden = false; }
+function clearChance(msg) {
+  if (!S.chanceT) return; S.chanceT = null; $('powTarget').hidden = true; $('caddieTip').hidden = true; if (msg) toast(msg, 1400);
 }
 
 // ================= 축하 이벤트 (버디·이글·홀인원) =================
@@ -1780,7 +1834,9 @@ function frame() {
     const side = heightAt(S.ball.x - fz * 1.5, S.ball.z + fx * 1.5) - heightAt(S.ball.x + fz * 1.5, S.ball.z - fx * 1.5);
     S.lieText = (Math.abs(deg) < .4 ? '평지' : deg > 0 ? `오르막 ${deg.toFixed(1)}°` : `내리막 ${(-deg).toFixed(1)}°`) + (S.club === 3 && Math.abs(side) > .03 ? (side > 0 ? ' · 오른쪽으로 휘어요' : ' · 왼쪽으로 휘어요') : '');
     landRing.visible = S.club !== 3 || S.buff === 'carrot'; landRing.position.set(pr.land[0], heightAt(pr.land[0], pr.land[1]) + .12, pr.land[1]);
-    if (S.buff === 'carrot') { pathLine.geometry.setFromPoints(pr.pts); pathLine.computeLineDistances(); pathLine.visible = true; }
+    if (S.chanceT && !S.charge) { const cp = predict(S.chanceT.p); pathLine.geometry.setFromPoints(cp.pts); pathLine.computeLineDistances(); pathLine.visible = true; }
+    else if (S.buff === 'carrot') { pathLine.geometry.setFromPoints(pr.pts); pathLine.computeLineDistances(); pathLine.visible = true; }
+    else pathLine.visible = false;
   }
   if (S.mode === 'ride') updateRide(dt);
   if (me.swingT > 0) me.anim = 3;
