@@ -293,6 +293,7 @@ function exitToEntry() {
 }
 $('toLobby').onclick = () => openGameMenu();
 $('exitBtn').onclick = () => openGameMenu();
+$('coachSkip').onclick = () => { const st = TUT.step; tutEnd(false); toast('따라 하기를 그만뒀어요. 메뉴의 "골프 쉽게 알기"로 언제든 다시 볼 수 있어요', 2400); if (S.mode === 'club' && (st === 'desk' || st === 'locker')) { LB.deskSnooze = false; } };
 // 모바일 ☰ 메뉴: 오른쪽 위 버튼들을 한 곳에 모아요 (원래 버튼을 대신 눌러줘요)
 $('mMenuBtn').onclick = () => {
   const app = $('app'), course = !app.classList.contains('inclub') && !app.classList.contains('inrange');
@@ -2490,7 +2491,7 @@ function finishCine() {
   if (c.kind === 'enter') {
     me.yaw = Math.PI; cam.yaw = Math.PI;
     setTimeout(() => { $('clubTitle').hidden = true; }, 900);
-    LB.welcome = [me.x, me.z]; openDesk(true);
+    LB.welcome = [me.x, me.z]; askLevel();
   } else { me.yaw = 0; cam.yaw = Math.PI; toast('정문 밖이에요. 언제든 다시 입장할 수 있어요', 2200); }
 }
 function skipCine() {
@@ -2523,6 +2524,9 @@ function lobbyAct(a) {
   else if (a === 'g-course') guide('스타트 하우스는 오른쪽 뒤 문이에요. 토끼 캐디가 티오프 준비하고 기다리고 있어요!', [[5.5, 2.6], [10.2, 4.5]]);
   else if (a === 'nick') { $('nick').click(); const iv = setInterval(() => { if ($('overlay').hidden) { clearInterval(iv); if (LB.desk === 'open') openDesk(false); } }, 300); }
   else if (a === 'lkdone') closeLocker();
+  else if (a === 'lv-pro') { LB.asking = false; tutEnd(false); openDesk(true); }
+  else if (a === 'lv-new') { LB.asking = false; LB.welcome = null; TUT.on = true; $('lobbyUI').hidden = true; tutGo('desk'); }
+  else if (a === 'tut-locker') tutGo('locker');
   else if (a === 'cd-ok') { caddieBye(); toast('나이스 샷 기대할게요!', 1400); }
   else if (a === 'cd-guide') { caddieBye(); showGuide(S.hole); }
   else if (a === 'cd-basics') { caddieBye(); showBasics(); }
@@ -2541,9 +2545,10 @@ function openDress() {
   if (S.mode !== 'club') return;
   const go = () => { LB.lockerUI = true; me.yaw = Math.PI; LB.cam = null; LB.myLocker = myLockerIdx(); closeDesk(); renderLocker(); lastActKey = ''; };
   const lx = me.x - LB.x, lz = me.z - LB.z;
-  if (Math.hypot(lx + 16, lz + 2.6) < .6) go(); else { walkPath(lz > 1.8 || lz < .2 ? [[-16, -2.6]] : [[-12.5, -1.5], [-16, -2.6]]); LB.afterWalk = go; }
+  // 로비에 있으면 락커룸 문(왼쪽 벽 가운데)을 지나서 거울 앞까지
+  if (Math.hypot(lx + 16, lz + 2.6) < .6) go(); else { walkPath(lx > -10 ? [[-5, 0], [-10, 0], [-12.5, -1.5], [-16, -2.6]] : lz > 1.8 || lz < .2 ? [[-16, -2.6]] : [[-12.5, -1.5], [-16, -2.6]]); LB.afterWalk = go; }
 }
-function closeLocker() { LB.lockerUI = false; LB.myLocker = null; $('lobbyUI').hidden = true; $('lobbyUI').classList.remove('locker'); LB.cam = null; lastActKey = ''; toast('오늘 룩 저장했어요. 어디서든 이 옷으로 보여요', 1800); }
+function closeLocker() { LB.lockerUI = false; LB.myLocker = null; $('lobbyUI').hidden = true; $('lobbyUI').classList.remove('locker'); LB.cam = null; lastActKey = ''; toast('오늘 룩 저장했어요. 어디서든 이 옷으로 보여요', 1800); if (TUT.on && TUT.step === 'locker') setTimeout(() => tutGo('range'), 900); }
 function renderLocker() {
   const lk = normLook(myLook);
   $('lobbyUI').hidden = false; $('lobbyUI').classList.add('locker');
@@ -2564,7 +2569,7 @@ function renderLocker() {
 }
 
 // ---- 공간 이동: 연습장 · 코스 ----
-function goRangeFromClub() { closeDesk(); fadeTo(() => { setClubUI(false); startRange(); }); }
+function goRangeFromClub() { closeDesk(); fadeTo(() => { setClubUI(false); startRange(); if (TUT.on && TUT.step === 'range') tutGo('range-in'); }); }
 function backToClub(where) { fadeTo(() => { if (S.mode === 'range') { $('app').classList.remove('inrange'); const cs = document.querySelector('.holecard .count span'); if (cs) cs.textContent = '타'; if (RG.ball && RG.ball.state === 'tee') { RG.ball.state = 'free'; RG.ball.m.visible = false; } RG.charge = false; updHud(); } startClubAt(where); }); }
 function goCourseDoor() {
   me.moveT = null; me.path = null; closeDesk();
@@ -2590,6 +2595,74 @@ function enterCourse(resume) {
     goFirstTee(); caddieHello(resume);
   });
 }
+// ---- 골프가 처음인 사람: 순서대로 따라가는 튜토리얼 ----
+// 입구 → [처음이에요] → 프론트 인사 → 락커룸 옷 갈아입기 → 연습장 3번 치기 → 스타트 하우스(캐디·규칙) → 1번 홀 따라 치기
+const TUT = { on: false, step: '', shots: 0, hint: '' };
+const TUT_STEPS = { desk: 1, locker: 2, range: 3, tee: 4, hole1: 5 };
+function askLevel() {
+  LB.asking = true;
+  lbShow('당근 컨트리클럽', '어서 오세요! 골프는 처음이신가요?', [['골프가 처음이에요', 'lv-new'], ['골프에 익숙해요', 'lv-pro', 'sub']]);
+}
+function coach(text, btn) {
+  const c = $('coach'); if (!c) return;
+  c.hidden = !text; if (!text) return;
+  const n = TUT_STEPS[TUT.step];
+  $('coachStep').textContent = n ? `따라 하기 ${n}/5` : '따라 하기';
+  $('coachText').textContent = text;
+  const b = $('coachGo'); b.hidden = !btn; if (btn) { b.textContent = btn[0]; b.onclick = btn[1]; }
+}
+function tutEnd(done) {
+  TUT.on = false; TUT.step = ''; coach('');
+  if (done) { try { localStorage.setItem('carrotTut', '1'); } catch {} }
+}
+function tutGo(step) {
+  TUT.step = step; TUT.hint = '';
+  if (step === 'desk') {
+    coach('프론트로 가서 토끼 매니저와 인사해요');
+    walkPath([[0, -2.4]]); LB.afterWalk = () => { me.yaw = Math.PI; lbShow('프론트 토끼 매니저', `처음 오셨군요, ${NET.nick} 님! 골프는 공을 깃발 밑 구멍에 넣는 게임이에요. 적게 칠수록 잘한 거고요. 제가 순서대로 안내해 드릴게요!`, [['좋아요, 알려주세요', 'tut-locker']]); };
+  } else if (step === 'locker') {
+    coach('먼저 락커룸에서 오늘 입을 옷을 골라요');
+    closeDesk(true); openDress();
+  } else if (step === 'range') {
+    TUT.shots = 0;
+    coach('연습장에 가서 공 치는 법을 배워요. 걸어가는 중…');
+    walkPath([[-13, 0], [-9.5, 0], [3, -.5], [6, -3], [10.2, -4.5]]);
+  } else if (step === 'range-in') {
+    TUT.step = 'range';
+    coach('큰 버튼을 꾹 누르고 있다가 떼면 공을 쳐요. 오래 누를수록 멀리 가요. 3번 쳐 보세요! (0/3)');
+  } else if (step === 'tee') {
+    coach('토끼 캐디가 골프 규칙을 알려줘요');
+  } else if (step === 'hole1') {
+    coach('1번 홀이에요! 노란 점선을 따라 깃발까지 가면 돼요');
+  }
+}
+function tutRangeShot() {
+  TUT.shots++;
+  if (TUT.shots < 3) { coach(`잘했어요! 방향은 ◀ ▶ 버튼이나 화면을 끌어서 바꿀 수 있어요. (${TUT.shots}/3)`); return; }
+  coach('연습 끝! 이제 진짜 코스로 나가 봐요', ['⛳ 티오프 하러 가기', () => rangeToCourse()]);
+}
+function rangeToCourse() {
+  fadeTo(() => {
+    $('app').classList.remove('inrange'); $('power').hidden = true; landRing.visible = false; const cs = document.querySelector('.holecard .count span'); if (cs) cs.textContent = '타';
+    if (RG.ball && RG.ball.state === 'tee') { RG.ball.state = 'free'; RG.ball.m.visible = false; } RG.charge = false;
+    if (S.scores.every(x => x != null)) resetRound(false);
+    setClubUI(false); updHud(); renderCard(); renderTix(); goFirstTee(); caddieHello(false);
+  });
+}
+// 1번 홀에서 지금 해야 할 일을 알려줘요
+setInterval(() => {
+  if (!TUT.on || TUT.step !== 'hole1') return;
+  if (S.hole > 0 || S.scores[0] != null) { TUT.step = 'done'; coach('첫 홀 끝! 이렇게 9홀을 돌면 라운딩 끝이에요. 이제 혼자서도 칠 수 있어요 🎉', ['좋아요!', () => tutEnd(true)]); return; }
+  if (!$('overlay').hidden) return;
+  const d = Math.hypot(me.x - S.ball.x, me.z - S.ball.z), green = surface(S.ball.x, S.ball.z) === 'green';
+  let h = '';
+  if (S.mode === 'aim') h = green ? '구멍 근처예요! 퍼터로 살살 굴려요. 버튼을 짧게 눌렀다 떼요' : '노란 선을 끌어서 방향을 맞추고, 큰 버튼을 꾹 누르고 있다가 떼요';
+  else if (S.mode === 'flight') h = '날아간다~ 공이 멈출 때까지 기다려요';
+  else if (S.mode === 'ride') h = '캐디가 공까지 데려다주는 중이에요';
+  else if (S.mode === 'walk' && S.ball.state === 'rest') h = d < 3.2 ? '공 옆이에요! [공 치기 준비]를 눌러요' : green ? '공이 구멍 근처에 있어요. 걸어가서 [공 치기 준비]를 눌러요' : '공이 멀면 [카트]를 눌러요. 캐디가 공까지 데려다줘요';
+  if (h && h !== TUT.hint) { TUT.hint = h; coach(h); }
+}, 400);
+
 // ---- 골프 처음인 사람을 위한 1분 설명 ----
 function showBasics() {
   try { localStorage.setItem('carrotBasics', '1'); } catch {}
@@ -2606,7 +2679,7 @@ function showBasics() {
       <li><b>클럽(채)</b> 알아서 골라줘요. 드라이버는 제일 멀리, 퍼터는 구멍 근처에서 굴려요.</li>
     </ul>
     <div class="btns"><button class="btn" id="basicsOk">알겠어요!</button></div>`);
-  $('basicsOk').onclick = () => { closeOverlay(); if (S.mode === 'walk' && S.hole === 0 && S.strokes === 0) showGuide(0); };
+  $('basicsOk').onclick = () => { closeOverlay(); if (S.mode === 'walk' && S.hole === 0 && S.strokes === 0) showGuide(0); if (TUT.on && TUT.step === 'tee') tutGo('hole1'); };
 }
 // 스타트 하우스: 토끼 캐디가 카트 옆에서 인사해요
 let helloCad = null;
@@ -2618,6 +2691,7 @@ function caddieHello(resume) {
   const n = HOLES[S.hole];
   const say = resume ? `다시 오셨네요, ${NET.nick} 님! ${S.hole + 1}번 홀 ${S.strokes ? `공 있는 데서 ${S.strokes + 1}타째부터` : '티잉 구역에서'} 이어서 칠게요.`
     : `안녕하세요, ${NET.nick} 님! 오늘 함께할 토끼 캐디예요. 여기가 티오프 장소예요. 첫 홀은 ${n.name}, PAR ${n.par}! 편하게 치세요~`;
+  if (TUT.on && !resume) { lbShow('토끼 캐디', `반가워요, ${NET.nick} 님! 여기가 출발하는 곳(스타트 하우스)이에요. 치기 전에 골프 규칙을 1분만 알려드릴게요.`, [['골프 설명 듣기', 'cd-basics']]); tutGo('tee'); return; }
   let seen = false; try { seen = !!localStorage.getItem('carrotBasics'); } catch {}
   lbShow('토끼 캐디', say, resume ? [['좋아요, 가요!', 'cd-ok']] : seen ? [['잘 부탁해요!', 'cd-ok'], ['오늘 코스 미리 보기', 'cd-guide', 'sub'], ['골프 쉽게 알기', 'cd-basics', 'sub']] : [['골프가 처음이에요', 'cd-basics'], ['잘 부탁해요!', 'cd-ok', 'sub']]);
   tone(988, .1, 'triangle', .08); tone(1318, .14, 'triangle', .08, .1);
@@ -2711,8 +2785,8 @@ function updateLobby(dt, t) {
   if (LB.welcome && Math.hypot(me.x - LB.welcome[0], me.z - LB.welcome[1]) > 1.5) LB.welcome = null;
   if (!LB.lockerUI) {
     if (dDesk > 3.8) LB.deskSnooze = false;
-    if (dDesk < 2.6 && LB.desk !== 'open' && !LB.deskSnooze && !me.moveT) openDesk(false);
-    else if (LB.desk === 'open' && !LB.welcome && dDesk > 3.8) closeDesk();
+    if (dDesk < 2.6 && LB.desk !== 'open' && !LB.deskSnooze && !me.moveT && !TUT.on && !LB.asking) openDesk(false);
+    else if (LB.desk === 'open' && !LB.welcome && dDesk > 3.8 && !TUT.on) closeDesk();
   }
   // 오른쪽 출입구로 걸어 들어가면 연습장 / 코스로
   if (lx < 8.6) LB.portalLock = false;
@@ -2878,6 +2952,7 @@ function rangeResult(b) {
   if (hit) { toast(`${hit.m}m 타깃 안착! 굿샷`, 1800); tone(1046, .12, 'triangle', .12); tone(1318, .16, 'triangle', .12, .1); tone(1568, .25, 'triangle', .12, .2); rocket(b.x, EDGE_H + 9, b.z, 0); me.jump = 1; }
   else if (best) { toast(`${CLUBS[c].name} 최고 기록! ${total}m`, 1800); tone(988, .1, 'triangle', .1); tone(1318, .2, 'triangle', .1, .1); }
   else toast(`${total}m`, 1200);
+  if (TUT.on && TUT.step === 'range') tutRangeShot();
   rangeHud();
 }
 function updateRange(dt, t) {

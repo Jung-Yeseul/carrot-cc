@@ -330,6 +330,16 @@ td.cur,th.cur{background:color-mix(in srgb,var(--leaf) 14%,transparent)}
 .basics{margin:8px 0 4px;padding-left:18px;display:flex;flex-direction:column;gap:7px;font-size:14px;line-height:1.5}
 .basics b{color:var(--carrot)}
 #basicsLink{margin-top:8px}
+/* ---- 처음이에요 튜토리얼 안내줄 ---- */
+.coach{position:absolute;left:50%;transform:translateX(-50%);top:calc(150px + env(safe-area-inset-top,0px));z-index:21;width:min(92%,560px);box-sizing:border-box;background:#1f4a2e;color:#fff;border:2px solid #e8c873;border-radius:16px;padding:10px 14px;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;box-shadow:0 8px 24px rgba(0,0,0,.25);animation:coachIn .35s ease}
+.coach b{font:700 11px var(--mono);letter-spacing:.08em;color:#e8c873;background:rgba(0,0,0,.25);padding:2px 8px;border-radius:999px}
+.coach span#coachText{flex:1 1 220px;font:600 14px/1.45 var(--body)}
+.coach .coach-btns{display:flex;align-items:center;gap:6px;margin-left:auto}
+.coach .btn{min-height:36px;padding:6px 14px;font-size:14px}
+.coach .linkbtn{color:#cfe3d4;margin:0;font-size:12px}
+.app.inclub .coach,.app.inrange .coach{top:calc(64px + env(safe-area-inset-top,0px))}
+@keyframes coachIn{from{opacity:0;transform:translate(-50%,-6px)}to{opacity:1;transform:translate(-50%,0)}}
+@media (max-width:640px){.coach{top:calc(128px + env(safe-area-inset-top,0px));padding:7px 10px;gap:2px 8px;border-radius:14px}.coach span#coachText{font-size:13px;flex-basis:100%;order:2}.coach .coach-btns{order:1;margin-left:auto}.coach b{order:0}}
 /* ---- 버튼 크기 통일: 높이·글자·모서리를 모두 같게 ---- */
 :root{--btn-h:44px;--tbw:112px}
 .act{box-sizing:border-box;height:var(--btn-h);min-width:120px;padding:0 18px;font:600 15px/1.15 var(--body);display:inline-flex;align-items:center;justify-content:center;text-align:center;white-space:nowrap;border-radius:14px;box-shadow:0 3px 0 color-mix(in srgb,var(--carrot) 60%,#000)}
