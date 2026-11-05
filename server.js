@@ -31,7 +31,7 @@ const hofKey = e => `${e.at}|${e.nick}|${e.h}`;
 function mergeHof(list) {
   if (!Array.isArray(list)) return;
   const seen = new Set(HOF.map(hofKey));
-  for (const e of list) if (e && typeof e.at === 'number' && !seen.has(hofKey(e))) { HOF.push({ nick: String(e.nick).slice(0, 12), h: e.h | 0, at: e.at, c: e.c ? 1 : 0 }); seen.add(hofKey(e)); }
+  for (const e of list) if (e && typeof e.at === 'number' && !seen.has(hofKey(e))) { HOF.push({ nick: String(e.nick).slice(0, 12), h: e.h | 0, at: e.at, c: e.c ? 1 : 0, ...(e.k ? { k: e.k | 0 } : {}) }); seen.add(hofKey(e)); }
   HOF.sort((a, b) => a.at - b.at);
 }
 async function loadGist() {
@@ -77,6 +77,7 @@ const ADJ = ['아삭한', '주황빛', '느긋한', '조용한', '바람같은',
 const NOUN = ['버디', '이글', '퍼터', '캐디', '티샷', '디봇', '당근', '파세이브', '그린', '페어웨이', '드라이버', '웨지', '티박스'];
 const COLORS = ['#f2c14e', '#f78154', '#5fad56', '#4d9de0', '#b07bd8', '#e15a97', '#3bc4b4', '#ffd166'];
 const EMOTES = 6; // 클라이언트 EMOTES 목록 길이와 맞춰주세요
+const COURSES = 3; // 클라이언트 COURSES 개수와 맞추기 (0 클래식, 1 바닷가, 2 눈꽃)
 const LOOK_HATS = 8, LOOK_TOPS = 5, LOOK_ACCS = 5; // 클라이언트 HATS, TOPS, ACCS 개수와 맞추기
 const HOLES = 9;   // 클라이언트 HOLES 개수와 맞추기
 const XY = 1300;  // 좌표 범위 (코스 ±120 유닛 × 10, 여유 포함)
@@ -134,7 +135,7 @@ function nickname() {
 function counts() { return channels.slice(1).map(m => m.size); }
 function total() { return sockets.size; }
 function lobbyPayload() { return { t: 'lobby', total: total(), cap: CAPACITY, ch: counts() }; }
-function publicPlayer(p) { return { id: p.id, nick: p.nick, color: p.color, h: p.h, x: p.x, z: p.z, r: p.r, a: p.a, bx: p.bx, bz: p.bz, bv: p.bv, st: p.st, sc: p.sc, dn: p.dn, lk: p.lk }; }
+function publicPlayer(p) { return { id: p.id, nick: p.nick, color: p.color, h: p.h, x: p.x, z: p.z, r: p.r, a: p.a, bx: p.bx, bz: p.bz, bv: p.bv, st: p.st, sc: p.sc, dn: p.dn, cr: p.cr || 0, lk: p.lk }; }
 
 function send(ws, msg) { if (ws.readyState === 1) ws.send(typeof msg === 'string' ? msg : JSON.stringify(msg)); }
 function toChannel(ch, msg, exceptId) {
@@ -208,7 +209,8 @@ wss.on('connection', (ws) => {
         const h = int(m.h, 0, HOLES - 1), now = Date.now();
         if (h === null || now - (p.lastHio || 0) < 60000) return;
         p.lastHio = now;
-        const e = { nick: p.nick, h, at: now, c: m.c ? 1 : 0 };
+        const k = int(m.k ?? 0, 0, COURSES - 1) || 0;
+        const e = { nick: p.nick, h, at: now, c: m.c ? 1 : 0, ...(k ? { k } : {}) };
         HOF.push(e); saveHof();
         const news = JSON.stringify({ t: 'hofnew', e, id: p.id }), board = JSON.stringify(hofPayload());
         for (const q of sockets) { send(q.ws, news); send(q.ws, board); }
@@ -227,10 +229,10 @@ wss.on('connection', (ws) => {
         const h = int(m.h, 0, HOLES - 1), x = int(m.x, -XY, XY), z = int(m.z, -XY, XY), r = int(m.r, 0, 63), a = int(m.a, 0, 4);
         const bx = int(m.bx, -XY, XY), bz = int(m.bz, -XY, XY);
         // st: 이번 홀 타수, sc: 지금까지 합계(파 대비), dn: 끝낸 홀 수
-        const st = int(m.st ?? 0, 0, 40), sc = int(m.sc ?? 0, -40, 99), dn = int(m.dn ?? 0, 0, HOLES);
-        if ([h, x, z, r, a, bx, bz, st, sc, dn].includes(null)) return;
-        Object.assign(p, { h, x, z, r, a, bx, bz, bv: m.bv ? 1 : 0, st, sc, dn });
-        toChannel(p.ch, { t: 'pos', id: p.id, h, x, z, r, a, bx, bz, bv: p.bv, st, sc, dn }, p.id);
+        const st = int(m.st ?? 0, 0, 40), sc = int(m.sc ?? 0, -40, 99), dn = int(m.dn ?? 0, 0, HOLES), cr = int(m.cr ?? 0, 0, COURSES - 1);
+        if ([h, x, z, r, a, bx, bz, st, sc, dn, cr].includes(null)) return;
+        Object.assign(p, { h, x, z, r, a, bx, bz, bv: m.bv ? 1 : 0, st, sc, dn, cr });
+        toChannel(p.ch, { t: 'pos', id: p.id, h, x, z, r, a, bx, bz, bv: p.bv, st, sc, dn, cr }, p.id);
         break;
       }
       case 'look': {
