@@ -2545,7 +2545,8 @@ function openDress() {
   if (S.mode !== 'club') return;
   const go = () => { LB.lockerUI = true; me.yaw = Math.PI; LB.cam = null; LB.myLocker = myLockerIdx(); closeDesk(); renderLocker(); lastActKey = ''; };
   const lx = me.x - LB.x, lz = me.z - LB.z;
-  if (Math.hypot(lx + 16, lz + 2.6) < .6) go(); else { walkPath(lz > 1.8 || lz < .2 ? [[-16, -2.6]] : [[-12.5, -1.5], [-16, -2.6]]); LB.afterWalk = go; }
+  // 로비에 있으면 락커룸 문(왼쪽 벽 가운데)을 지나서 거울 앞까지
+  if (Math.hypot(lx + 16, lz + 2.6) < .6) go(); else { walkPath(lx > -10 ? [[-5, 0], [-10, 0], [-12.5, -1.5], [-16, -2.6]] : lz > 1.8 || lz < .2 ? [[-16, -2.6]] : [[-12.5, -1.5], [-16, -2.6]]); LB.afterWalk = go; }
 }
 function closeLocker() { LB.lockerUI = false; LB.myLocker = null; $('lobbyUI').hidden = true; $('lobbyUI').classList.remove('locker'); LB.cam = null; lastActKey = ''; toast('오늘 룩 저장했어요. 어디서든 이 옷으로 보여요', 1800); if (TUT.on && TUT.step === 'locker') setTimeout(() => tutGo('range'), 900); }
 function renderLocker() {
