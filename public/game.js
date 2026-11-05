@@ -145,23 +145,37 @@ function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let
 // ================= 지형 높이 (언덕, 벙커 웅덩이, 연못) =================
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 function baseH(x, z) { x += CRS.ox; z += CRS.oz; return 1.1 * Math.sin(x * .045 + 1) * Math.cos(z * .038) + .6 * Math.sin(x * .09 + z * .07) + .35 * Math.cos(z * .11 - x * .05) + .22 * Math.sin(x * .21) * Math.sin(z * .17); }
+// 러프에 솟은 둔덕과 큰 언덕 (페어웨이에서 멀어질수록 커져요)
+function roughH(x, z) {
+  x += CRS.ox * 1.7; z += CRS.oz * 1.3;
+  const n = Math.sin(x * .13 + 1.7) * Math.cos(z * .115 - .4) + .7 * Math.sin(x * .07 - z * .09 + 2.1) + .25 * Math.sin(x * .23 + z * .19) * Math.cos(x * .05);
+  const big = Math.sin(x * .028 + .3) * Math.cos(z * .024 + 1.1);
+  return .95 * Math.max(0, n) ** 1.4 + 1.3 * big + .8;
+}
 const EDGE_H = 5;
-const TEE_LV = HOLES.map(h => baseH(h.tee[0], h.tee[1]) * .55 + .35);
-const GREEN_LV = HOLES.map(h => baseH(h.cup[0], h.cup[1]) * .55);
+const TEE_LV = HOLES.map(h => baseH(h.tee[0], h.tee[1]) * .7 + .6);
+const GREEN_LV = HOLES.map(h => baseH(h.cup[0], h.cup[1]) * .7 + .25);
 const GREEN_TILT = HOLES.map((h, i) => { const a = i * 2.1 + .7, m = .028 + (i % 2) * .012; return [Math.cos(a) * m, Math.sin(a) * m]; });
-const POND_LV = HOLES.map(h => h.water.map(w => baseH(w[0], w[1]) * .55 - .35));
-const SHADE_LV = baseH(SHADE.x, SHADE.z) * .55;
+const POND_LV = HOLES.map(h => h.water.map(w => baseH(w[0], w[1]) * .7 - .35));
+const SHADE_LV = baseH(SHADE.x, SHADE.z) * .7 + .3;
 function heightAt(x, z) {
-  let y = baseH(x, z);
-  // 페어웨이는 부드럽게 출렁이도록 기복을 줄여요
-  let fw = 0;
-  for (const h of HOLES) for (let i = 0; i < h.fair.length - 1; i++) { const d = segD(x, z, h.fair[i], h.fair[i + 1]); if (d < h.fw / 2 + 9) fw = Math.max(fw, 1 - smooth(h.fw / 2, h.fw / 2 + 9, d)); }
-  y *= 1 - .45 * fw;
+  let y = baseH(x, z) * 1.3;
+  // 페어웨이는 길게 출렁이고, 양옆 러프는 둔덕이 솟아 페어웨이가 살짝 골짜기처럼 보여요
+  let fw = 0, rk = 1;
+  for (const h of HOLES) {
+    for (let i = 0; i < h.fair.length - 1; i++) { const d = segD(x, z, h.fair[i], h.fair[i + 1]); if (d < h.fw / 2 + 14) { fw = Math.max(fw, 1 - smooth(h.fw / 2, h.fw / 2 + 9, d)); rk = Math.min(rk, smooth(h.fw / 2 + .5, h.fw / 2 + 13, d)); } }
+    const dg = Math.hypot(x - h.cup[0], z - h.cup[1]); if (dg < h.green + 18) rk = Math.min(rk, smooth(h.green + 2, h.green + 18, dg));
+    const dt = Math.hypot(x - h.tee[0], z - h.tee[1]); if (dt < 20) rk = Math.min(rk, smooth(6, 20, dt));
+  }
+  { const dsh = Math.min(Math.hypot(x - SHADE.x, z - SHADE.z), Math.hypot(x - RR.x, z - RR.z)); if (dsh < 22) rk = Math.min(rk, smooth(10, 22, dsh));
+  }
+  y *= 1 - .4 * fw;
+  if (rk > 0) y += roughH(x, z) * rk;
   // 코스 가장자리는 둔덕
   const e = Math.max(Math.abs(x), Math.abs(z)), ek = smooth(98, 119, e); y = y * (1 - ek) + EDGE_H * ek;
   HOLES.forEach((h, i) => {
     let d = Math.hypot(x - h.tee[0], z - h.tee[1]);
-    if (d < 9) { const k = 1 - smooth(5, 9, d); y = y * (1 - k) + TEE_LV[i] * k; }
+    if (d < 9) { const k = 1 - smooth(4.6, 8, d); y = y * (1 - k) + TEE_LV[i] * k; }
     d = Math.hypot(x - h.cup[0], z - h.cup[1]);
     if (d < h.green + 6) {
       const gy = GREEN_LV[i] + GREEN_TILT[i][0] * (x - h.cup[0]) + GREEN_TILT[i][1] * (z - h.cup[1]) + .18 * Math.cos(Math.min(1, d / h.green) * Math.PI * .5);
@@ -411,9 +425,9 @@ const GS = 2048, PPU = GS / (MAP * 2);
 const groundCanvas = document.createElement('canvas'); groundCanvas.width = groundCanvas.height = GS;
 // 코스별 바닥 색
 const PAL = {
-  classic: { base: '#4c8b40', dark: 'rgba(25,60,20,.16)', light: 'rgba(150,200,110,.10)', path: ['#d4c9a8', '#e4dcc0'], edge: '#5e9e4b', fw: ['#6fb55a', '#67ad53'], gEdge: '#7cbf63', gr: ['#93d377', '#8acb6f'], tee: '#80c766', sEdge: '#c9b27a', sand: '#ead8a4', wEdge: '#3d6e3a', water: '#2b6b95', yard: '#cdbf98', outer: 0x4f8a43 },
-  seaside: { base: '#6aa84f', dark: 'rgba(40,80,20,.14)', light: 'rgba(240,225,170,.18)', path: ['#e9dcb3', '#f4ead0'], edge: '#7cbc5c', fw: ['#86cc63', '#7ec45b'], gEdge: '#8fd06e', gr: ['#a6e083', '#9cd87a'], tee: '#90d06c', sEdge: '#e2cf96', sand: '#f6e8bd', wEdge: '#e9d9a8', water: '#2c9fc2', yard: '#ecdcae', outer: 0xe9d7a5 },
-  snow: { base: '#eef3f6', dark: 'rgba(150,175,200,.18)', light: 'rgba(255,255,255,.5)', path: ['#d7cfc0', '#e8e2d6'], edge: '#d9e7e0', fw: ['#a9d3a2', '#a2cc9a'], gEdge: '#c6e2c2', gr: ['#9fd58c', '#97cd84'], tee: '#b5dcae', sEdge: '#dfe8ef', sand: '#ffffff', wEdge: '#d4e6ef', water: '#bfe2f1', yard: '#e2dccf', outer: 0xeef3f6 },
+  classic: { base: '#477f3a', dark: 'rgba(25,60,20,.16)', light: 'rgba(150,200,110,.10)', path: ['#d4c9a8', '#e4dcc0'], semi: '#539545', edge: '#5f9f4c', fw: ['#74ba5d', '#64aa51'], gEdge: '#7cbf63', gr: ['#93d377', '#8acb6f'], tee: '#80c766', sEdge: '#c9b27a', sand: '#ead8a4', wEdge: '#3d6e3a', water: '#2b6b95', yard: '#cdbf98', outer: 0x4f8a43 },
+  seaside: { base: '#64a04a', dark: 'rgba(40,80,20,.14)', light: 'rgba(240,225,170,.18)', path: ['#e9dcb3', '#f4ead0'], semi: '#72b255', edge: '#7cbc5c', fw: ['#8ad066', '#7cc259'], gEdge: '#8fd06e', gr: ['#a6e083', '#9cd87a'], tee: '#90d06c', sEdge: '#e2cf96', sand: '#f6e8bd', wEdge: '#e9d9a8', water: '#2c9fc2', yard: '#ecdcae', outer: 0xe9d7a5 },
+  snow: { base: '#eef3f6', dark: 'rgba(150,175,200,.18)', light: 'rgba(255,255,255,.5)', path: ['#d7cfc0', '#e8e2d6'], semi: '#e6eef2', edge: '#d9e7e0', fw: ['#acd6a5', '#9fc997'], gEdge: '#c6e2c2', gr: ['#9fd58c', '#97cd84'], tee: '#b5dcae', sEdge: '#dfe8ef', sand: '#ffffff', wEdge: '#d4e6ef', water: '#bfe2f1', yard: '#e2dccf', outer: 0xeef3f6 },
 }[CRS_ID];
 function paintGround() {
   const g = groundCanvas.getContext('2d'), R = rng(42);
@@ -423,11 +437,15 @@ function paintGround() {
   const stripe = (a, b, w) => { const p = document.createElement('canvas'); p.width = p.height = w * 2; const q = p.getContext('2d'); q.fillStyle = a; q.fillRect(0, 0, w * 2, w * 2); q.fillStyle = b; q.fillRect(0, 0, w * 2, w); return g.createPattern(p, 'repeat'); };
   const line = (pts, width, style) => { g.beginPath(); g.moveTo(cx(pts[0][0]), cz(pts[0][1])); for (const p of pts.slice(1)) g.lineTo(cx(p[0]), cz(p[1])); g.lineWidth = width * PPU; g.lineCap = 'round'; g.lineJoin = 'round'; g.strokeStyle = style; g.stroke(); };
   const circle = (x, z, r, style) => { g.beginPath(); g.arc(cx(x), cz(z), r * PPU, 0, TAU); g.fillStyle = style; g.fill(); };
+  // 러프: 큰 얼룩(풀색이 고르지 않게) → 페어웨이 옆 덜 긴 러프 → 퍼스트 컷 → 페어웨이
+  for (let i = 0; i < 260; i++) { const x = (R() * 2 - 1) * MAP, z = (R() * 2 - 1) * MAP; circle(x, z, 3 + R() * 9, R() < .55 ? PAL.dark : PAL.light); }
+  for (const h of HOLES) line(h.fair, h.fw + 13, PAL.semi);
+  for (const h of HOLES) { circle(h.cup[0], h.cup[1], h.green + 7, PAL.semi); }
   for (const p of PATHS) line(p, 2.4, PAL.path[0]);
   for (const p of PATHS) line(p, 1.6, PAL.path[1]);
-  for (const h of HOLES) line(h.fair, h.fw + 1.6, PAL.edge);
-  const fwPat = stripe(PAL.fw[0], PAL.fw[1], 3 * PPU);
-  for (const h of HOLES) line(h.fair, h.fw, fwPat);
+  for (const h of HOLES) line(h.fair, h.fw + 3.2, PAL.edge);
+  // 잔디 깎은 줄무늬: 페어웨이 방향을 따라 3m 폭으로 밝고 어둡게
+  for (const h of HOLES) for (let w = h.fw, k = 0; w > 0; w -= 3, k++) line(h.fair, w, PAL.fw[k % 2]);
   const grPat = stripe(PAL.gr[0], PAL.gr[1], 1.2 * PPU);
   for (const h of HOLES) { circle(h.cup[0], h.cup[1], h.green + 1.4, PAL.gEdge); circle(h.cup[0], h.cup[1], h.green, grPat); }
   for (const h of HOLES) { g.fillStyle = PAL.tee; g.fillRect(cx(h.tee[0] - 4), cz(h.tee[1] - 3.5), 8 * PPU, 7 * PPU); }
@@ -438,8 +456,59 @@ function paintGround() {
   for (const h of HOLES) for (const w of h.water) { circle(w[0], w[1], w[2] + 1, PAL.wEdge); circle(w[0], w[1], w[2], PAL.water); }
   // 그늘집 마당
   g.fillStyle = PAL.yard; g.beginPath(); g.ellipse(cx(SHADE.x), cz(SHADE.z), 9 * PPU, 8 * PPU, 0, 0, TAU); g.fill();
+  // 땅의 기복을 그늘로 칠해서 언덕이 더 잘 보여요 (해가 오른쪽 위에서 비춰요)
+  const C = 12, n = Math.round(GS / C), st = MAP * 2 / n, Hg = new Float32Array((n + 1) * (n + 1));
+  for (let j = 0; j <= n; j++) for (let i = 0; i <= n; i++) Hg[j * (n + 1) + i] = heightAt(i * st - MAP, j * st - MAP);
+  const sh = document.createElement('canvas'); sh.width = sh.height = n; const sc = sh.getContext('2d'), img = sc.createImageData(n, n), px = img.data;
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+    const a = Hg[j * (n + 1) + i], b = Hg[j * (n + 1) + i + 1], c = Hg[(j + 1) * (n + 1) + i], d = Hg[(j + 1) * (n + 1) + i + 1];
+    const sx = (b + d - a - c) / (2 * st), sz = (c + d - a - b) / (2 * st);
+    const l = (-sx * .42 - sz * .27 + .87) / Math.hypot(sx, 1, sz) - .87, o = (j * n + i) * 4;
+    if (l > 0) { px[o] = 255; px[o + 1] = 250; px[o + 2] = 220; px[o + 3] = Math.min(.22, l * .9) * 255; }
+    else { px[o] = 10; px[o + 1] = 30; px[o + 2] = 10; px[o + 3] = Math.min(.3, -l * 1.1) * 255; }
+  }
+  sc.putImageData(img, 0, 0); g.imageSmoothingEnabled = true; g.drawImage(sh, 0, 0, GS, GS);
   // 지도용 경계선
   g.strokeStyle = 'rgba(255,255,255,.65)'; g.lineWidth = 6; g.setLineDash([24, 18]); g.strokeRect(cx(-MAP + 1.5), cz(-MAP + 1.5), (MAP * 2 - 3) * PPU, (MAP * 2 - 3) * PPU); g.setLineDash([]);
+}
+
+function buildTufts() {
+  const R = rng(CRS.seed + 77), pos = [], col = [];
+  // 풀잎 5장을 모은 한 포기
+  for (let b = 0; b < 5; b++) {
+    const a = b / 5 * TAU + R() * .8, r = .05 + R() * .12, ox = Math.cos(a) * r, oz = Math.sin(a) * r, h = .22 + R() * .2, w = .04;
+    const lean = .08 + R() * .12, tx = ox + Math.cos(a) * lean, tz = oz + Math.sin(a) * lean, px = -Math.sin(a) * w, pz = Math.cos(a) * w;
+    pos.push(ox - px, 0, oz - pz, ox + px, 0, oz + pz, tx, h, tz);
+    col.push(.55, .55, .55, .6, .6, .6, 1.15, 1.15, 1.1);
+  }
+  const geo = new T.BufferGeometry(); geo.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); geo.setAttribute('color', new T.Float32BufferAttribute(col, 3)); geo.computeVertexNormals();
+  const base = CRS_ID === 'snow' ? null : CRS_ID === 'seaside' ? [.33, .62, .46] : [.3, .6, .34];
+  if (!base) {
+    // 눈 덩이
+    const sg = new T.SphereGeometry(.35, 7, 4, 0, TAU, 0, Math.PI / 2), list = [];
+    for (let k = 0; k < 9000 && list.length < 700; k++) { const x = (R() * 2 - 1) * (MAP - 3), z = (R() * 2 - 1) * (MAP - 3); if (surface(x, z) !== 'rough' || nearCourse(x, z, 1.2)) continue; list.push([x, z]); }
+    const im = new T.InstancedMesh(sg, mat(0xffffff), list.length), m4 = new T.Matrix4(), q = new T.Quaternion(), sc = new T.Vector3(), v = new T.Vector3();
+    list.forEach(([x, z], i) => { const s = .6 + R() * 1.4; sc.set(s * (1 + R() * .6), s * (.35 + R() * .3), s); q.setFromAxisAngle(v.set(0, 1, 0), R() * TAU); m4.compose(v.set(x, heightAt(x, z) - .05, z), q, sc); im.setMatrixAt(i, m4); });
+    im.receiveShadow = true; scene.add(im); return;
+  }
+  const list = [];
+  for (let k = 0; k < 60000 && list.length < 7000; k++) {
+    const x = (R() * 2 - 1) * (MAP - 2), z = (R() * 2 - 1) * (MAP - 2);
+    const near = nearCourse(x, z, 10);
+    if (!near && R() < .7) continue;          // 코스에서 먼 곳은 덜 심어요
+    if (surface(x, z) !== 'rough' || nearCourse(x, z, .6)) continue;
+    list.push([x, z, near]);
+  }
+  const im = new T.InstancedMesh(geo, new T.MeshLambertMaterial({ vertexColors: true, side: T.DoubleSide }), list.length);
+  const m4 = new T.Matrix4(), q = new T.Quaternion(), sc = new T.Vector3(), v = new T.Vector3(), c = new T.Color();
+  list.forEach(([x, z, near], i) => {
+    const s = (near ? .8 : 1.1) + R() * .7;
+    sc.set(s, s * (CRS_ID === 'seaside' && !near ? 1.6 : 1), s); q.setFromAxisAngle(v.set(0, 1, 0), R() * TAU);
+    m4.compose(v.set(x, heightAt(x, z) - .02, z), q, sc); im.setMatrixAt(i, m4);
+    const dry = CRS_ID === 'seaside' ? R() * .5 : R() * .25;
+    c.setRGB(base[0] + dry * .5, base[1] - R() * .08, base[2] - dry * .3); im.setColorAt(i, c);
+  });
+  im.receiveShadow = true; scene.add(im);
 }
 
 // ---- 당근 캐릭터 ----
@@ -697,6 +766,8 @@ function build() {
     const s = new T.Mesh(stakeGeo, stakeMat); s.position.set(x, heightAt(x, z) + .55, z); s.castShadow = true; scene.add(s);
   }
 
+  // 러프 풀 포기: 페어웨이 가까이는 촘촘하게, 멀리는 듬성듬성 (눈꽃 코스는 눈 덩이)
+  buildTufts();
   // 나무
   const trunkMat = mat(0x6b4a2e), trunkGeo = new T.CylinderGeometry(.25, .38, 2.4, 6);
   const pineGeo = new T.ConeGeometry(1.7, 4.2, 7), roundGeo = new T.IcosahedronGeometry(2, 0);
