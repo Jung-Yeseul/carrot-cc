@@ -340,6 +340,15 @@ td.cur,th.cur{background:color-mix(in srgb,var(--leaf) 14%,transparent)}
 .app.inclub .coach,.app.inrange .coach{top:calc(64px + env(safe-area-inset-top,0px))}
 @keyframes coachIn{from{opacity:0;transform:translate(-50%,-6px)}to{opacity:1;transform:translate(-50%,0)}}
 @media (max-width:640px){.coach{top:calc(128px + env(safe-area-inset-top,0px));padding:7px 10px;gap:2px 8px;border-radius:14px}.coach span#coachText{font-size:13px;flex-basis:100%;order:2}.coach .coach-btns{order:1;margin-left:auto}.coach b{order:0}}
+/* ---- 코스 고르기 ---- */
+.course-list{display:grid;gap:10px;margin-top:6px}
+.course-card{display:grid;grid-template-columns:48px 1fr;grid-template-rows:auto auto;column-gap:12px;align-items:center;text-align:left;border:2px solid var(--line);border-radius:16px;background:color-mix(in srgb,var(--surface) 92%,transparent);color:var(--fg);padding:12px 14px;cursor:pointer;font:inherit}
+.course-card .cemoji{grid-row:1 / span 3;font-size:34px;text-align:center}
+.course-card b{font:400 20px var(--display)}
+.course-card .cdesc{font-size:13px;color:var(--muted);line-height:1.4}
+.course-card small{font:600 11px var(--mono);color:var(--carrot);margin-top:2px}
+.course-card.on{border-color:var(--carrot)}
+.course-card:hover{border-color:var(--carrot)}
 /* ---- 버튼 크기 통일: 높이·글자·모서리를 모두 같게 ---- */
 :root{--btn-h:44px;--tbw:112px}
 .act{box-sizing:border-box;height:var(--btn-h);min-width:120px;padding:0 18px;font:600 15px/1.15 var(--body);display:inline-flex;align-items:center;justify-content:center;text-align:center;white-space:nowrap;border-radius:14px;box-shadow:0 3px 0 color-mix(in srgb,var(--carrot) 60%,#000)}
