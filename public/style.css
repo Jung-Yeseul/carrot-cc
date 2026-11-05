@@ -327,6 +327,9 @@ td.cur,th.cur{background:color-mix(in srgb,var(--leaf) 14%,transparent)}
 .langpick button.on{background:var(--carrot);color:var(--carrot-ink);border-color:transparent}
 .langlist{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .langlist .btn{min-height:48px}
+.basics{margin:8px 0 4px;padding-left:18px;display:flex;flex-direction:column;gap:7px;font-size:14px;line-height:1.5}
+.basics b{color:var(--carrot)}
+#basicsLink{margin-top:8px}
 /* ---- 버튼 크기 통일: 높이·글자·모서리를 모두 같게 ---- */
 :root{--btn-h:44px;--tbw:112px}
 .act{box-sizing:border-box;height:var(--btn-h);min-width:120px;padding:0 18px;font:600 15px/1.15 var(--body);display:inline-flex;align-items:center;justify-content:center;text-align:center;white-space:nowrap;border-radius:14px;box-shadow:0 3px 0 color-mix(in srgb,var(--carrot) 60%,#000)}

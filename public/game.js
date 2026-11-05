@@ -56,13 +56,14 @@ const RR_DOORS = { m: [-5.9, 29.5], w: [-5.9, 32.5] };
 const PATHS = [[[-62, 30], [-58, 18], [-45, 10]], [[25, -55], [42, -42], [55, -25]], [[70, 28], [64, 52], [60, 75]], [[-15, 70], [-2, 50], [6, 32]], [[6, 32], [-20, 22], [-45, 10]], [[6, 32], [36, 10], [55, -25]], [[-60, 85], [-38, 76], [-15, 70]],
   [[-38, 76], [-60, 97], [-85, 102]], [[-95, 40], [-102, 28], [-95, 15]], [[-62, 30], [-80, 30], [-95, 40]], [[-70, -85], [-62, -92], [-55, -90]], [[0, -95], [20, -102], [40, -95]], [[25, -55], [30, -80], [40, -95]], [[92, -45], [100, -30], [92, -15]], [[90, 58], [75, 70], [60, 75]], [[70, 28], [84, 0], [92, -15]], [[-45, 10], [-75, -5], [-95, 15]]];
 const CLUBS = [
-  { name: '드라이버', loft: .55, v: 27.4 },
-  { name: '아이언', loft: .70, v: 22.6 },
-  { name: '웨지', loft: 1.0, v: 19.9 },
-  { name: '퍼터', loft: 0, v: 13 },
+  { name: '드라이버', hint: '제일 멀리', loft: .55, v: 27.4 },
+  { name: '아이언', hint: '중간 거리', loft: .70, v: 22.6 },
+  { name: '웨지', hint: '짧고 높게', loft: 1.0, v: 19.9 },
+  { name: '퍼터', hint: '굴려서 넣기', loft: 0, v: 13 },
 ];
 const ROLL = { green: [.9, .5], fairway: [1.5, 1.2], tee: [1.5, 1.2], path: [1.2, 1], rough: [3, 3.5], sand: [8, 6] };
-const LIE = { green: '그린', fairway: '페어웨이', tee: '티잉 구역', path: '카트 도로', rough: '러프', sand: '벙커' };
+// 골프를 몰라도 알 수 있게 쉬운 말을 같이 적어요
+const LIE = { green: '그린(홀컵 근처)', fairway: '페어웨이(짧은 잔디)', tee: '출발 지점(티)', path: '카트 도로', rough: '러프(긴 풀)', sand: '벙커(모래)' };
 const EMOTES = ['나이스샷!', '굿 퍼팅', '아깝다~', '오잘공!', '당근이지!', '캐디님 감사']; // 서버 EMOTES 개수와 맞추기
 const MENU = [
   { id: 'carrot', name: '갓 짠 당근주스', price: '12,000원', eff: 'OK권 2장·순간이동권 1장 + 처음 먹으면 공이 날아갈 길이 미리 보여요.', chip: '당근주스: 궤적 미리보기', tix: [0, 2, 1] },
@@ -280,6 +281,7 @@ $('teeUp').onclick = () => joinChannel(invitedCh());
 const LG = window.I18N || { lang: 'ko', LANGS: [['ko', '한국어']], set() {} };
 function renderLangPick() { const el = $('langPick'); if (!el) return; el.innerHTML = LG.LANGS.map(([k, n]) => `<button type="button" data-lang="${k}" class="${k === LG.lang ? 'on' : ''}" aria-pressed="${k === LG.lang}">${n}</button>`).join(''); el.querySelectorAll('[data-lang]').forEach(b => b.onclick = () => { if (b.dataset.lang !== LG.lang) LG.set(b.dataset.lang); }); }
 renderLangPick();
+if ($('basicsLink')) $('basicsLink').onclick = showBasics;
 function openLangMenu() {
   overlay(`<span class="eyebrow">🌐 Language · 언어</span><div class="langlist">${LG.LANGS.map(([k, n]) => `<button type="button" class="btn${k === LG.lang ? '' : ' sub'}" data-lang="${k}">${n}</button>`).join('')}</div><p class="cs">바꾸면 화면이 새로고침돼요. 라운딩은 그대로 이어서 칠 수 있어요.</p><button type="button" class="linkbtn" id="langClose">닫기</button>`);
   $('langClose').onclick = closeOverlay;
@@ -294,11 +296,11 @@ $('exitBtn').onclick = () => openGameMenu();
 // 모바일 ☰ 메뉴: 오른쪽 위 버튼들을 한 곳에 모아요 (원래 버튼을 대신 눌러줘요)
 $('mMenuBtn').onclick = () => {
   const app = $('app'), course = !app.classList.contains('inclub') && !app.classList.contains('inrange');
-  const items = [['exitBtn', '🏛️ 나가기 (클럽하우스·정문)', 'wide'], ['cardBtn', '📋 스코어카드', '', course], ['sound', null, ''], ['goShadeBtn', '🍢 그늘집 가기', '', course], ['goWCBtn', '🚻 화장실 가기', '', course], ['peopleBtn', null, ''], ['clipBtn', null, 'wide'], ['nick', `✏️ 이름표: ${NET.nick}`, ''], ['langBtnQ', '🌐 Language', '']];
-  const list = items.filter(([id, , , ok]) => ok !== false && (id === 'langBtnQ' || ($(id) && !$(id).hidden)));
+  const items = [['exitBtn', '🏛️ 나가기 (클럽하우스·정문)', 'wide'], ['cardBtn', '📋 스코어카드', '', course], ['sound', null, ''], ['goShadeBtn', '🍢 그늘집 가기', '', course], ['goWCBtn', '🚻 화장실 가기', '', course], ['peopleBtn', null, ''], ['clipBtn', null, 'wide'], ['basicsQ', '📖 골프 쉽게 알기', ''], ['nick', `✏️ 이름표: ${NET.nick}`, ''], ['langBtnQ', '🌐 Language', 'wide']];
+  const list = items.filter(([id, , , ok]) => ok !== false && (id === 'langBtnQ' || id === 'basicsQ' || ($(id) && !$(id).hidden)));
   overlay(`<span class="eyebrow">메뉴</span><div class="qmenu">${list.map(([id, label, cls]) => `<button type="button" class="btn sub ${cls}" data-q="${id}">${label || esc($(id).textContent.trim())}</button>`).join('')}</div><button type="button" class="linkbtn" id="qClose">닫기</button>`);
   $('qClose').onclick = closeOverlay;
-  document.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { if (b.dataset.q === 'langBtnQ') return openLangMenu(); closeOverlay(); $(b.dataset.q).click(); });
+  document.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { if (b.dataset.q === 'langBtnQ') return openLangMenu(); if (b.dataset.q === 'basicsQ') return showBasics(); closeOverlay(); $(b.dataset.q).click(); });
 };
 // ---- 닉네임 ----
 const NICK_RE = /^[가-힣a-zA-Z0-9 _]+$/;
@@ -920,7 +922,7 @@ function whereText(x, z, a, h, done) {
   if (Math.hypot(x - SHADE.x, z - SHADE.z) < 7) return '그늘집에서 쉬는 중';
   const hh = HOLES[h] || HOLES[0], d = Math.round(Math.hypot(x - hh.cup[0], z - hh.cup[1]) * M_PER_U);
   const lie = surface(x, z); const place = lie === 'water' ? '연못가' : LIE[lie] || '';
-  return `${h + 1}번 홀 ${place} · 핀까지 ${d}m${a === 2 ? ' · 샷 준비 중' : a === 3 ? ' · 스윙!' : ''}`;
+  return `${h + 1}번 홀 ${place} · 깃발까지 ${d}m${a === 2 ? ' · 샷 준비 중' : a === 3 ? ' · 스윙!' : ''}`;
 }
 function scoreText(sc, done, st, h) { const tot = done ? (sc === 0 ? 'E' : sc > 0 ? `+${sc}` : `${sc}`) : '-'; return `${done}/${HOLES.length}홀 ${tot}${st ? ` · ${h + 1}H ${st}타` : ''}`; }
 function inviteURL() { return `${location.origin && location.origin !== 'null' ? location.origin : ''}${location.pathname}#ch${NET.ch || 1}`; }
@@ -972,9 +974,9 @@ function windText() {
 function updHud() {
   const h = hole();
   $('holeNo').textContent = S.hole + 1; $('holeName').textContent = h.name;
-  $('holePar').textContent = `PAR ${h.par} · ${S.strokes}타 쳤어요`;
+  $('holePar').textContent = `PAR ${h.par}(보통 ${h.par}번에 넣기) · 지금 ${S.strokes}번 쳤어요`;
   const lie = LIE[surface(S.ball.x, S.ball.z)] || '';
-  $('holeDist').textContent = `핀까지 ${Math.round(distToCup() * M_PER_U)}m · ${lie}${windText()}`;
+  $('holeDist').textContent = `깃발까지 ${Math.round(distToCup() * M_PER_U)}m · ${lie}${windText()}`;
   $('strokes').textContent = S.strokes;
 }
 let lastActKey = '';
@@ -1001,14 +1003,14 @@ function updActions() {
       <button class="act sub" id="cancel">취소</button>`;
   } else if (S.mode === 'walk') {
     if (S.ball.state === 'rest') {
-      if (near) html += '<button class="act" id="ready">샷 준비 (E)</button>';
+      if (near) html += '<button class="act" id="ready">공 치기 준비 (E)</button>';
       else html += `<button class="act" id="cartBall">카트</button><button class="act sub" id="goBall">걸어가기</button>${S.warpTix > 0 ? `<button class="act sub" id="warpBall">순간이동 (${S.warpTix})</button>` : ''}`;
     }
     if (inShade) html += '<button class="act" id="menuBtn">그늘집 메뉴판 보기</button>';
     if (nearRR) html += '<button class="act wc m" id="wcM">남자 화장실</button><button class="act wc w" id="wcW">여자 화장실</button>';
-    if (S.mulligans && S.prev && S.ball.state === 'rest') html += `<button class="act sub" id="mull">멀리건 (${S.mulligans})</button>`;
-    if (okReady()) html += `<button class="act" id="okBtn">OK 받기 (OK권 ${S.okTix})</button>`;
-    if (S.ball.state === 'rest' && S.ballVis) html += '<button class="act sub" id="pickBtn">홀아웃</button>';
+    if (S.mulligans && S.prev && S.ball.state === 'rest') html += `<button class="act sub" id="mull">다시 치기 (멀리건 ${S.mulligans})</button>`;
+    if (okReady()) html += `<button class="act" id="okBtn">OK! 넣은 걸로 (${S.okTix})</button>`;
+    if (S.ball.state === 'rest' && S.ballVis) html += '<button class="act sub" id="pickBtn">이 홀 그만하기</button>';
   }
   if (S.mode === 'ride') html = '<button class="act sub" id="skipRide">바로 내리기</button>';
   if (S.mode === 'range') html = `<button class="act sub round" id="aL" aria-label="왼쪽으로">◀</button>
@@ -1155,7 +1157,7 @@ function enterAim() {
   if (Math.hypot(me.x - S.ball.x, me.z - S.ball.z) > 3.2) return;
   S.mode = 'aim'; S.club = autoClub(); S.clubAuto = true;
   const tgt = aimTarget(); S.aimYaw = Math.atan2(tgt[0] - S.ball.x, tgt[1] - S.ball.z); cam.aimYaw = S.aimYaw;
-  $('power').hidden = false; $('pow').style.width = '0%'; $('powLabel').textContent = CLUBS[S.club].name;
+  $('power').hidden = false; $('pow').style.width = '0%'; $('powLabel').textContent = `${CLUBS[S.club].name}(${CLUBS[S.club].hint})`;
   $('help').classList.add('off'); lastActKey = '';
   if (me.cart && me.cart.visible && Math.hypot(me.cart.position.x - S.ball.x, me.cart.position.z - S.ball.z) < 9) { me.cart.visible = false; caddieSay('여기서 기다릴게요~', 1500); }
 }
@@ -1190,7 +1192,7 @@ function lieAdvice() {
   const cups = Math.min(4, Math.round(Math.abs(side) * L * 2.2 * 2) / 2);
   const slope = Math.abs(deg) < .4 ? '거의 평지예요' : deg > 0 ? `오르막 ${deg.toFixed(1)}°라 조금 세게` : `내리막 ${(-deg).toFixed(1)}°라 살살`;
   const brk = cups < .5 ? '거의 똑바로 가요. 컵 정면을 보세요.' : side > 0 ? `오른쪽으로 휘어요. 컵 ${cups}개 왼쪽을 보세요.` : `왼쪽으로 휘어요. 컵 ${cups}개 오른쪽을 보세요.`;
-  return `<b>라이 읽기</b> 핀까지 ${(L * M_PER_U).toFixed(1)}m, ${slope}. ${brk}<br><small>화살표는 공이 흘러내리는 방향이에요. 빨갈수록 가팔라요.</small>`;
+  return `<b>라이 읽기</b> 깃발까지 ${(L * M_PER_U).toFixed(1)}m, ${slope}. ${brk}<br><small>화살표는 공이 흘러내리는 방향이에요. 빨갈수록 가팔라요.</small>`;
 }
 function toggleLie() { if (S.readLie) { stopLie(); return; } if (S.mode !== 'aim' || S.club !== 3) return; S.readLie = true; buildLieArrows(); lieArrows.visible = true; showCaddieTip(lieAdvice()); tone(220, .1, 'triangle', .08); tone(180, .14, 'triangle', .08, .1); showBubble(me, ['흠…', '어디 보자…', '살짝 휘는데?'][Math.random() * 3 | 0]); lastActKey = ''; }
 function stopLie() { if (!S.readLie) return; S.readLie = false; if (lieArrows) lieArrows.visible = false; if (!S.chanceT) $('caddieTip').hidden = true; lastActKey = ''; }
@@ -1310,11 +1312,11 @@ function onBallEvent(e) {
   if (e === 'water') {
     S.mode = 'wait'; S.ballVis = false; sndSplash(); splash(b.x, b.z);
     const eaten = !S.crocDone && crocEats(b.x, b.z); if (eaten) S.crocDone = true;
-    toast(eaten ? '악어가 공을 물어갔어요! 1벌타' : '퐁당! 해저드 1벌타', 2200);
+    toast(eaten ? '악어가 공을 물어갔어요! 벌타 1 (1번 더 친 걸로 쳐요)' : '퐁당! 물에 빠졌어요 · 벌타 1 (1번 더 친 걸로 쳐요)', 2400);
     if (eaten) { S.st.croc++; recMark('악어가 공을 물어감', `${S.hole + 1}번 홀 · 1벌타`); recStopIn(3200); } else { S.st.water++; recStopIn(1500); }
     setTimeout(() => penaltyReturn(), eaten ? 2200 : 1300);
   } else if (e === 'ob') {
-    S.mode = 'wait'; toast('OB! 1벌타'); S.st.ob++; recStopIn(1200); setTimeout(() => penaltyReturn(), 1200);
+    S.mode = 'wait'; toast('OB! 코스 밖으로 나갔어요 · 벌타 1 (1번 더 친 걸로 쳐요)', 2400); S.st.ob++; recStopIn(1200); setTimeout(() => penaltyReturn(), 1200);
   } else if (e === 'sink') {
     S.mode = 'wait'; b.state = 'sinking'; b.x = h.cup[0]; b.z = h.cup[1]; sndCup();
     setTimeout(() => { S.ballVis = false; finishHole(''); }, 700);
@@ -1325,7 +1327,7 @@ function onBallEvent(e) {
     const thief = crocNear(b.x, b.z);
     if (thief && !S.crocDone && (h.ev === 'croc' || Math.random() < .6)) { S.crocDone = true; crocSteal(thief); return; }
     if (holeStopEvent(s)) return;
-    toast(`${LIE[s]} · 핀까지 ${Math.round(d * M_PER_U)}m`, 1600);
+    toast(`${LIE[s]} · 깃발까지 ${Math.round(d * M_PER_U)}m`, 1600);
     S.mode = 'wait'; setTimeout(() => { S.mode = 'walk'; cam.mode = 'follow'; lastActKey = ''; updActions(); }, 250);
   }
   updHud();
@@ -1390,8 +1392,8 @@ function okReady() { return S.okTix > 0 && S.ball.state === 'rest' && S.ballVis 
 function useOk() { if (!okReady() || S.mode !== 'walk') return; S.okTix--; renderTix(); S.strokes++; S.mode = 'wait'; showBubble(me, 'OK 감사합니다~'); finishHole('OK! 컨시드'); }
 function pickUp() {
   if (S.mode !== 'walk') return;
-  overlay(`<span class="eyebrow">${S.hole + 1}번 홀 · PAR ${hole().par}</span><h2>이 홀은 여기까지 할까요?</h2><p>홀아웃하면 이 홀은 <b>더블파(${hole().par * 2}타)</b>로 기록되고 다음 홀로 넘어가요.</p>
-    <div class="btns"><button class="btn" id="pickYes">홀아웃할게요</button><button class="btn sub" id="pickNo">계속 칠게요</button></div>`, true);
+  overlay(`<span class="eyebrow">${S.hole + 1}번 홀 · PAR ${hole().par}</span><h2>이 홀은 여기까지 할까요?</h2><p>그만하면 이 홀은 <b>보통의 2배(${hole().par * 2}타)</b>로 기록되고 다음 홀로 넘어가요.</p>
+    <div class="btns"><button class="btn" id="pickYes">그만할게요</button><button class="btn sub" id="pickNo">계속 칠게요</button></div>`, true);
   $('pickNo').onclick = closeOverlay;
   $('pickYes').onclick = () => { closeOverlay(); S.strokes = hole().par * 2; S.mode = 'wait'; S.ballVis = false; showBubble(me, '다음 홀에서 만회!'); finishHole('홀아웃'); };
 }
@@ -1400,6 +1402,11 @@ function penaltyReturn() {
   if (S.strokes >= hole().par * 2) { finishHole('양파! 픽업'); return; }
   S.mode = 'walk'; cam.mode = 'follow'; lastActKey = ''; updHud();
 }
+// 골프 점수 이름을 쉬운 말로
+function scoreExplain(s, par) {
+  const d = s - par;
+  return s === 1 ? '한 번에 쏙 들어갔어요' : d < 0 ? `보통보다 ${-d}번 적게 쳤어요` : d === 0 ? '딱 보통만큼 쳤어요' : `보통보다 ${d}번 더 쳤어요`;
+}
 function scoreName(s, par) {
   if (s === 1) return '홀인원!'; const d = s - par;
   return ({ '-3': '알바트로스!', '-2': '이글!', '-1': '버디!', '0': '파', '1': '보기', '2': '더블 보기', '3': '트리플 보기' })[d] || (d > 0 ? `+${d}` : `${d}`);
@@ -1407,13 +1414,13 @@ function scoreName(s, par) {
 const totalDiff = () => S.scores.reduce((d, s, i) => s == null ? d : d + s - HOLES[i].par, 0);
 function finishHole(prefix) {
   const h = hole(); const s = Math.min(S.strokes, h.par * 2); S.scores[S.hole] = s; renderCard();
-  const name = scoreName(s, h.par); toast(prefix ? `${prefix} · ${name}` : name, 2200);
+  const name = scoreName(s, h.par); toast(`${prefix ? prefix + ' · ' : ''}${name} · ${scoreExplain(s, h.par)}`, 2600);
   if (s - h.par < 0 || s === 1) sendNet({ t: 'res', h: S.hole, d: Math.max(-4, s - h.par), one: s === 1 ? 1 : 0 });
   const d = s - h.par, level = s === 1 ? 3 : d <= -2 ? 2 : d === -1 ? 1 : 0;
   if (level === 3) { S.st.hio++; sendNet({ t: 'hio', h: S.hole, c: S.shotChance ? 1 : 0 }); } else if (level === 2) S.st.eagle++; else if (level === 1) S.st.birdie++;
   if (level) { recMark(s === 1 ? '홀인원' : d <= -3 ? '알바트로스' : d === -2 ? '이글' : '버디', `${S.hole + 1}번 홀 ${s}타 · ${fmtDiff(d)}`); recStopIn([0, 3200, 4200, 5600][level]); } else recStopIn(900);
   if (h.ev === 'gallery') { galleryCheer(true); if (!level) { confetti(160, false); toast('갤러리: 와아아~~ 수고하셨습니다!', 2200); } }
-  if (level) celebrate(level, s === 1 ? '홀인원!!!' : d <= -3 ? '알바트로스!!' : d === -2 ? '이글!!' : '버디!', `${S.hole + 1}번 홀 ${s}타 · ${fmtDiff(d)}`);
+  if (level) celebrate(level, s === 1 ? '홀인원!!!' : d <= -3 ? '알바트로스!!' : d === -2 ? '이글!!' : '버디!', `${S.hole + 1}번 홀 ${s}타 · ${scoreExplain(s, h.par)}`);
   const go = () => { cam.mode = 'follow'; if (S.hole === HOLES.length - 1) endRound(); else nextHoleCard(s); };
   const hi = S.hole;
   setTimeout(() => { if (level === 3) showPlaque(hi, go); else go(); }, [1600, 3000, 3800, 5200][level]);
@@ -1519,10 +1526,10 @@ function caddieChance() {
     S.chanceBusy = false; S.chance--; S.st.chance++; S.club = best.club; S.clubAuto = false; S.aimYaw = best.yaw; cam.aimYaw = best.yaw;
     S.chanceT = { yaw: best.yaw, p: best.p, club: best.club };
     const exp = fin.sink ? S.strokes + 1 : S.strokes + 2, nm = scoreName(exp, h.par).replace('!', '');
-    const side = angDiff(base, best.yaw), dir = Math.abs(side) < .03 ? '핀 정면' : side > 0 ? '핀 왼쪽' : '핀 오른쪽';
+    const side = angDiff(base, best.yaw), dir = Math.abs(side) < .03 ? '깃발 정면' : side > 0 ? '깃발 왼쪽' : '깃발 오른쪽';
     const pct = Math.round(best.p * 100);
     const line = fin.sink ? (S.strokes === 0 ? `이대로만 치면 <b>홀인원 각</b>이에요!!` : `이대로면 <b>들어가요</b>! ${nm} 찬스!`)
-      : fin.d < 1.1 ? `OK 거리에 붙어요. 성공하면 <b>${nm}</b>!` : `핀까지 ${Math.round(fin.d * M_PER_U)}m 남기는 게 최선이에요.`;
+      : fin.d < 1.1 ? `OK 거리에 붙어요. 성공하면 <b>${nm}</b>!` : `깃발까지 ${Math.round(fin.d * M_PER_U)}m 남기는 게 최선이에요.`;
     showCaddieTip(`<b>토끼 캐디</b> ${dir} 보고 <b>${CLUBS[best.club].name} ${pct}%</b>로 치세요. ${line} <br><small>파워바 반짝이는 칸에서 떼면 캐디 말대로 쳐져요 · 남은 찬스 ${S.chance}번</small>`);
     const pt = $('powTarget'); pt.hidden = false; pt.style.left = `${Math.max(0, (best.p - CHANCE_BAND) * 100)}%`; pt.style.width = `${CHANCE_BAND * 200}%`;
     lastActKey = ''; tone(880, .08, 'sine', .1); tone(1175, .12, 'sine', .1, .1);
@@ -2033,7 +2040,7 @@ function holeStopEvent(lie) {
     S.mode = 'wait'; const r = RABBITS[0]; r.x = b.x - 2; r.z = b.z - 1.5; r.state = 'sit'; r.t = 9;
     toast('토끼가 다가와요…', 1400); recMark('토끼 도우미', `${S.hole + 1}번 홀`);
     setTimeout(() => { const k = .3, tx = b.x + (h.cup[0] - b.x) * k, tz = b.z + (h.cup[1] - b.z) * k; const from = [b.x, b.z]; slideBall(from, [tx, tz], 1.1); r.tx = tx - 1; r.tz = tz - 1; r.state = 'hop';
-      toast(`토끼가 공을 핀 쪽으로 ${Math.round(Math.hypot(tx - from[0], tz - from[1]) * M_PER_U)}m 밀어줬어요!`, 2200); showBubble(me, '고마워 토끼야!'); sndHonk(1); recStopIn(2400);
+      toast(`토끼가 공을 깃발 쪽으로 ${Math.round(Math.hypot(tx - from[0], tz - from[1]) * M_PER_U)}m 밀어줬어요!`, 2200); showBubble(me, '고마워 토끼야!'); sndHonk(1); recStopIn(2400);
       setTimeout(() => { S.mode = 'walk'; cam.mode = 'follow'; lastActKey = ''; guideKey = ''; updHud(); }, 1300); }, 1200);
     return true;
   }
@@ -2518,6 +2525,7 @@ function lobbyAct(a) {
   else if (a === 'lkdone') closeLocker();
   else if (a === 'cd-ok') { caddieBye(); toast('나이스 샷 기대할게요!', 1400); }
   else if (a === 'cd-guide') { caddieBye(); showGuide(S.hole); }
+  else if (a === 'cd-basics') { caddieBye(); showBasics(); }
   else if (a === 'lklobby') { closeLocker(); walkPath([[-13, 0], [-9, 0], [-2, -2.2]]); }
 }
 let typeT = 0;
@@ -2582,6 +2590,24 @@ function enterCourse(resume) {
     goFirstTee(); caddieHello(resume);
   });
 }
+// ---- 골프 처음인 사람을 위한 1분 설명 ----
+function showBasics() {
+  try { localStorage.setItem('carrotBasics', '1'); } catch {}
+  overlay(`<span class="eyebrow">골프 몰라도 괜찮아요</span><h2>1분이면 끝나는 골프 설명</h2>
+    <ul class="basics">
+      <li><b>목표</b> 공을 깃발 밑 구멍(<b>홀컵</b>)에 넣으면 끝! <b>적게 칠수록</b> 잘한 거예요.</li>
+      <li><b>홀</b> 출발 지점에서 구멍까지가 한 판이에요. 9판(9홀)을 돌면 라운딩 끝.</li>
+      <li><b>PAR 3</b> "3번 만에 넣으면 보통"이라는 뜻이에요.</li>
+      <li><b>점수 이름</b> 보통보다 1번 적게 = <b>버디</b>, 2번 적게 = <b>이글</b>, 1번에 쏙 = <b>홀인원</b>, 보통 = <b>파</b>, 1번 더 = <b>보기</b></li>
+      <li><b>치는 법</b> 공 옆에서 [공 치기 준비] → 노란 선으로 방향 맞추기 → 버튼을 꾹 누르고 있다가 떼기. 오래 누를수록 세게 쳐요.</li>
+      <li><b>바닥</b> 짧은 잔디(페어웨이)는 잘 굴러가고, 긴 풀(러프)은 덜 날아가고, 모래(벙커)에선 공이 박혀요.</li>
+      <li><b>벌타</b> 물에 빠지거나 코스 밖(OB)으로 나가면 1번 더 친 걸로 쳐요.</li>
+      <li><b>그늘집 쿠폰</b> 멀리건 = 다시 치기, OK권 = 구멍 근처면 넣은 걸로, 순간이동권 = 공 있는 데로 순간이동</li>
+      <li><b>클럽(채)</b> 알아서 골라줘요. 드라이버는 제일 멀리, 퍼터는 구멍 근처에서 굴려요.</li>
+    </ul>
+    <div class="btns"><button class="btn" id="basicsOk">알겠어요!</button></div>`);
+  $('basicsOk').onclick = () => { closeOverlay(); if (S.mode === 'walk' && S.hole === 0 && S.strokes === 0) showGuide(0); };
+}
 // 스타트 하우스: 토끼 캐디가 카트 옆에서 인사해요
 let helloCad = null;
 function caddieHello(resume) {
@@ -2592,7 +2618,8 @@ function caddieHello(resume) {
   const n = HOLES[S.hole];
   const say = resume ? `다시 오셨네요, ${NET.nick} 님! ${S.hole + 1}번 홀 ${S.strokes ? `공 있는 데서 ${S.strokes + 1}타째부터` : '티잉 구역에서'} 이어서 칠게요.`
     : `안녕하세요, ${NET.nick} 님! 오늘 함께할 토끼 캐디예요. 여기가 티오프 장소예요. 첫 홀은 ${n.name}, PAR ${n.par}! 편하게 치세요~`;
-  lbShow('토끼 캐디', say, resume ? [['좋아요, 가요!', 'cd-ok']] : [['잘 부탁해요!', 'cd-ok'], ['오늘 코스 미리 보기', 'cd-guide', 'sub']]);
+  let seen = false; try { seen = !!localStorage.getItem('carrotBasics'); } catch {}
+  lbShow('토끼 캐디', say, resume ? [['좋아요, 가요!', 'cd-ok']] : seen ? [['잘 부탁해요!', 'cd-ok'], ['오늘 코스 미리 보기', 'cd-guide', 'sub'], ['골프 쉽게 알기', 'cd-basics', 'sub']] : [['골프가 처음이에요', 'cd-basics'], ['잘 부탁해요!', 'cd-ok', 'sub']]);
   tone(988, .1, 'triangle', .08); tone(1318, .14, 'triangle', .08, .1);
 }
 function caddieBye() {
@@ -2636,12 +2663,12 @@ function openGameMenu() {
   if (inCourse) overlay(`<span class="eyebrow">메뉴 · ${NET.ch ? NET.ch + '채널' : '혼자 라운딩'}</span><h2>${S.hole + 1}번 홀 · ${S.strokes}타째</h2>
     <p>합계 ${fmtDiff(totalDiff())} · ${S.scores.filter(x => x != null).length}/${HOLES.length}홀 완료. 클럽하우스에 다녀와도 지금 위치에서 이어서 칠 수 있어요.</p>
     <div class="btns col"><button class="btn" id="gmGo">▶ 라운딩 계속하기</button><button class="btn sub" id="gmClub">🏛️ 클럽하우스 로비로</button><button class="btn sub" id="gmGate">🚪 정문으로 나가기</button></div>
-    <button type="button" class="linkbtn" id="gmLang">🌐 Language</button><button type="button" class="linkbtn" id="gmExit">입장 화면(채널 선택)으로 나가기</button>`);
+    <button type="button" class="linkbtn" id="gmBasics">📖 골프 쉽게 알기</button><button type="button" class="linkbtn" id="gmLang">🌐 Language</button><button type="button" class="linkbtn" id="gmExit">입장 화면(채널 선택)으로 나가기</button>`);
   else overlay(`<span class="eyebrow">메뉴</span><h2>${S.mode === 'range' ? '드라이빙 레인지' : '클럽하우스'}</h2>
     <p>${roundHasProgress() ? `진행 중인 라운딩: ${S.hole + 1}번 홀 · 합계 ${fmtDiff(totalDiff())}` : '스타트 하우스에서 캐디와 만나 티오프할 수 있어요.'}</p>
     <div class="btns col"><button class="btn" id="gmGo">▶ 계속 둘러보기</button><button class="btn sub" id="gmCourse">⛳ 티오프 하러 가기</button>${S.mode === 'range' ? '<button class="btn sub" id="gmLobby">🏛️ 로비로 돌아가기</button>' : ''}<button class="btn sub" id="gmGate">🚪 정문으로 나가기</button></div>
     <button type="button" class="linkbtn" id="gmLang">🌐 Language</button><button type="button" class="linkbtn" id="gmExit">입장 화면(채널 선택)으로 나가기</button>`);
-  $('gmGo').onclick = closeOverlay; $('gmLang').onclick = openLangMenu;
+  $('gmGo').onclick = closeOverlay; $('gmLang').onclick = openLangMenu; if ($('gmBasics')) $('gmBasics').onclick = showBasics;
   if ($('gmClub')) $('gmClub').onclick = () => leaveCourse('course');
   if ($('gmLobby')) $('gmLobby').onclick = () => { closeOverlay(); backToClub('range'); };
   if ($('gmCourse')) $('gmCourse').onclick = () => { closeOverlay(); if (S.mode === 'range') backToClub('course'); else { placeClub(8.3, 4.5, -Math.PI / 2); goCourseDoor(); } };
@@ -2708,7 +2735,7 @@ function lobbyCamera(dt) {
     const dist = zone === 'out' ? Math.max(9, cam.dist) : Math.min(cam.dist, 7.5);
     let px = me.x - Math.sin(cam.yaw) * cp * dist, pz = me.z - Math.cos(cam.yaw) * cp * dist, py = y0 + 1.6 + sp * dist;
     const r = zone === 'lobby' ? [-9.3, 9.3, -9.3, 9.3] : zone === 'locker' ? [-21.2, -10.9, -6.5, 6.5] : null;
-    if (r) { px = clamp(px, LB.x + r[0], LB.x + r[1]); pz = clamp(pz, LB.z + r[2], LB.z + r[3]); py = Math.min(py, y0 + (zone === 'lobby' ? 6.2 : 5.3)); }
+    if (r) { px = clamp(px, LB.x + r[0], LB.x + r[1]); pz = clamp(pz, LB.z + r[2], LB.z + r[3]); const h = Math.hypot(px - me.x, pz - me.z); if (h < 5) py += (5 - h) * .8; py = Math.min(py, y0 + (zone === 'lobby' ? 6.2 : 5.3)); }
     else if (pz < LB.z + 11 && px > LB.x - 23 && px < LB.x + 11) pz = LB.z + 11;
     tg = { tx: me.x, ty: y0 + 1.5, tz: me.z, px, py: Math.max(py, y0 + 1.2), pz };
   }
@@ -3074,13 +3101,12 @@ function updateCamera(dt) {
   } else {
     const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
     tx = me.x; ty = heightAt(me.x, me.z) + 1.6; tz = me.z;
-    // 카메라와 캐릭터 사이에 나무가 끼면 카메라를 앞으로 당겨요
-    let dist = cam.dist; const bx = -Math.sin(cam.yaw), bz = -Math.cos(cam.yaw), horiz = cp * cam.dist;
+    // 걸을 때 카메라 거리는 그대로 (예전엔 나무가 끼면 앞으로 당겨서 머리가 확대돼 어지러웠어요)
+    // 대신 카메라와 캐릭터 사이를 가리는 나무를 잠깐 숨겨요
+    const dist = cam.dist, bx = -Math.sin(cam.yaw), bz = -Math.cos(cam.yaw), horiz = cp * cam.dist;
     for (const t of TREES) {
       const rx = t.x - me.x, rz = t.z - me.z, along = rx * bx + rz * bz;
-      if (along < 1.5 || along > horiz + t.cr) continue;
-      const side = Math.abs(rx * bz - rz * bx);
-      if (side < t.cr + .6) dist = Math.min(dist, Math.max(4, (along - t.cr - .8) / cp));
+      t.occ = along > .5 && along < horiz + t.cr && Math.abs(rx * bz - rz * bx) < t.cr + .8;
     }
     px = me.x - Math.sin(cam.yaw) * cp * dist; py = ty + sp * dist; pz = me.z - Math.cos(cam.yaw) * cp * dist;
   }
@@ -3090,7 +3116,8 @@ function updateCamera(dt) {
   const floor = heightAt(cam.px, cam.pz) + 1; if (cam.py < floor) cam.py = floor;
   const sh = shakeT > 0 ? shakeT * .18 : 0;
   camera.position.set(cam.px + rand(-sh, sh), cam.py + rand(-sh, sh), cam.pz + rand(-sh, sh)); camera.lookAt(cam.tx, cam.ty, cam.tz);
-  for (const t of TREES) if (t.g) t.g.visible = Math.hypot(t.x - cam.px, t.z - cam.pz) > t.cr + 4.5;
+  const walkCam = !(cam.mode === 'ball' || S.mode === 'aim' || S.mode === 'flight');
+  for (const t of TREES) { if (t.g) t.g.visible = Math.hypot(t.x - cam.px, t.z - cam.pz) > t.cr + 4.5 && !(walkCam && t.occ); if (!walkCam) t.occ = false; }
   sun.position.set(me.x + 40, 80, me.z + 25); sun.target.position.set(me.x, heightAt(me.x, me.z), me.z);
 }
 
@@ -3158,7 +3185,7 @@ function drawMap(g, W, H, hi, mode, big) {
         if (!last) { g.fillStyle = '#ffd166'; g.beginPath(); g.arc(x, y, 5 * k, 0, TAU); g.fill(); label(g, `1타 목표 · ${Math.round(acc * M_PER_U)}m`, x, y - 16 * k, k); }
         else label(g, `그린 · ${Math.round(acc * M_PER_U)}m`, x, y - 28 * k, k, 'rgba(210,68,44,.9)');
       }
-      label(g, '티잉 구역', tx, ty + 22 * k, k, 'rgba(46,122,63,.92)');
+      label(g, '출발 지점', tx, ty + 22 * k, k, 'rgba(46,122,63,.92)');
     }
   }
   if (mode === 'course') {
@@ -3247,7 +3274,7 @@ function frame() {
     me.anim = 2;
     if (S.charge) { S.power = chargePower(); $('pow').style.width = (S.power * 100) + '%'; }
     me.chargeP = S.charge ? S.power * (S.club === 3 ? .35 : 1) : 0;
-    $('powLabel').textContent = `${CLUBS[S.club].name}${S.charge ? ' ' + Math.round(S.power * 100) + '%' : ''} · ${S.lieText || ''}`;
+    $('powLabel').textContent = `${CLUBS[S.club].name}(${CLUBS[S.club].hint})${S.charge ? ' ' + Math.round(S.power * 100) + '%' : ''} · ${S.lieText || ''}`;
     const pr = predict(S.charge ? Math.max(S.power, .05) : 1);
     // 라인: 공에서 떨어질 곳(퍼터는 멈출 거리)까지 똑바로
     const fx = Math.sin(S.aimYaw), fz = Math.cos(S.aimYaw);
