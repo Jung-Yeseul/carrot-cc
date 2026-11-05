@@ -378,3 +378,22 @@ td.cur,th.cur{background:color-mix(in srgb,var(--leaf) 14%,transparent)}
   .act.swing{flex:1 1 50%;min-width:0;font-size:15px;white-space:nowrap}
 }
 @media (prefers-reduced-motion:reduce){.clubtitle.on{animation:none;opacity:1}.toast,.fade,.help{transition:none}.mascot,.aimtip,.celebrate .big span,.celebrate .sub,.power .pt,.clip-btn.new,.recdot i{animation:none}}
+
+/* 대전 */
+.duelbadge{display:flex;align-items:center;gap:8px;margin-top:6px;padding:5px 6px 5px 12px;border-radius:999px;background:color-mix(in srgb,var(--surface) 90%,transparent);border:1.5px solid #c0392b;color:#9b2c20;font-size:13px;font-weight:600;width:max-content;max-width:100%;pointer-events:auto}
+.duelbadge[hidden]{display:none}
+.duelbadge b{font-size:15px;color:#c0392b}
+.duelbadge .dw{font-weight:500;color:var(--muted,#7a6a5a);font-size:12px}
+.duelbadge button{border:0;background:#f4e3df;color:#9b2c20;border-radius:999px;padding:3px 10px;font:inherit;font-size:12px;cursor:pointer}
+.plist .duel-ask{grid-column:3;grid-row:3;border-color:#c0392b;color:#9b2c20}
+.plist button:disabled{opacity:.45;cursor:default}
+.tag.rival .nm{background:rgba(192,57,43,.9)}
+.tag.rival .nm::before{content:'⚔️ '}
+.duel-end{position:fixed;inset:0;z-index:60;display:grid;place-items:center;background:rgba(20,14,8,.45);padding:16px}
+.duel-end .card{background:var(--surface,#fffaf2);border-radius:20px;padding:22px;max-width:380px;width:100%;box-shadow:0 20px 50px rgba(0,0,0,.25);text-align:center}
+.duel-end h2{margin:6px 0 4px}
+.duel-score{font-size:20px;margin:6px 0 12px}
+.duel-tb{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:14px}
+.duel-tb th,.duel-tb td{padding:4px;border-bottom:1px solid rgba(0,0,0,.08)}
+.duel-tb td.w{color:#c0392b;font-weight:700}
+@media (max-width:640px){.duelbadge{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(118px + env(safe-area-inset-bottom,0px));margin:0;font-size:12px;z-index:5}.duelbadge .dw{display:none}}

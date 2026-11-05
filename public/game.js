@@ -283,6 +283,7 @@ function onMsg(m) {
       o.tx = x; o.tz = z; o.tyaw = m.r / 10; o.a = m.a; o.h = m.h; o.bx = m.bx / 10; o.bz = m.bz / 10; o.bv = m.bv; o.st = m.st || 0; o.sc = m.sc || 0; o.dn = m.dn || 0; o.cr = m.cr | 0; o.seen = true;
       break;
     }
+    case 'duel': duelMsg(m); break;
     case 'emo': { const o = NET.others.get(m.id); if (!o) return; showBubble(o, EMOTES[m.e]); o.jump = 1; break; }
     case 'look': { const o = NET.others.get(m.id); if (!o || !Array.isArray(m.lk) || !HATS[m.lk[0]] || !TOPS[m.lk[1]]) return; o.lk = normLook(m.lk); if (o.av) { applyLook(o.av, o.lk, o.color); o.jump = 1; } break; }
     case 'res': {
@@ -1047,9 +1048,10 @@ function renderPeople() {
   const ul = $('plist'), sig = rows.map(o => o.id + ':' + o.nick).join('|');
   if (ul.dataset.sig !== sig) {
     ul.dataset.sig = sig;
-    ul.innerHTML = rows.map(o => `<li class="${o.mine ? 'me' : ''}" data-id="${o.id}"><i style="background:${esc(o.color)}"></i><span class="pn">${esc(o.nick)}${o.mine ? ' (나)' : ''}</span><span class="ps"></span><span class="pw"></span>${o.mine ? '' : `<button type="button" data-go="${o.id}">카트로 가기</button>`}</li>`).join('');
+    ul.innerHTML = rows.map(o => `<li class="${o.mine ? 'me' : ''}" data-id="${o.id}"><i style="background:${esc(o.color)}"></i><span class="pn">${esc(o.nick)}${o.mine ? ' (나)' : ''}</span><span class="ps"></span><span class="pw"></span>${o.mine ? '' : `<button type="button" data-go="${o.id}">카트로 가기</button><button type="button" class="duel-ask" data-duel="${o.id}">⚔️ 대전</button>`}</li>`).join('');
   }
-  rows.forEach((o, i) => { const li = ul.children[i]; if (!li) return; li.querySelector('.ps').textContent = scoreText(o.sc, o.dn, o.st, o.h); li.querySelector('.pw').textContent = !o.mine && (o.cr | 0) !== CRS_N ? `${COURSES[COURSE_IDS[o.cr | 0]] ? COURSES[COURSE_IDS[o.cr | 0]].name : '다른 코스'}에서 치는 중` : whereText(o.x, o.z, o.a, o.h, o.dn); const bt = li.querySelector('button'); if (bt) bt.disabled = busy; });
+  rows.forEach((o, i) => { const li = ul.children[i]; if (!li) return; li.querySelector('.ps').textContent = scoreText(o.sc, o.dn, o.st, o.h); li.querySelector('.pw').textContent = !o.mine && (o.cr | 0) !== CRS_N ? `${COURSES[COURSE_IDS[o.cr | 0]] ? COURSES[COURSE_IDS[o.cr | 0]].name : '다른 코스'}에서 치는 중` : whereText(o.x, o.z, o.a, o.h, o.dn); const bt = li.querySelector('[data-go]'); if (bt) bt.disabled = busy; const db = li.querySelector('[data-duel]'); if (db) { db.disabled = DUEL.on || (o.cr | 0) !== CRS_N || !onCourse(); db.textContent = DUEL.on && DUEL.op === o.id ? '⚔️ 대전 중' : '⚔️ 대전'; } });
+  ul.querySelectorAll('[data-duel]').forEach(b => b.onclick = () => duelAsk(+b.dataset.duel));
   ul.querySelectorAll('[data-go]').forEach(b => b.onclick = () => {
     const o = NET.others.get(+b.dataset.go); if (!o || S.mode !== 'walk') return;
     if ((o.cr | 0) !== CRS_N) { toast('다른 코스에서 치고 있어요. 클럽하우스에서 같은 코스를 고르면 만날 수 있어요', 2400); return; }
@@ -1067,6 +1069,98 @@ $('inviteCopy').onclick = () => {
   try { navigator.clipboard.writeText(inp.value).then(done, () => { inp.select(); b.textContent = '선택됨, 복사하세요'; }); } catch { inp.select(); }
 };
 setInterval(() => { if (!$('app').hidden) renderPeople(); }, 1000);
+
+// ================= 대전: 홀마다 승부 (같은 채널 · 같은 코스 두 사람) =================
+// 둘 다 1번 홀부터 새로 치고, 홀마다 적게 친 사람이 1점. 9홀이 끝나면 점수가 많은 사람이 이겨요.
+const DUEL = { on: false, op: 0, nick: '', my: [], their: [], pts: [0, 0], told: [], ask: null, sent: 0, done: false };
+const onCourse = () => !['club', 'cine', 'range'].includes(S.mode);
+function duelReset() { Object.assign(DUEL, { on: false, op: 0, nick: '', my: [], their: [], pts: [0, 0], told: [], done: false, starting: false }); updDuel(); }
+function duelAsk(id) {
+  const o = NET.others.get(id); if (!o) return;
+  if (DUEL.on) return toast('이미 대전 중이에요', 1600);
+  if (!onCourse()) return toast('코스에 나가서 신청할 수 있어요', 1800);
+  if ((o.cr | 0) !== CRS_N) return toast('같은 코스에 있는 사람에게만 신청할 수 있어요', 2000);
+  closeSheets();
+  overlay(`<span class="eyebrow">대전 신청 · 홀마다 승부</span><h2>${esc(o.nick)} 님에게 대전을 신청할까요?</h2>
+    <p>상대가 수락하면 <b>둘 다 1번 홀부터 새로</b> 쳐요. 홀마다 더 적게 친 사람이 1점, 9홀 끝나고 점수가 많은 사람이 이겨요.</p>
+    <p class="cs">지금 치던 라운딩 기록은 처음부터 다시 시작돼요. 명예의 전당과 베스트 기록은 그대로예요.</p>
+    <div class="btns"><button class="btn" id="duelSend">⚔️ 신청하기</button><button class="btn sub" id="duelCancel">그만둘래요</button></div>`);
+  $('duelCancel').onclick = closeOverlay;
+  $('duelSend').onclick = () => {
+    if (!NET.open || !NET.ch) { closeOverlay(); return toast('서버에 연결되어 있을 때만 대전할 수 있어요', 2000); }
+    DUEL.sent = id; sendNet({ t: 'duel', op: 'ask', to: id });
+    overlay(`<span class="eyebrow">대전 신청</span><h2>${esc(o.nick)} 님의 대답을 기다리는 중…</h2><p>30초 안에 대답이 없으면 취소돼요.</p><div class="btns"><button class="btn sub" id="duelCancel">취소</button></div>`);
+    $('duelCancel').onclick = () => { DUEL.sent = 0; closeOverlay(); };
+    clearTimeout(DUEL.sentT); DUEL.sentT = setTimeout(() => { if (DUEL.sent === id && !DUEL.on) { DUEL.sent = 0; closeOverlay(); toast('대답이 없어서 대전 신청이 취소됐어요', 2200); } }, 30000);
+  };
+}
+function duelMsg(m) {
+  const o = NET.others.get(m.from || m.with);
+  switch (m.op) {
+    case 'ask': {
+      if (DUEL.on || TUT.on || !onCourse() || S.mode === 'ride' || DUEL.ask) { sendNet({ t: 'duel', op: 'no', to: m.from, busy: 1 }); return; }
+      DUEL.ask = m.from; closeSheets(); tone(660, .18, 'triangle', .15); tone(880, .25, 'triangle', .15, .14);
+      overlay(`<span class="eyebrow">대전 신청이 왔어요 ⚔️</span><h2>${esc(m.nick)} 님이 홀마다 승부를 신청했어요!</h2>
+        <p>수락하면 <b>둘 다 1번 홀부터 새로</b> 쳐요. 홀마다 더 적게 친 사람이 1점, 9홀 끝나고 점수가 많은 사람이 이겨요.</p>
+        <p class="cs">지금 치던 라운딩 기록은 처음부터 다시 시작돼요. 명예의 전당과 베스트 기록은 그대로예요.</p>
+        <div class="btns"><button class="btn" id="duelYes">좋아요, 붙어요!</button><button class="btn sub" id="duelNo">다음에 할게요</button></div>`);
+      const ans = yes => { if (DUEL.ask !== m.from) return; DUEL.ask = null; clearTimeout(DUEL.askT); closeOverlay(); sendNet({ t: 'duel', op: yes ? 'yes' : 'no', to: m.from }); };
+      $('duelYes').onclick = () => ans(true); $('duelNo').onclick = () => ans(false);
+      clearTimeout(DUEL.askT); DUEL.askT = setTimeout(() => { if (DUEL.ask === m.from) ans(false); }, 30000);
+      break;
+    }
+    case 'no': if (DUEL.sent === m.from) { DUEL.sent = 0; closeOverlay(); toast(m.busy ? `${o ? o.nick : '상대'} 님은 지금 대전을 받을 수 없어요` : `${o ? o.nick : '상대'} 님이 다음에 하자고 했어요`, 2400); } break;
+    case 'wait': toast('잠시 후에 다시 신청해 주세요', 1600); break;
+    case 'start': {
+      DUEL.sent = 0; DUEL.ask = null; clearTimeout(DUEL.sentT); clearTimeout(DUEL.askT);
+      if (S.mode === 'aim') exitAim();
+      duelReset(); DUEL.starting = true; resetRound(true); DUEL.starting = false;
+      Object.assign(DUEL, { on: true, op: m.with, nick: m.nick });
+      updDuel(); feed(`${m.nick} 님과 대전 시작!`); toast(`⚔️ ${m.nick} 님과 대전 시작! 1번 홀부터 홀마다 승부예요`, 3000);
+      break;
+    }
+    case 'hole': if (DUEL.on && m.from === DUEL.op) { DUEL.their[m.h] = m.s; duelCheck(m.h); updDuel(); } break;
+    case 'gone': if (DUEL.on && m.from === DUEL.op) { const nk = DUEL.nick, [a, b] = DUEL.pts; duelReset(); feed(`${nk} 님이 대전을 그만뒀어요 (${a} : ${b})`); toast(m.why === 'left' ? `${nk} 님이 나가서 대전이 끝났어요. 그때까지 ${a} : ${b}` : `${nk} 님이 그만둬서 대전이 끝났어요. 그때까지 ${a} : ${b}`, 3200); } break;
+  }
+}
+function duelHole(h, s) { if (!DUEL.on) return; DUEL.my[h] = s; sendNet({ t: 'duel', op: 'hole', h, s }); duelCheck(h); updDuel(); }
+function duelCheck(h) {
+  const a = DUEL.my[h], b = DUEL.their[h]; if (a == null || b == null || DUEL.told[h]) return;
+  DUEL.told[h] = 1;
+  const r = a < b ? 0 : a > b ? 1 : -1; if (r >= 0) DUEL.pts[r]++;
+  const [p, q] = DUEL.pts;
+  setTimeout(() => toast(`${h + 1}번 홀 승부: 나 ${a}타 · 상대 ${b}타 → ${r === 0 ? '내가 이겼어요!' : r === 1 ? `${DUEL.nick} 님 승!` : '비겼어요'} (${p} : ${q})`, 3200), 2800);
+  if (r === 0) { tone(784, .2, 'triangle', .14, 2.8); tone(1047, .3, 'triangle', .14, 2.95); }
+  if (HOLES.every((_, i) => DUEL.told[i])) setTimeout(duelFinal, 4200);
+}
+function duelFinal() {
+  if (!DUEL.on || DUEL.done) return; DUEL.done = true;
+  const [p, q] = DUEL.pts, win = p > q, tie = p === q, nk = DUEL.nick;
+  sendNet({ t: 'duel', op: 'end' });
+  const rows = HOLES.map((_, i) => { const a = DUEL.my[i], b = DUEL.their[i]; return `<tr><td>${i + 1}</td><td class="${a < b ? 'w' : ''}">${a}</td><td class="${b < a ? 'w' : ''}">${b}</td></tr>`; }).join('');
+  const el = document.createElement('div'); el.className = 'duel-end'; el.id = 'duelEnd';
+  el.innerHTML = `<div class="card"><span class="eyebrow">대전 결과 · 홀마다 승부</span><h2>${tie ? '무승부!' : win ? '🏆 내가 이겼어요!' : `${esc(nk)} 님 승리!`}</h2>
+    <p class="duel-score"><b>${esc(NET.nick)}</b> ${p} : ${q} <b>${esc(nk)}</b></p>
+    <table class="duel-tb"><tr><th>홀</th><th>나</th><th>${esc(nk)}</th></tr>${rows}</table>
+    <div class="btns"><button class="btn" id="duelOk">확인</button></div></div>`;
+  $('duelEnd')?.remove(); document.body.appendChild(el);
+  $('duelOk').onclick = () => el.remove();
+  if (win) confetti(200, false); else if (tie) confetti(80, false);
+  feed(tie ? `${nk} 님과 대전 무승부 (${p} : ${q})` : win ? `${nk} 님과 대전에서 이겼어요 (${p} : ${q})` : `${nk} 님이 대전에서 이겼어요 (${p} : ${q})`);
+  DUEL.on = false; updDuel();
+}
+function duelQuit(msg) { if (!DUEL.on) return; sendNet({ t: 'duel', op: 'quit' }); duelReset(); if (msg) toast(msg, 2400); }
+function updDuel() {
+  const b = $('duelBadge'); if (!b) return;
+  if (!DUEL.on) { b.hidden = true; for (const o of NET.others.values()) o.tag?.classList.remove('rival'); return; }
+  const o = NET.others.get(DUEL.op), myDone = DUEL.my.filter(x => x != null).length, thDone = DUEL.their.filter(x => x != null).length;
+  const wait = myDone > thDone ? ` · 상대는 ${Math.min(thDone + 1, HOLES.length)}번 홀` : '';
+  b.hidden = false; b.innerHTML = `<span>⚔️ vs ${esc(DUEL.nick)}</span><b>${DUEL.pts[0]} : ${DUEL.pts[1]}</b><span class="dw">${wait}</span><button type="button" id="duelStop" aria-label="대전 그만하기">그만</button>`;
+  $('duelStop').onclick = () => { overlay(`<h2>대전을 그만할까요?</h2><p>지금까지 ${DUEL.pts[0]} : ${DUEL.pts[1]}이에요. 그만두면 상대에게도 알려져요.</p><div class="btns"><button class="btn" id="dqY">그만하기</button><button class="btn sub" id="dqN">계속하기</button></div>`); $('dqY').onclick = () => { closeOverlay(); duelQuit('대전을 그만뒀어요'); }; $('dqN').onclick = closeOverlay; };
+  if (o && o.tag) o.tag.classList.add('rival');
+}
+// 코스를 떠나면(클럽하우스·연습장·정문) 대전은 끝나요
+setInterval(() => { if (DUEL.on && !onCourse()) duelQuit('코스를 떠나서 대전이 끝났어요'); if (DUEL.on) updDuel(); }, 1000);
 // 초대 링크(#ch12)로 들어오면 그 채널로 바로
 function invitedCh() { const m = /^#ch(\d{1,3})$/.exec(location.hash); return m ? +m[1] : 0; }
 function showInvited() { const c = invitedCh(), el = $('invited'); if (c) { el.hidden = false; el.textContent = `친구가 초대한 ${c}채널로 들어가요`; } else el.hidden = true; }
@@ -1531,6 +1625,7 @@ function scoreName(s, par) {
 const totalDiff = () => S.scores.reduce((d, s, i) => s == null ? d : d + s - HOLES[i].par, 0);
 function finishHole(prefix) {
   const h = hole(); const s = Math.min(S.strokes, h.par * 2); S.scores[S.hole] = s; renderCard();
+  duelHole(S.hole, s);
   const name = scoreName(s, h.par); toast(`${prefix ? prefix + ' · ' : ''}${name} · ${scoreExplain(s, h.par)}`, 2600);
   if (s - h.par < 0 || s === 1) sendNet({ t: 'res', h: S.hole, d: Math.max(-4, s - h.par), one: s === 1 ? 1 : 0 });
   const d = s - h.par, level = s === 1 ? 3 : d <= -2 ? 2 : d === -1 ? 1 : 0;
@@ -1601,6 +1696,7 @@ function renderCard() {
   $('sc').innerHTML = h + '<th>합계</th></tr>' + p + `<td>${TOTAL_PAR}</td></tr>` + s + `<td>${played.length ? tot : ''}</td></tr>`;
 }
 function resetRound(teleport) {
+  if (DUEL.on && !DUEL.starting) duelQuit('새 라운딩을 시작해서 대전을 그만뒀어요');
   closeOverlay(); S.scores.fill(null); S.buff = null; S.mulligans = 0; S.okTix = 0; S.warpTix = 0; S.zoneUsed = {}; S.okHinted = false; S.crocDone = false; S.iceSaid = false; S.pengDone = false; S.chance = CHANCE_MAX; S.spent = 0; renderSpent(); S.st = newStats(); S.hole = 0; S.strokes = 0; S.prev = null; S.last = null; S.mode = 'walk';
   $('buffChip').hidden = true;
   const t = HOLES[0].tee; Object.assign(S.ball, { x: t[0], y: 0, z: t[1], vx: 0, vy: 0, vz: 0, state: 'rest' }); S.ballVis = true;
