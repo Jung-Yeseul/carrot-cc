@@ -339,7 +339,7 @@ td.cur,th.cur{background:color-mix(in srgb,var(--leaf) 14%,transparent)}
 .coach .linkbtn{color:#cfe3d4;margin:0;font-size:12px}
 .app.inclub .coach,.app.inrange .coach{top:calc(64px + env(safe-area-inset-top,0px))}
 @keyframes coachIn{from{opacity:0;transform:translate(-50%,-6px)}to{opacity:1;transform:translate(-50%,0)}}
-@media (max-width:640px){.coach{top:calc(128px + env(safe-area-inset-top,0px))}.coach span#coachText{font-size:13px}}
+@media (max-width:640px){.coach{top:calc(128px + env(safe-area-inset-top,0px));padding:7px 10px;gap:2px 8px;border-radius:14px}.coach span#coachText{font-size:13px;flex-basis:100%;order:2}.coach .coach-btns{order:1;margin-left:auto}.coach b{order:0}}
 /* ---- 버튼 크기 통일: 높이·글자·모서리를 모두 같게 ---- */
 :root{--btn-h:44px;--tbw:112px}
 .act{box-sizing:border-box;height:var(--btn-h);min-width:120px;padding:0 18px;font:600 15px/1.15 var(--body);display:inline-flex;align-items:center;justify-content:center;text-align:center;white-space:nowrap;border-radius:14px;box-shadow:0 3px 0 color-mix(in srgb,var(--carrot) 60%,#000)}
