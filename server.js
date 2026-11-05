@@ -151,8 +151,16 @@ function pickChannel() {
   }
   return best;
 }
+// 대전(홀마다 승부): 같은 채널 두 사람만. 상대가 나가면 남은 사람에게 알려요
+function endDuel(p, why) {
+  if (!p.duel) return;
+  const q = p.ch && channels[p.ch].get(p.duel);
+  if (q && q.duel === p.id) { q.duel = 0; send(q.ws, { t: 'duel', op: 'gone', from: p.id, why: why || 'quit' }); }
+  p.duel = 0;
+}
 function leaveChannel(p) {
   if (!p.ch) return;
+  endDuel(p, 'left');
   channels[p.ch].delete(p.id);
   toChannel(p.ch, { t: 'leave', id: p.id });
   p.ch = 0;
@@ -252,6 +260,31 @@ wss.on('connection', (ws) => {
         if (e === null || now - p.lastEmo < 800) return;
         p.lastEmo = now;
         toChannel(p.ch, { t: 'emo', id: p.id, e });
+        break;
+      }
+      case 'duel': {
+        if (!p.ch) return;
+        const ch = channels[p.ch], now = Date.now(), op = m.op;
+        if (op === 'ask' || op === 'yes' || op === 'no') {
+          const q = ch.get(int(m.to, 1, 1e9)); if (!q || q === p) return;
+          if (op === 'ask') {
+            if (now - (p.lastAsk || 0) < 4000) return send(ws, { t: 'duel', op: 'wait' });
+            p.lastAsk = now;
+            if (p.duel || q.duel) return send(ws, { t: 'duel', op: 'no', from: q.id, busy: 1 });
+            p.asking = q.id; p.askAt = now;
+            send(q.ws, { t: 'duel', op: 'ask', from: p.id, nick: p.nick });
+          } else if (q.asking === p.id && now - q.askAt < 60000) {
+            q.asking = 0;
+            if (op === 'no') send(q.ws, { t: 'duel', op: 'no', from: p.id, busy: m.busy ? 1 : 0 });
+            else if (p.duel || q.duel) send(q.ws, { t: 'duel', op: 'no', from: p.id, busy: 1 });
+            else { p.duel = q.id; q.duel = p.id; send(ws, { t: 'duel', op: 'start', with: q.id, nick: q.nick }); send(q.ws, { t: 'duel', op: 'start', with: p.id, nick: p.nick }); }
+          }
+        } else if (op === 'hole') {
+          const h = int(m.h, 0, HOLES - 1), sc = int(m.s, 1, 40), q = p.duel && ch.get(p.duel);
+          if (h === null || sc === null || !q || q.duel !== p.id) return;
+          send(q.ws, { t: 'duel', op: 'hole', from: p.id, h, s: sc });
+        } else if (op === 'quit') endDuel(p, 'quit');
+        else if (op === 'end') p.duel = 0;
         break;
       }
       case 'res': {
