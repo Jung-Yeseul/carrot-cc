@@ -829,7 +829,7 @@ function buildNight(R) {
   FIREFLY = new T.Points(fg, new T.PointsMaterial({ color: 0xd9ff7a, size: .32, transparent: true, opacity: .95, depthWrite: false, blending: T.AdditiveBlending, fog: false })); scene.add(FIREFLY);
 }
 function updateCourseFx(dt, t) {
-  const indoor = S.mode === 'club' && me.z - LB.z < 10.4 && Math.abs(me.x - LB.x) < 23;
+  const indoor = (S.mode === 'club' && me.z - LB.z < 10.4 && Math.abs(me.x - LB.x) < 23) || (S.mode === 'restroom' && WC.on);
   if (SNOW) SNOW.visible = !indoor; if (FIREFLY) FIREFLY.visible = !indoor;
   if (FIREFLY) {
     FIREFLY.position.set(Math.round(camera.position.x / 35) * 35, 0, Math.round(camera.position.z / 35) * 35);
@@ -1800,29 +1800,118 @@ $('goWCBtn').onclick = () => {
   if (Math.hypot(me.x - RR_DOORS.m[0], me.z - RR.z) < 5) { toast('바로 앞이에요! 남자/여자 화장실 버튼을 눌러주세요', 1600); return; }
   closeOverlay(); RIDE.rush = true; cartTo(RR_DOORS.m[0] + 1.6 * RR_SIDE, (RR_DOORS.m[1] + RR_DOORS.w[1]) / 2, false, '급하시죠? 꽉 잡으세요, 밟습니다!', '거의 다 왔어요, 조금만 참으세요!');
 };
+// ================= 화장실 안: 진짜 들어가서 볼일 보기 =================
+// 코스 밖 먼 곳에 화장실 칸을 하나 지어 두고, 들어가면 카메라가 그 안을 비춰요.
+const WC = { x: -320, z: 520, built: false, g: null, actor: null, swirl: null, water: null, stream: null, bubbles: [], t: 0, on: false, kind: 'm', cam: null };
+function buildWC() {
+  if (WC.built) return; WC.built = true;
+  const g = new T.Group(), y0 = EDGE_H; g.position.set(WC.x, y0, WC.z); WC.g = g; scene.add(g);
+  const add = (geo, m, x, y, z, sh = false) => { const o = new T.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = sh; o.receiveShadow = true; g.add(o); return o; };
+  const tileT = textTexture(256, 256, (c, w, h) => { for (let a = 0; a < 8; a++) for (let b = 0; b < 8; b++) { c.fillStyle = (a + b) % 2 ? '#e9f1f4' : '#cfe0e8'; c.fillRect(a * 32, b * 32, 32, 32); } c.strokeStyle = 'rgba(120,140,150,.35)'; c.lineWidth = 2; for (let k = 0; k <= 8; k++) { c.beginPath(); c.moveTo(k * 32, 0); c.lineTo(k * 32, h); c.moveTo(0, k * 32); c.lineTo(w, k * 32); c.stroke(); } });
+  tileT.wrapS = tileT.wrapT = T.RepeatWrapping; tileT.repeat.set(3, 3);
+  const wallT = textTexture(256, 256, (c, w, h) => { c.fillStyle = '#f6f3ea'; c.fillRect(0, 0, w, h); c.fillStyle = '#9fd3c7'; c.fillRect(0, h * .62, w, h * .38); c.strokeStyle = 'rgba(60,110,100,.25)'; c.lineWidth = 2; for (let k = 0; k <= 8; k++) { c.beginPath(); c.moveTo(k * 32, h * .62); c.lineTo(k * 32, h); c.stroke(); } for (const yy of [h * .62, h * .81]) { c.beginPath(); c.moveTo(0, yy); c.lineTo(w, yy); c.stroke(); } });
+  wallT.wrapS = T.RepeatWrapping; wallT.repeat.set(2, 1);
+  const floor = add(new T.PlaneGeometry(8, 6), new T.MeshLambertMaterial({ map: tileT }), 0, .01, 0); floor.rotation.x = -Math.PI / 2;
+  const wm = new T.MeshLambertMaterial({ map: wallT });
+  for (const [w, x, z, ry] of [[8, 0, -3, 0], [6, -4, 0, Math.PI / 2], [6, 4, 0, -Math.PI / 2], [8, 0, 3, Math.PI]]) { const o = add(new T.PlaneGeometry(w, 4), wm, x, 2, z); o.rotation.y = ry; }
+  const ceil = add(new T.PlaneGeometry(8, 6), mat(0xffffff), 0, 4, 0); ceil.rotation.x = Math.PI / 2;
+  // 칸막이와 문 (오른쪽이 변기 칸, 왼쪽이 세면대)
+  const part = mat(0x5ab4a0);
+  add(new T.BoxGeometry(.08, 2.6, 3.2), part, .3, 1.4, -1.4); add(new T.BoxGeometry(.08, 2.6, 3.2), part, 3.96, 1.4, -1.4);
+  const stallDoor = add(new T.BoxGeometry(1.5, 2.4, .06), part, 1.1, 1.35, .25); stallDoor.geometry.translate(.75, 0, 0); stallDoor.position.x = .35; stallDoor.rotation.y = -1.9; WC.door = stallDoor;
+  add(new T.BoxGeometry(.25, .18, .04), new T.MeshBasicMaterial({ color: 0x3fbf5f }), 1.3, 1.7, .3);
+  // 변기: 받침, 둥근 변기, 시트, 뚜껑, 물탱크, 레버
+  const white = new T.MeshPhongMaterial({ color: 0xffffff, shininess: 90, specular: 0x888888 });
+  const pts = []; for (let k = 0; k <= 10; k++) { const t = k / 10; pts.push(new T.Vector2(.22 + .26 * Math.sin(t * Math.PI / 2), t * .62)); }
+  const bowl = add(new T.LatheGeometry(pts, 24), new T.MeshPhongMaterial({ color: 0xffffff, shininess: 90, side: T.DoubleSide }), 2.1, 0, -2.05, true); bowl.scale.z = 1.25;
+  const water = add(new T.CircleGeometry(.36, 24), new T.MeshPhongMaterial({ color: 0x8fd3f0, shininess: 120, transparent: true, opacity: .9 }), 2.1, .5, -2.05); water.rotation.x = -Math.PI / 2; water.scale.y = 1.25; WC.water = water;
+  const swirlT = textTexture(128, 128, (c, w, h) => { c.strokeStyle = 'rgba(255,255,255,.95)'; c.lineWidth = 7; c.beginPath(); for (let a = 0; a < 18; a += .2) { const r = 60 - a * 3.2; c.lineTo(64 + Math.cos(a) * r, 64 + Math.sin(a) * r); } c.stroke(); });
+  const swirl = add(new T.CircleGeometry(.35, 24), new T.MeshBasicMaterial({ map: swirlT, transparent: true, opacity: 0, depthWrite: false }), 2.1, .52, -2.05); swirl.rotation.x = -Math.PI / 2; swirl.scale.y = 1.25; WC.swirl = swirl;
+  const seat = add(new T.TorusGeometry(.4, .07, 8, 24), new T.MeshPhongMaterial({ color: 0xffd8a8, shininess: 40 }), 2.1, .66, -2.05); seat.rotation.x = Math.PI / 2; seat.scale.y = 1.2;
+  const lid = add(new T.CylinderGeometry(.46, .46, .05, 24), new T.MeshPhongMaterial({ color: 0xffd8a8, shininess: 40 }), 2.1, 1.1, -2.62); lid.rotation.x = -1.35; lid.scale.z = 1.2;
+  add(new T.BoxGeometry(1.1, .9, .4), white, 2.1, 1.15, -2.75, true); add(new T.BoxGeometry(1.16, .08, .46), white, 2.1, 1.62, -2.75);
+  const lever = add(new T.BoxGeometry(.22, .05, .05), mat(0xc0c6cc), 1.68, 1.45, -2.53); WC.lever = lever;
+  // 휴지와 작은 화분, 안내 문구
+  add(new T.CylinderGeometry(.13, .13, .22, 14), mat(0xffffff), 3.75, 1.05, -1.6).rotation.z = Math.PI / 2; add(new T.BoxGeometry(.06, .06, .3), mat(0xc0c6cc), 3.9, 1.05, -1.6);
+  const note = add(new T.PlaneGeometry(.9, .45), new T.MeshLambertMaterial({ map: textTexture(256, 128, (c, w, h) => { c.fillStyle = '#fffaf0'; c.fillRect(0, 0, w, h); c.fillStyle = '#2d5a3a'; c.textAlign = 'center'; c.font = `400 34px ${FONT}`; c.fillText('한 걸음 앞으로', w / 2, 52); c.font = `400 24px ${FONT}`; c.fillText('당근의 눈물입니다', w / 2, 94); }) }), 2.1, 2.5, -2.98);
+  // 세면대, 거울, 수도꼭지, 비누
+  add(new T.BoxGeometry(1.6, .12, .8), white, -2.2, 1.1, -2.5, true); add(new T.BoxGeometry(1.5, 1.05, .7), mat(0x7a5233), -2.2, .52, -2.52);
+  const basin = add(new T.CylinderGeometry(.4, .3, .12, 20), new T.MeshPhongMaterial({ color: 0xe9f4f8, shininess: 100 }), -2.2, 1.12, -2.45); basin.scale.z = .7;
+  add(new T.CylinderGeometry(.04, .04, .35, 8), mat(0xc0c6cc), -2.2, 1.32, -2.78); const spout = add(new T.BoxGeometry(.06, .06, .24), mat(0xc0c6cc), -2.2, 1.48, -2.68);
+  const stream = add(new T.CylinderGeometry(.025, .03, .34, 8), new T.MeshPhongMaterial({ color: 0x9fe0ff, transparent: true, opacity: .75 }), -2.2, 1.3, -2.57); stream.visible = false; WC.stream = stream;
+  add(new T.BoxGeometry(1.4, 1.1, .05), mat(0xd4af5a), -2.2, 2.3, -2.97); add(new T.PlaneGeometry(1.28, .98), new T.MeshPhongMaterial({ color: 0xcfe6ee, shininess: 140, specular: 0xffffff }), -2.2, 2.3, -2.94);
+  const soap = add(new T.BoxGeometry(.18, .08, .12), mat(0xff9cc0), -1.6, 1.2, -2.6);
+  for (let k = 0; k < 10; k++) { const b = add(new T.SphereGeometry(.05 + Math.random() * .04, 8, 6), new T.MeshPhongMaterial({ color: 0xffffff, transparent: true, opacity: .8, shininess: 120 }), -2.2, 1.3, -2.45); b.visible = false; WC.bubbles.push(b); }
+  const lamp = new T.PointLight(0xfff4e0, 1.1, 14); lamp.position.set(0, 3.6, -.5); g.add(lamp);
+  add(new T.CylinderGeometry(.4, .4, .06, 16), new T.MeshBasicMaterial({ color: 0xfff4e0 }), 0, 3.97, -.5);
+  const actor = makeCarrot('#ffffff'); g.add(actor); WC.actor = actor; WC.S = .62;
+}
 function useRestroom(kind) {
   if (S.mode !== 'walk') return;
   const door = RR_DOORS[kind]; S.mode = 'restroom'; me.moveT = null; lastActKey = '';
   $('fade').classList.add('on'); sndDoor();
   const name = kind === 'm' ? '남자 화장실' : '여자 화장실';
   setTimeout(() => {
-    me.av.visible = false; me.tag.style.visibility = 'hidden'; me.x = door[0] - 1.2; me.z = door[1];
-    overlay(`<span class="eyebrow">${name}</span><h2 id="wcTitle">볼일 보는 중…</h2><div class="power wcbar"><div class="bar"><i id="wcPow"></i></div></div><p id="wcSub">잠시만 기다려 주세요. 노크는 사절이에요.</p><button class="btn sub" id="wcOut">급하게 나가기</button>`);
+    buildWC(); me.av.visible = false; me.tag.style.visibility = 'hidden'; me.x = door[0] - 1.2 * RR_SIDE; me.z = door[1];
+    applyLook(WC.actor, myLook, '#ffffff'); WC.actor.visible = true; WC.actor.userData.club.visible = false;
+    Object.assign(WC, { on: true, t: 0, kind, said: {} }); WC.cam = null;
+    overlay(`<span class="eyebrow">${name}</span><h2 id="wcTitle">들어가는 중…</h2><div class="power wcbar"><div class="bar"><i id="wcPow"></i></div></div><p id="wcSub">노크는 사절이에요.</p><button class="btn sub" id="wcOut">급하게 나가기</button>`, true);
+    $('overlay').classList.add('wc'); $('app').classList.add('inwc');
     $('fade').classList.remove('on');
-    let t = 0; const steps = [[0, '볼일 보는 중…', '잠시만 기다려 주세요. 노크는 사절이에요.'], [2.4, '물 내리는 중…', '쏴아아~'], [3.6, '손 씻는 중…', '비누로 30초 꼼꼼하게!'], [4.8, '속이 다 시원합니다!', '이제 마음 편히 다음 샷 치러 가요~']];
-    const iv = setInterval(() => {
-      t += .1; const bar = $('wcPow'); if (!bar) { clearInterval(iv); return; }
-      bar.style.width = Math.min(100, t / 4.8 * 100) + '%';
-      for (const [at, h, sub] of steps) if (Math.abs(t - at) < .05) { $('wcTitle').textContent = h; $('wcSub').textContent = sub; if (at === 2.4) sndFlush(); if (at === 3.6) sndWash(); }
-      if (t >= 5.9) { clearInterval(iv); leave(); }
-    }, 100);
-    const leave = () => {
-      clearInterval(iv); closeOverlay(); sndDoor();
-      me.x = door[0] + 1.2; me.z = door[1]; me.yaw = Math.PI / 2; me.av.visible = true; me.tag.style.visibility = '';
-      S.mode = 'walk'; lastActKey = ''; me.jump = .8; showBubble(me, ['속이 다 시원합니다~', '개운하다~', '살았다!', '이제 좀 치겠네'][Math.random() * 4 | 0]);
-    };
-    $('wcOut').onclick = leave;
+    $('wcOut').onclick = () => wcLeave(door);
+    WC.leave = () => wcLeave(door);
   }, 450);
+}
+function wcLeave(door) {
+  if (!WC.on) return; WC.on = false; closeOverlay(); sndDoor(); $('app').classList.remove('inwc');
+  WC.stream.visible = false; WC.bubbles.forEach(b => b.visible = false); WC.swirl.material.opacity = 0;
+  $('fade').classList.add('on');
+  setTimeout(() => {
+    $('fade').classList.remove('on');
+    me.x = door[0] + 1.2 * RR_SIDE; me.z = door[1]; me.yaw = RR_SIDE * Math.PI / 2; me.av.visible = true; me.tag.style.visibility = '';
+    S.mode = 'walk'; lastActKey = ''; me.jump = .8; snapCam(); showBubble(me, ['속이 다 시원합니다~', '개운하다~', '살았다!', '이제 좀 치겠네'][Math.random() * 4 | 0]);
+  }, 350);
+}
+// 순서: 걸어 들어가기 → 앉기 → 끄응 → 뿡·퐁당 → 일어나서 물 내리기 → 손 씻기 → 시원~
+const WC_STEPS = [[0, '들어가는 중…', '노크는 사절이에요.'], [1.6, '끄응…', '조금만 기다려 주세요. 집중하는 중이에요.'], [3.3, '퐁당!', '나왔다!'], [4.4, '물 내리는 중…', '쏴아아~ 레버를 꾹!'], [6.4, '손 씻는 중…', '비누로 30초 꼼꼼하게!'], [8.6, '속이 다 시원합니다!', '이제 마음 편히 다음 샷 치러 가요~']];
+const WC_END = 9.6;
+function updateWC(dt) {
+  if (!WC.on) return;
+  WC.t += dt; const t = WC.t, a = WC.actor, ud = a.userData, once = k => { if (WC.said[k]) return false; WC.said[k] = 1; return true; };
+  const lerp2 = (p, q, k) => [p[0] + (q[0] - p[0]) * k, p[1] + (q[1] - p[1]) * k], ease = k => k * k * (3 - 2 * k);
+  let pos = [1.1, 1.6], y = 0, yaw = Math.PI, sq = 1;
+  const SEAT = [2.1, -1.95], SINK = [-2.2, -1.75];
+  if (t < 1.3) { const k = ease(Math.min(1, t / 1.3)); pos = lerp2([1.0, .9], SEAT, k); yaw = Math.PI + k * Math.PI; y = Math.abs(Math.sin(t * 9)) * .06; }
+  else if (t < 1.6) { const k = (t - 1.3) / .3; pos = SEAT; yaw = 0; y = .36 * k; }
+  else if (t < 4.2) { pos = SEAT; yaw = 0; y = .34; const strain = t < 3.3 ? 1 : 0; sq = 1 - strain * (.04 + .04 * Math.sin(t * 22)); ud.cheeks.forEach(c => c.scale.set(1 + strain * .6, .55 + strain * .35, .4)); }
+  else if (t < 4.5) { pos = SEAT; yaw = -.6; y = .34 * (1 - (t - 4.2) / .3); ud.cheeks.forEach(c => c.scale.set(1, .55, .4)); }
+  else if (t < 5.4) { pos = [SEAT[0] - .85, SEAT[1] + .2]; yaw = Math.PI * .85; WC.lever.rotation.z = t < 4.9 ? -.5 : 0; }
+  else if (t < 6.4) { const k = ease((t - 5.4) / 1); pos = lerp2([SEAT[0] - .85, SEAT[1] + .2], SINK, k); yaw = -Math.PI / 2 + Math.PI * .5 * (1 - k) - k * Math.PI / 2; y = Math.abs(Math.sin(t * 9)) * .06; }
+  else if (t < 8.6) { pos = SINK; yaw = Math.PI; y = Math.sin(t * 14) * .02; }
+  else { pos = [SINK[0] + .6, SINK[1] + 1.2]; yaw = 0; y = Math.max(0, Math.sin((t - 8.6) * 6)) * .5; }
+  if (t > 1.6 && t < 3.3 && once('hum')) tone(220, .5, 'sine', .04);
+  if (t > 2.6 && once('pung')) { tone(95, .18, 'sawtooth', .08); tone(70, .22, 'sawtooth', .06, .12); }
+  if (t > 3.3 && once('plop')) { tone(900, .05, 'sine', .12); tone(500, .12, 'sine', .1, .04); }
+  if (t > 4.6 && once('flush')) sndFlush();
+  if (t > 6.5 && once('wash')) sndWash();
+  if (t > 8.6 && once('ah')) { tone(784, .12, 'triangle', .08); tone(1047, .2, 'triangle', .08, .12); }
+  // 물 소용돌이, 세면대 물줄기와 거품
+  WC.swirl.material.opacity = t > 4.5 && t < 6.6 ? Math.min(1, (t - 4.5) * 3) * Math.min(1, (6.6 - t) * 3) : 0; WC.swirl.rotation.z -= dt * 9;
+  WC.water.position.y = .5 - (t > 4.6 && t < 6 ? Math.sin((t - 4.6) / 1.4 * Math.PI) * .12 : 0);
+  WC.stream.visible = t > 6.5 && t < 8.4;
+  WC.bubbles.forEach((b, i) => { b.visible = t > 6.7 && t < 8.6; if (b.visible) { const ph = t * 2 + i; b.position.set(-2.2 + Math.sin(ph * 2.1) * .25, 1.2 + (ph % 1) * .5, -2.45 + Math.cos(ph * 1.7) * .15); } });
+  a.position.set(pos[0], y, pos[1]); a.rotation.y = yaw; a.scale.set(WC.S / Math.sqrt(sq), WC.S * sq, WC.S / Math.sqrt(sq));
+  // 단계 안내 + 진행 막대
+  const bar = $('wcPow'); if (bar) bar.style.width = Math.min(100, t / WC_END * 100) + '%';
+  for (const [at, h, sub] of WC_STEPS) if (t >= at && !WC.said['s' + at]) { WC.said['s' + at] = 1; if ($('wcTitle')) { $('wcTitle').textContent = h; $('wcSub').textContent = sub; } }
+  if (t >= WC_END) WC.leave();
+}
+function wcCamera() {
+  const t = WC.t, gx = WC.x, gy = EDGE_H, gz = WC.z;
+  const shots = t < 1.3 ? [[-.4, 2.5, 2.9], [1.7, .9, -1.6]] : t < 4.4 ? [[2.1, 1.45, .5], [2.1, 1.05, -2]] : t < 6.4 ? [[.3, 1.9, .9], [1.7, .8, -2.1]] : t < 8.6 ? [[-.5, 1.8, -.3], [-2.2, 1, -2.3]] : [[-.3, 1.9, 2], [-1.5, .7, -.5]];
+  const [p, q] = shots; const want = [gx + p[0], gy + p[1], gz + p[2], gx + q[0], gy + q[1], gz + q[2]];
+  if (!WC.cam) WC.cam = want.slice(); for (let i = 0; i < 6; i++) WC.cam[i] += (want[i] - WC.cam[i]) * .08;
+  return WC.cam;
 }
 function okReady() { return S.okTix > 0 && S.ball.state === 'rest' && S.ballVis && surface(S.ball.x, S.ball.z) === 'green' && distToCup() < 1.6; }
 function useOk() { if (!okReady() || S.mode !== 'walk') return; S.okTix--; renderTix(); S.strokes++; S.mode = 'wait'; showBubble(me, 'OK 감사합니다~'); finishHole('OK! 컨시드'); }
@@ -1887,9 +1976,9 @@ function showShade() {
   overlay(`<span class="eyebrow">그늘집 · 오늘의 메뉴</span><h2>${had ? '또 오셨네요!' : '잠깐 쉬었다 가세요'}</h2>
     <p>${had ? `이미 ${esc(had.chip)} 효과가 있어요. 이번엔 간식으로 맛있게만 드세요~` : '하나 고르면 라운딩 끝까지 효과가 있어요.'}</p>
     <div class="menu">${MENU.map(m => `<button type="button" data-id="${m.id}"><span class="it">${m.name}</span><span class="pc">${m.price}</span><span class="ef">${m.eff}</span></button>`).join('')}</div>
-    <div class="btns"><button class="btn sub" id="shadeCos">🎭 코스튬 빌리기</button><button class="btn sub" id="shadeTalk">🗣️ 사장님이랑 노가리</button></div>
+    <div class="btns"><button class="btn sub" id="shadeCos">🎭 코스튬 빌리기</button></div>
     <div class="shade-now" id="shadeNow">${shadeNames()}</div><button class="btn sub" id="shadeClose">그냥 구경만 할게요</button>`);
-  $('shadeCos').onclick = showCostumes; $('shadeTalk').onclick = () => startGossip();
+  $('shadeCos').onclick = showCostumes;
   shadeTimer = setInterval(() => { const el = $('shadeNow'); if (el) el.innerHTML = shadeNames(); }, 1500);
   $('shadeClose').onclick = closeOverlay;
   document.querySelectorAll('.menu button').forEach(b => b.onclick = () => { eatFood(MENU.find(x => x.id === b.dataset.id)); });
@@ -2071,39 +2160,6 @@ function wearCostume(k) {
   if (k === was) { ownerSay('이미 입고 계세요! 잘 어울려요~'); return; }
   const [n, e, pr] = COSTUMES[k]; S.spent = (S.spent || 0) + pr; renderSpent();
   ownerSay(`${n} 대여 완료! 세탁비는 서비스예요~`); showBubble(me, `${e} 변신 완료!`); toast(`${n} ${pr.toLocaleString('ko-KR')}원 결제 · 그늘집 대여료는 원래 그래요`, 2400);
-}
-// ---- 그늘집 노가리: 사장님이 들려주는 골프장 썰 (GOSSIP에 이야기를 계속 추가하면 돼요) ----
-// 줄 형식: ['boss' | 'me' | 'guest', '대사']. guest는 옆 테이블 다람쥐 손님이에요.
-const GOSSIP = [
-  ['부장님의 멀리건', [['boss', '지난주에 어떤 부장님이 멀리건을 일곱 번 쓰셨어요.'], ['me', '일곱 번이요? 그늘집 음식을 다 드셨나 봐요.'], ['boss', '아뇨, 하나도 안 드셨어요. 그냥 "방금 건 연습이었어" 하시더라고요.'], ['guest', '우리 팀장님도 그래요. 회의도 "방금 건 연습"이래요.'], ['boss', '그래서 그분 스코어카드엔 1번 홀만 3장이에요.']]],
-  ['떡볶이가 9천 원인 이유', [['me', '사장님, 떡볶이가 왜 9천 원이에요?'], ['boss', '이 떡이 18홀을 걸어서 여기까지 왔거든요.'], ['me', '…9홀인데요?'], ['boss', '왕복이요.'], ['guest', '그럼 오뎅은 카트 타고 왔나 봐요. 더 비싸던데.']]],
-  ['악어의 부업', [['boss', '연못 악어 있잖아요. 걔가 공을 왜 훔쳐 가는지 아세요?'], ['me', '배고파서요?'], ['boss', '중고 마켓에 팔아요. "로스트볼 A급, 물기 살짝" 이렇게요.'], ['guest', '저 거기서 제 공 다시 샀어요. 이름까지 써 있던데.'], ['boss', '단골이시네요~']]],
-  ['고라니와 OB 말뚝', [['guest', '왜 OB 말뚝이 매주 조금씩 옮겨져 있어요?'], ['boss', '고라니가 밤마다 하나씩 뽑아서 옮겨요.'], ['me', '왜요?'], ['boss', '자기 집 마당 넓히는 중이래요. 이번 달 목표는 3번 홀이에요.'], ['me', '그래서 요즘 OB가 줄었구나…']]],
-  ['사장님의 홀인원', [['boss', '저도 젊을 때 홀인원 한 번 했어요.'], ['me', '우와, 진짜요?'], ['boss', '근데 아무도 못 봤어요. 캐디는 화장실, 동반자는 그늘집.'], ['guest', '그래서…?'], ['boss', '그래서 9번 홀에 갤러리를 앉혀 놨어요. 다시는 혼자 넣지 않으려고요.']]],
-  ['접대 골프 꿀팁', [['me', '사장님, 접대 골프 꿀팁 있어요?'], ['boss', '부장님 공이 OB 나면 "와, 바람이 장난 아니네요" 하세요.'], ['me', '바람이 안 불면요?'], ['boss', '"그러니까요, 바람이 너무 안 불어서 공이 혼자 갔네요."'], ['guest', '메모했습니다.']]],
-  ['카트가 "밟습니다!" 하는 이유', [['guest', '화장실 간다니까 캐디가 "밟습니다!" 하던데요.'], ['boss', '예전에 한 손님이 4번 홀에서 참다가…'], ['me', '참다가요?'], ['boss', '홀인원을 하셨어요. 너무 급해서 힘이 딱 들어갔대요.'], ['guest', '저도 오늘 물 많이 마셔야겠다.']]],
-  ['막걸리 퍼팅의 전설', [['boss', '막걸리 한 잔 하고 퍼팅 다 넣은 손님이 있었어요.'], ['me', '컵이 크게 보여서요?'], ['boss', '아뇨, 컵이 두 개로 보여서 아무 데나 쳐도 하나엔 들어갔대요.'], ['guest', '그건 실력이 아니라 확률이네요.'], ['boss', '그분은 그걸 "전략"이라고 부르셨어요.']]],
-  ['월요일 출근', [['boss', '손님, 내일 출근하세요?'], ['me', '…네.'], ['boss', '그럼 떡볶이 하나 더 드릴게요. 서비스 아니고 위로예요.'], ['guest', '저도 출근인데요.'], ['boss', '손님은 오뎅 국물 리필이요. 위로도 직급이 있거든요.']]],
-  ['토끼 캐디의 비밀', [['me', '캐디님은 왜 항상 당근을 들고 다녀요?'], ['boss', '그거 당근 아니고 거리 측정기예요.'], ['me', '진짜요?'], ['boss', '반은 거리 측정기, 반은 간식이에요. 배고프면 측정 거리가 짧아져요.'], ['guest', '어쩐지 오후엔 다 짧게 불러주더라.']]],
-];
-let gossipI = (Math.random() * GOSSIP.length) | 0;
-function startGossip() {
-  const [title, lines] = GOSSIP[gossipI % GOSSIP.length]; gossipI++;
-  const who = { boss: ['🐰', '그늘집 사장님'], me: ['🥕', NET.nick || '나'], guest: ['🐿️', '옆 테이블 다람쥐'] };
-  let n = 0;
-  const render = () => {
-    const shown = lines.slice(0, n + 1).map(([w, t]) => `<div class="gs ${w}"><span class="gw">${who[w][0]} ${esc(who[w][1])}</span><p>${esc(t)}</p></div>`).join('');
-    const last = n >= lines.length - 1;
-    overlay(`<span class="eyebrow">그늘집 노가리 · ${esc(title)}</span><div class="gossip" id="gossipBox">${shown}</div>
-      <div class="btns">${last ? '<button class="btn" id="gsMore">ㅋㅋㅋ 하나 더 해주세요</button><button class="btn sub" id="gsEnd">배꼽 빠지겠네요, 이제 칠게요</button>' : '<button class="btn" id="gsNext">그래서요? ▸</button><button class="btn sub" id="gsEnd">그만 듣기</button>'}</div>`);
-    const box = $('gossipBox'); if (box) box.scrollTop = box.scrollHeight;
-    const w = lines[n][0]; if (w === 'boss') { tone(520 + Math.random() * 80, .06, 'triangle', .05); ownerSay(lines[n][1], 2600); } else if (w === 'me') showBubble(me, lines[n][1].slice(0, 22)); else tone(1200, .05, 'triangle', .04);
-    if ($('gsNext')) $('gsNext').onclick = () => { n++; render(); };
-    if ($('gsMore')) $('gsMore').onclick = startGossip;
-    $('gsEnd').onclick = () => { closeOverlay(); showBubble(me, ['ㅋㅋㅋㅋ', '아 배야', '사장님 입담 최고'][Math.random() * 3 | 0]); };
-    if (last) { S.st.gossip = (S.st.gossip || 0) + 1; }
-  };
-  render();
 }
 function eatFood(m) {
   closeOverlay(); EAT.first = !S.buff; S.mode = 'eat'; lastActKey = ''; me.moveT = null;
@@ -3715,6 +3771,9 @@ function clickMove(e) {
 function snapCam() { const y = heightAt(me.x, me.z); cam.tx = me.x; cam.ty = y + 1.6; cam.tz = me.z; cam.px = me.x - Math.sin(cam.yaw) * cam.dist; cam.py = y + 6; cam.pz = me.z - Math.cos(cam.yaw) * cam.dist; }
 function updateCamera(dt) {
   let tx, ty, tz, px, py, pz;
+  if (S.mode === 'restroom' && WC.on) {
+    const c = wcCamera(); camera.position.set(c[0], c[1], c[2]); camera.lookAt(c[3], c[4], c[5]); return;
+  }
   if (S.mode === 'club' || S.mode === 'cine') {
     const c = lobbyCamera(dt); camera.position.set(c.px, c.py, c.pz); camera.lookAt(c.tx, c.ty, c.tz); cam.px = c.px; cam.py = c.py; cam.pz = c.pz; cam.tx = c.tx; cam.ty = c.ty; cam.tz = c.tz;
     sun.position.set(LB.x + 40, 80, LB.z + 25); sun.target.position.set(LB.x, EDGE_H, LB.z); return;
@@ -3957,7 +4016,7 @@ function frame() {
   }
   if (S.mode === 'ride') updateRide(dt);
   if (RG.built) updateRange(dt, t);
-  updateCourseFx(dt, t);
+  updateCourseFx(dt, t); updateWC(dt);
   if (me.swingT > 0) me.anim = 3;
   animateAvatar(me.av, me, dt, t);
 
