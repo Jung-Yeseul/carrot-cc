@@ -392,11 +392,11 @@ $('coachSkip').onclick = () => { const st = TUT.step; tutEnd(false); toast('따�
 // 모바일 ☰ 메뉴: 오른쪽 위 버튼들을 한 곳에 모아요 (원래 버튼을 대신 눌러줘요)
 $('mMenuBtn').onclick = () => {
   const app = $('app'), course = !app.classList.contains('inclub') && !app.classList.contains('inrange');
-  const items = [['exitBtn', '🏛️ 나가기 (클럽하우스·정문)', 'wide'], ['cardBtn', '📋 스코어카드', '', course], ['sound', null, ''], ['goShadeBtn', '🍢 그늘집 가기', '', course], ['goWCBtn', '🚻 화장실 가기', '', course], ['peopleBtn', null, ''], ['clipBtn', null, 'wide'], ['basicsQ', '📖 골프 쉽게 알기', ''], ['nick', `✏️ 이름표: ${NET.nick}`, ''], ['langBtnQ', '🌐 Language', 'wide']];
-  const list = items.filter(([id, , , ok]) => ok !== false && (id === 'langBtnQ' || id === 'basicsQ' || ($(id) && !$(id).hidden)));
+  const items = [['exitBtn', '🏛️ 나가기 (클럽하우스·정문)', 'wide'], ['cardBtn', '📋 스코어카드', '', course], ['sound', null, ''], ['goShadeBtn', '🍢 그늘집 가기', '', course], ['goWCBtn', '🚻 화장실 가기', '', course], ['pickQ', '🏳️ 이 홀 그만하기', '', course && S.mode === 'walk' && S.ball.state === 'rest' && S.ballVis], ['peopleBtn', null, ''], ['clipBtn', null, 'wide'], ['basicsQ', '📖 골프 쉽게 알기', ''], ['nick', `✏️ 이름표: ${NET.nick}`, ''], ['langBtnQ', '🌐 Language', 'wide']];
+  const list = items.filter(([id, , , ok]) => ok !== false && (id === 'langBtnQ' || id === 'basicsQ' || id === 'pickQ' || ($(id) && !$(id).hidden)));
   overlay(`<span class="eyebrow">메뉴</span><div class="qmenu">${list.map(([id, label, cls]) => `<button type="button" class="btn sub ${cls}" data-q="${id}">${label || esc($(id).textContent.trim())}</button>`).join('')}</div><button type="button" class="linkbtn" id="qClose">닫기</button>`);
   $('qClose').onclick = closeOverlay;
-  document.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { if (b.dataset.q === 'langBtnQ') return openLangMenu(); if (b.dataset.q === 'basicsQ') return showBasics(); closeOverlay(); $(b.dataset.q).click(); });
+  document.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { if (b.dataset.q === 'langBtnQ') return openLangMenu(); if (b.dataset.q === 'basicsQ') return showBasics(); if (b.dataset.q === 'pickQ') { closeOverlay(); return pickUp(); } closeOverlay(); $(b.dataset.q).click(); });
 };
 // ---- 닉네임 ----
 const NICK_RE = /^[가-힣a-zA-Z0-9 _]+$/;
@@ -1236,7 +1236,7 @@ updSoundBtn();
 // ================= 화면 요소 =================
 let toastT = 0;
 function toast(t, ms = 1800) { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), ms); }
-function feed(t) { const f = $('feed'); const d = document.createElement('div'); d.textContent = t; f.appendChild(d); while (f.children.length > 4) f.firstChild.remove(); setTimeout(() => d.remove(), 5100); }
+function feed(t) { const f = $('feed'); const d = document.createElement('div'); d.textContent = t; f.appendChild(d); while (f.children.length > (window.innerWidth < 640 ? 2 : 3)) f.firstChild.remove(); setTimeout(() => d.remove(), 5100); }
 function overlay(html, soft) { const o = $('overlay'); o.className = 'overlay' + (soft ? ' soft' : ''); o.innerHTML = `<div class="card">${html}</div>`; o.hidden = false; }
 function closeOverlay() { $('overlay').hidden = true; clearInterval(shadeTimer); }
 $('cardBtn').onclick = () => { const s = $('cardSheet'); s.hidden = !s.hidden; $('peopleSheet').hidden = true; $('cardBtn').setAttribute('aria-expanded', String(!s.hidden)); $('peopleBtn').setAttribute('aria-expanded', 'false'); };
@@ -1402,7 +1402,7 @@ function windText() {
 function updHud() {
   const h = hole();
   $('holeNo').textContent = S.hole + 1; $('holeName').textContent = h.name;
-  $('holePar').textContent = `PAR ${h.par}(보통 ${h.par}번에 넣기) · 지금 ${S.strokes}번 쳤어요`;
+  $('holePar').textContent = `PAR ${h.par} · 보통 ${h.par}번에 넣어요`;
   const lie = LIE[surface(S.ball.x, S.ball.z)] || '';
   $('holeDist').textContent = `깃발까지 ${Math.round(distToCup() * M_PER_U)}m · ${lie}${windText()}`;
   $('strokes').textContent = S.strokes;
@@ -1438,7 +1438,6 @@ function updActions() {
     if (nearRR) html += '<button class="act wc m" id="wcM">남자 화장실</button><button class="act wc w" id="wcW">여자 화장실</button>';
     if (S.mulligans && S.prev && S.ball.state === 'rest') html += `<button class="act sub" id="mull">다시 치기 (멀리건 ${S.mulligans})</button>`;
     if (okReady()) html += `<button class="act" id="okBtn">OK! 넣은 걸로 (${S.okTix})</button>`;
-    if (S.ball.state === 'rest' && S.ballVis) html += '<button class="act sub" id="pickBtn">이 홀 그만하기</button>';
   }
   if (S.mode === 'ride') html = '<button class="act sub" id="skipRide">바로 내리기</button>';
   if (S.mode === 'range') html = `<button class="act sub round" id="aL" aria-label="왼쪽으로">◀</button>
@@ -3956,6 +3955,7 @@ mm.addEventListener('click', () => { if (!$('app').hidden) showGuide(); });
 
 // ================= 메인 루프 =================
 let mmT = 0, sendT = 0, actT = 0, trailT = 0;
+const MV = { x: 0, z: 0, t: 0, on: false };
 function frame() {
   if (!running) return;
   requestAnimationFrame(frame);
@@ -4017,6 +4017,10 @@ function frame() {
   if (S.mode === 'ride') updateRide(dt);
   if (RG.built) updateRange(dt, t);
   updateCourseFx(dt, t); updateWC(dt);
+  // 움직이는 동안(걷기·카트)은 화면을 가볍게: 알림·설명 줄·인사 버튼을 잠깐 숨겨요
+  { const d = Math.hypot(me.x - MV.x, me.z - MV.z); MV.x = me.x; MV.z = me.z;
+    const mv = S.mode === 'ride' || (S.mode === 'walk' && d > dt * 1.5); MV.t = mv ? .8 : MV.t - dt;
+    const on = MV.t > 0; if (on !== MV.on) { MV.on = on; $('app').classList.toggle('moving', on); } }
   if (me.swingT > 0) me.anim = 3;
   animateAvatar(me.av, me, dt, t);
 
