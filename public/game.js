@@ -2052,7 +2052,7 @@ function nextHoleCard(s) {
     <canvas class="guide-map" id="guideMap" width="560" height="500" aria-label="다음 홀 지도"></canvas>
     <p class="guide-tip"><b>토끼 캐디</b> ${esc(HOLE_TIPS[done + 1] || '')}</p>
     <div class="btns">${shade ? '<button class="btn" id="goShade">그늘집 들르기</button>' : ''}<button class="btn${shade ? ' sub' : ''}" id="goCart">카트 타고 티로</button><button class="btn sub" id="goWalk">걸어가기</button></div>`);
-  S.hole = done + 1; S.strokes = 0; S.prev = null; S.last = null; S.zoneUsed = {}; S.okHinted = false; S.crocDone = false; S.iceSaid = false; S.pengDone = false;
+  S.hole = done + 1; S.strokes = 0; S.prev = null; S.last = null; S.zoneUsed = {}; S.okHinted = false; S.crocDone = false; S.evUsed = false; S.randCrit = false; S.iceSaid = false; S.pengDone = false;
   const t = HOLES[S.hole].tee; Object.assign(S.ball, { x: t[0], y: 0, z: t[1], vx: 0, vy: 0, vz: 0, state: 'rest' }); S.ballVis = true;
   S.mode = 'walk'; lastActKey = ''; updHud(); renderCard(); bindGuide(S.hole);
   $('goCart').onclick = () => { closeOverlay(); cartTo(t[0], t[1], true, '다음 홀로 모실게요~', holeTalk(S.hole)); };
@@ -2106,7 +2106,7 @@ function renderCard() {
 }
 function resetRound(teleport) {
   if (DUEL.on && !DUEL.starting) duelQuit('새 라운딩을 시작해서 대전을 그만뒀어요');
-  closeOverlay(); S.scores.fill(null); S.buff = null; S.mulligans = 0; S.okTix = 0; S.warpTix = 0; S.zoneUsed = {}; S.okHinted = false; S.crocDone = false; S.iceSaid = false; S.pengDone = false; S.chance = CHANCE_MAX; S.spent = 0; renderSpent(); S.st = newStats(); S.hole = 0; S.strokes = 0; S.prev = null; S.last = null; S.mode = 'walk';
+  closeOverlay(); S.scores.fill(null); S.buff = null; S.mulligans = 0; S.okTix = 0; S.warpTix = 0; S.zoneUsed = {}; S.okHinted = false; S.crocDone = false; S.evUsed = false; S.randCrit = false; S.iceSaid = false; S.pengDone = false; S.chance = CHANCE_MAX; S.spent = 0; renderSpent(); S.st = newStats(); S.hole = 0; S.strokes = 0; S.prev = null; S.last = null; S.mode = 'walk';
   $('buffChip').hidden = true;
   const t = HOLES[0].tee; Object.assign(S.ball, { x: t[0], y: 0, z: t[1], vx: 0, vy: 0, vz: 0, state: 'rest' }); S.ballVis = true;
   if (teleport) cartTo(t[0], t[1], true, '1번 홀로 다시 모실게요~', holeTalk(0));
@@ -2676,7 +2676,8 @@ function updateLife(dt, t) {
 function holeStopEvent(lie) {
   const h = hole(), b = S.ball;
   if (lie === 'green') return false;
-  if (h.ev === 'rabbit' && lie === 'rough' && Math.random() < .6) {
+  if (S.evUsed) { if (lie === 'ice' && !S.iceSaid) { S.iceSaid = true; toast('빙판 위예요! 쭉 미끄러졌지만 벌타는 없어요', 2200); } return false; }
+  if (h.ev === 'rabbit' && lie === 'rough' && Math.random() < .5) { S.evUsed = true;
     S.mode = 'wait'; const r = RABBITS[0]; r.x = b.x - 2; r.z = b.z - 1.5; r.state = 'sit'; r.t = 9;
     toast('토끼가 다가와요…', 1400); recMark('토끼 도우미', `${S.hole + 1}번 홀`);
     setTimeout(() => { const k = .3, tx = b.x + (h.cup[0] - b.x) * k, tz = b.z + (h.cup[1] - b.z) * k; const from = [b.x, b.z]; slideBall(from, [tx, tz], 1.1); r.tx = tx - 1; r.tz = tz - 1; r.state = 'hop';
@@ -2684,10 +2685,10 @@ function holeStopEvent(lie) {
       setTimeout(() => { S.mode = 'walk'; cam.mode = 'follow'; lastActKey = ''; guideKey = ''; updHud(); }, 1300); }, 1200);
     return true;
   }
-  if (h.ev === 'boar' && Math.random() < .5) { S.mode = 'wait'; setTimeout(() => { spawnCritter('boar', [b.x, b.z]); S.mode = 'walk'; cam.mode = 'follow'; lastActKey = ''; }, 500); return true; }
+  if (h.ev === 'boar' && Math.random() < .35) { S.evUsed = true; S.mode = 'wait'; setTimeout(() => { spawnCritter('boar', [b.x, b.z]); S.mode = 'walk'; cam.mode = 'follow'; lastActKey = ''; }, 500); return true; }
   if (lie === 'ice' && !S.iceSaid) { S.iceSaid = true; toast('빙판 위예요! 쭉 미끄러졌지만 벌타는 없어요', 2200); showBubble(me, '으앗 미끄러워~'); }
-  if (h.ev === 'penguin' && !S.pengDone && Math.random() < .7) { S.pengDone = true; S.mode = 'wait'; setTimeout(() => { spawnCritter('geese'); S.mode = 'walk'; cam.mode = 'follow'; lastActKey = ''; }, 500); return true; }
-  if (h.ev === 'crow' && Math.random() < .55) { S.mode = 'wait'; setTimeout(() => { spawnCritter('crow'); S.mode = 'walk'; cam.mode = 'follow'; lastActKey = ''; }, 500); return true; }
+  if (h.ev === 'penguin' && !S.pengDone && Math.random() < .6) { S.pengDone = true; S.evUsed = true; S.mode = 'wait'; setTimeout(() => { spawnCritter('geese'); S.mode = 'walk'; cam.mode = 'follow'; lastActKey = ''; }, 500); return true; }
+  if (h.ev === 'crow' && Math.random() < .4) { S.evUsed = true; S.mode = 'wait'; setTimeout(() => { spawnCritter('crow'); S.mode = 'walk'; cam.mode = 'follow'; lastActKey = ''; }, 500); return true; }
   return false;
 }
 function slideBall(from, to, sec) {
@@ -2782,7 +2783,7 @@ function updateGallery(dt, t) {
 function galleryCheer(big) { for (const p of GALLERY) p.cheer = big ? 4 : 1.6; noise(big ? 2.4 : 1.2, 1500, .4, big ? .25 : .12); if (big) noise(2, 2600, .6, .1, .3); }
 
 // ================= 깜짝 동물: 고라니, 멧돼지, 거위 가족, 까마귀 =================
-const CRITTERS = []; let nextCritter = 18, shakeT = 0, lastKind = '';
+const CRITTERS = []; let nextCritter = rand(90, 150), shakeT = 0, lastKind = '';
 function legs(g, m, xs, zs, y, h, r) { const out = []; for (const x of xs) for (const z of zs) { const l = new T.Mesh(new T.CylinderGeometry(r, r * .8, h, 6), m); l.position.set(x, y - h / 2, z); l.geometry.translate(0, 0, 0); g.add(l); out.push(l); } return out; }
 function makeDeer() {
   const g = new T.Group(), fur = mat(0x9a7350, { flatShading: true }), dark = mat(0x3a2a1c), light = mat(0xd9c3a3);
@@ -2846,7 +2847,6 @@ const sndQuack = (n = 3) => { for (let i = 0; i < n; i++) { tone(640, .09, 'squa
 const sndCaw = () => { tone(520, .2, 'sawtooth', .06); tone(470, .22, 'sawtooth', .06, .3); };
 function spawnCritter(force, center) {
   const pool = (ICE ? ['deer', 'boar', 'geese', 'geese'] : ['deer', 'boar', 'geese', 'ducks', 'croc']).filter(k => k !== lastKind);
-  if (S.ball.state === 'rest' && S.ballVis && S.strokes > 0 && Math.hypot(me.x - S.ball.x, me.z - S.ball.z) > 18 && lastKind !== 'crow' && Math.random() < .35) pool.splice(0, pool.length, 'crow');
   const kind = force || pool[Math.random() * pool.length | 0]; lastKind = kind;
   const fx = Math.sin(cam.yaw), fz = Math.cos(cam.yaw), rx = -fz, rz = fx, side = Math.random() < .5 ? 1 : -1;
   if (kind === 'crow') {
@@ -2867,13 +2867,14 @@ function spawnCritter(force, center) {
   const speed = { deer: 5, boar: 4, geese: 1.5, ducks: 1.8, croc: 1.1 }[kind];
   const len = Math.hypot(to[0] - from[0], to[1] - from[1]);
   CRITTERS.push({ kind, members, from, to, len, d: 0, speed, yaw: Math.atan2(to[0] - from[0], to[1] - from[1]), said: false, t: 0, pauseAt: len * .45, pause: { deer: 1.8, boar: 1.4, geese: 1.2, ducks: 1, croc: 2 }[kind], paused: 0, kick: !!center });
-  cam.focus = CRITTERS[CRITTERS.length - 1]; me.moveT = null; $('critterSkip').hidden = false; $('cine').hidden = false;
+  // 그냥 지나가는 동물은 화면을 뺏지 않아요. 홀 이벤트로 나온 동물만 잠깐 카메라가 따라가요
+  if (force) { cam.focus = CRITTERS[CRITTERS.length - 1]; me.moveT = null; $('critterSkip').hidden = false; $('cine').hidden = false; }
   const nm = { deer: ICE ? '순록' : '고라니', boar: '멧돼지', geese: FLOCK, ducks: '오리 가족', croc: '악어' }[kind]; if (!S.st.animals.includes(nm)) S.st.animals.push(nm);
   recMark(fam ? `${nm} 행차` : `${nm} 출몰`, `${S.hole + 1}번 홀`);
   if (kind === 'ducks') { sndQuack(); toast('오리 가족이 쪼르르~ 지나가요', 2400); setTimeout(() => showBubble(me, '귀여워…'), 1200); }
   if (kind === 'croc') { sndChomp(); toast('악어가 산책 나왔어요!! 가만히 있어요', 2400); setTimeout(() => showBubble(me, '숨 참아…'), 800); }
   if (kind === 'deer') { sndGorani(); toast('앗! 고라니다!!', 1800); setTimeout(() => showBubble(me, '깜짝이야!!'), 300); me.jump = .8; }
-  if (kind === 'boar') { sndBoar(); toast('멧돼지 출몰 주의!!', 1800); shakeT = 1.2; setTimeout(() => showBubble(me, '으악 멧돼지!'), 300); me.jump = 1; }
+  if (kind === 'boar') { sndBoar(); toast('멧돼지 출몰 주의!!', 1800); if (force) shakeT = 1.2; setTimeout(() => showBubble(me, '으악 멧돼지!'), 300); me.jump = 1; }
   if (kind === 'geese') { sndHonk(); toast(`${FLOCK}이 길을 건너요~ 잠깐 멈춤!`, 2200); setTimeout(() => showBubble(me, '줄 서서 간다 ㅋㅋ'), 1500); }
 }
 function len2(c) { return c.len; }
@@ -2884,7 +2885,8 @@ function updateCritters(dt) {
   if (!scene) return;
   const free = S.mode === 'walk' || S.mode === 'ride';
   if (free) nextCritter -= dt;
-  if (nextCritter <= 0 && free && !$('app').hidden && CRITTERS.length === 0) { nextCritter = rand(35, 70); spawnCritter(); }
+  // 그냥 지나가는 동물은 가끔만: 3~5분에 한 번, 한 홀에 한 번까지, 1번 홀·따라 하기 중에는 안 나와요
+  if (nextCritter <= 0 && free && !$('app').hidden && CRITTERS.length === 0) { nextCritter = rand(180, 300); if (!S.randCrit && S.hole > 0 && !TUT.on && !DUEL.on) { S.randCrit = true; spawnCritter(); } }
   for (let i = CRITTERS.length - 1; i >= 0; i--) {
     const c = CRITTERS[i]; c.t += dt;
     if (c.kind === 'crow') {
