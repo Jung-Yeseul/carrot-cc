@@ -376,7 +376,7 @@ let PLAY_MODE = 'solo'; try { if (localStorage.getItem('carrotMode') === 'duel')
 { const m = /^#ch\d{1,3}(?:-([a-z]+))?(-duel)?$/.exec(location.hash); if (m) { if (m[1] && COURSES[m[1]]) entryCrs = m[1]; if (m[2]) PLAY_MODE = 'duel'; } }
 function renderEntryMode() {
   const el = $('modePick'); if (!el) return;
-  el.querySelectorAll('[data-mode]').forEach(b => { const on = b.dataset.mode === PLAY_MODE; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); b.onclick = () => { PLAY_MODE = b.dataset.mode; try { localStorage.setItem('carrotMode', PLAY_MODE); } catch {} tone(880, .05, 'triangle', .05); renderEntryMode(); }; });
+  el.querySelectorAll('[data-mode]').forEach(b => { const on = b.dataset.mode === PLAY_MODE; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); b.onclick = () => { PLAY_MODE = b.dataset.mode; try { localStorage.setItem('carrotMode', PLAY_MODE); } catch {} tone(880, .05, 'triangle', .05); renderEntryMode(); teeUpTo(invitedCh()); }; });   // 고르면 바로 출발
 }
 renderEntryMode();
 function renderEntryCrs() {
@@ -4309,6 +4309,7 @@ function frame() {
     const mv = S.mode === 'ride' || (S.mode === 'walk' && d > dt * 1.5); MV.t = mv ? .8 : MV.t - dt;
     const on = MV.t > 0; if (on !== MV.on) { MV.on = on; $('app').classList.toggle('moving', on); }
     const ai = S.mode === 'aim' || S.mode === 'flight'; if (ai !== MV.ai) { MV.ai = ai; $('app').classList.toggle('aiming', ai); }
+    const ci = S.mode === 'cine'; if (ci !== MV.ci) { MV.ci = ci; $('app').classList.toggle('incine', ci); }
     // 티 마커(큰 당근)가 카메라 바로 앞이면 잠깐 숨겨요
     for (const m of TEE_MARKS) m.visible = !(ai && Math.hypot(m.position.x - camera.position.x, m.position.z - camera.position.z) < 6); }
   if (me.swingT > 0) me.anim = 3;
@@ -4399,7 +4400,7 @@ function enterGame() {
   me.tag.querySelector('.nm').textContent = NET.nick;
   audio(); startAmbience(); setMaster(true);
   resetRound(false);
-  const go = AUTO && AUTO.go; AUTO = null; if (go === 'lobby') { startClubAt('lobby'); setTimeout(() => { if (S.mode === 'club') openDesk(false); }, 600); } else if (go === 'course') { startClubAt('course'); setTimeout(() => goCourseDoor(true), 300); } else startClubAt('outside');
+  const go = AUTO && AUTO.go; AUTO = null; if (go === 'lobby') { startClubAt('lobby'); setTimeout(() => { if (S.mode === 'club') openDesk(false); }, 600); } else if (go === 'course') { startClubAt('course'); setTimeout(() => goCourseDoor(true), 300); } else { startClubAt('outside'); setTimeout(() => { if (S.mode === 'club' && LB.zone === 'out' && !LB.cine) startCine('enter'); }, 900); }   // 입장 버튼 없이 바로 문이 열려요
   updChannelBadge(); resize();
   if (!running) { running = true; clock.getDelta(); requestAnimationFrame(frame); }
   if (window.innerWidth < 640) $('help').textContent = '드래그: 시점 · 땅 탭: 걷기 · 두 손가락: 확대';

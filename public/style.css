@@ -467,3 +467,6 @@ td.cur,th.cur{background:color-mix(in srgb,var(--leaf) 14%,transparent)}
 .app.aiming .hud.tr,.app.aiming #toLobby,.app.aiming .emotewrap,.app.aiming .feed,.app.aiming .help,.app.aiming #holePar,.app.aiming #duelFind{opacity:0;pointer-events:none}
 .hud.tr,#toLobby{transition:opacity .25s}
 @media (max-width:640px){.actions .act.swing{flex:1 1 auto}.actions .act.round{flex:0 0 52px}}
+
+/* 입장 연출 중에는 제목만 보이게 */
+.app.incine .hud.tr,.app.incine .emotewrap,.app.incine .feed,.app.incine .help,.app.incine #toLobby{opacity:0;pointer-events:none}
