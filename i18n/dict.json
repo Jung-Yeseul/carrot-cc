@@ -5768,5 +5768,490 @@
   "Hole-by-hole match with someone on your course",
   "同じコースの人とホールごとに勝負",
   "和同球场的人逐洞比赛"
+ ],
+ "정글 코스": [
+  "Jungle Course",
+  "ジャングルコース",
+  "丛林球场"
+ ],
+ "빽빽한 밀림과 늪지대, 앵무새와 나비가 날아다녀요": [
+  "Dense jungle and swamps, with parrots and butterflies flying around",
+  "うっそうとした密林と沼地、オウムとチョウが飛び回ります",
+  "茂密丛林和沼泽，鹦鹉和蝴蝶飞来飞去"
+ ],
+ "화산섬 코스": [
+  "Volcano Island Course",
+  "火山島コース",
+  "火山岛球场"
+ ],
+ "연기 나는 화산과 부글부글 용암 연못, 검은 모래 벙커": [
+  "A smoking volcano, bubbling lava ponds and black sand bunkers",
+  "煙を上げる火山、ぐつぐつの溶岩池、黒い砂のバンカー",
+  "冒烟的火山、咕嘟冒泡的熔岩池和黑沙坑"
+ ],
+ "캔디랜드 코스": [
+  "Candyland Course",
+  "キャンディランドコース",
+  "糖果乐园球场"
+ ],
+ "막대사탕 나무와 초콜릿 강, 하늘에서 스프링클이 내려요": [
+  "Lollipop trees, chocolate rivers and sprinkles falling from the sky",
+  "ペロペロキャンディの木とチョコの川、空からスプリンクルが降ります",
+  "棒棒糖树、巧克力河，天上还会落下彩色糖粒"
+ ],
+ "앵무새": [
+  "Parrot",
+  "オウム",
+  "鹦鹉"
+ ],
+ "젤리 새": [
+  "Jelly bird",
+  "ゼリー鳥",
+  "果冻鸟"
+ ],
+ "정글 입구 홀": [
+  "Jungle Gate hole",
+  "ジャングル入口のホール",
+  "丛林入口洞"
+ ],
+ "밀림 소리 들으며 감 잡는 홀이에요. 특별한 이벤트는 없어요.": [
+  "Warm up to the sounds of the jungle. No special events here.",
+  "密林の音を聞きながら感覚をつかむホール。特別なイベントはありません。",
+  "听着丛林的声音找手感的洞。没有特别事件。"
+ ],
+ "악어 늪 홀": [
+  "Croc Swamp hole",
+  "ワニ沼のホール",
+  "鳄鱼沼泽洞"
+ ],
+ "늪에 악어가 세 마리! 물가에 공이 멈추면 훔쳐가요. 한 홀에 한 번만이에요.": [
+  "Three crocs in the swamp! They steal balls that stop by the water. Only once per hole.",
+  "沼にワニが3匹！水辺でボールが止まると盗まれます。1ホールに1回だけ。",
+  "沼泽里有三条鳄鱼！球停在水边会被偷走。每洞只有一次。"
+ ],
+ "오리 늪 홀": [
+  "Duck Swamp hole",
+  "アヒル沼のホール",
+  "鸭子沼泽洞"
+ ],
+ "늪에 오리 가족이 살아요. 공이 빠져도 건져다 줘요(무벌타).": [
+  "A duck family lives in the swamp. They fetch your ball if it falls in (no penalty).",
+  "沼にアヒル一家が住んでいます。落ちても拾ってくれます（罰打なし）。",
+  "沼泽里住着鸭子一家。球掉进去也会帮你捞回来（不罚杆）。"
+ ],
+ "스콜 홀": [
+  "Squall hole",
+  "スコールのホール",
+  "暴雨洞"
+ ],
+ "갑자기 스콜 바람이 불어요! 공이 바람에 밀려요.": [
+  "A sudden squall! The wind pushes the ball.",
+  "突然スコールの風が吹きます！ボールが風に流されます。",
+  "突然刮起暴风！球会被风吹偏。"
+ ],
+ "앵무새 홀": [
+  "Parrot hole",
+  "オウムのホール",
+  "鹦鹉洞"
+ ],
+ "앵무새가 공을 노려요. 공에서 눈을 떼지 마세요!": [
+  "A parrot is eyeing your ball. Keep watching it!",
+  "オウムがボールを狙っています。目を離さないで！",
+  "鹦鹉盯上了你的球。别移开视线！"
+ ],
+ "폭포 갤러리 홀": [
+  "Waterfall Gallery hole",
+  "滝ギャラリーのホール",
+  "瀑布观众洞"
+ ],
+ "마지막 홀! 폭포 앞 갤러리가 지켜보고 있어요.": [
+  "Last hole! The gallery by the waterfall is watching.",
+  "最終ホール！滝の前のギャラリーが見守っています。",
+  "最后一洞！瀑布前的观众在看着。"
+ ],
+ "용암 입구 홀": [
+  "Lava Gate hole",
+  "溶岩入口のホール",
+  "熔岩入口洞"
+ ],
+ "따끈한 땅에서 감 잡는 홀이에요. 특별한 이벤트는 없어요.": [
+  "Warm up on the toasty ground. No special events here.",
+  "ぽかぽかの地面で感覚をつかむホール。特別なイベントはありません。",
+  "在暖烘烘的地上找手感的洞。没有特别事件。"
+ ],
+ "용암 홀": [
+  "Lava hole",
+  "溶岩のホール",
+  "熔岩洞"
+ ],
+ "연못이 부글부글 용암이에요! 빠지면 벌타 1. 공은 녹지 않으니 걱정 마세요.": [
+  "The pond is bubbling lava! Falling in costs 1 stroke. Don't worry, the ball won't melt.",
+  "池がぐつぐつの溶岩です！落ちると罰打1。ボールは溶けないのでご安心を。",
+  "池塘是咕嘟冒泡的熔岩！掉进去罚1杆。别担心，球不会化。"
+ ],
+ "화산재 홀": [
+  "Volcanic Ash hole",
+  "火山灰のホール",
+  "火山灰洞"
+ ],
+ "화산 바람이 세게 불어요! 공이 바람에 크게 밀려요.": [
+  "Strong volcanic wind! The wind pushes the ball a lot.",
+  "火山の風が強い！ボールが風に大きく流されます。",
+  "火山风很大！球会被风吹偏很多。"
+ ],
+ "분화구 갤러리 홀": [
+  "Crater Gallery hole",
+  "火口ギャラリーのホール",
+  "火山口观众洞"
+ ],
+ "마지막 홀! 화산 앞 갤러리가 지켜보고 있어요.": [
+  "Last hole! The gallery by the volcano is watching.",
+  "最終ホール！火山の前のギャラリーが見守っています。",
+  "最后一洞！火山前的观众在看着。"
+ ],
+ "사탕 입구 홀": [
+  "Candy Gate hole",
+  "キャンディ入口のホール",
+  "糖果入口洞"
+ ],
+ "달콤한 냄새 맡으며 감 잡는 홀이에요. 특별한 이벤트는 없어요.": [
+  "Warm up with a sweet smell in the air. No special events here.",
+  "甘い香りをかぎながら感覚をつかむホール。特別なイベントはありません。",
+  "闻着甜甜的香味找手感的洞。没有特别事件。"
+ ],
+ "초콜릿 강 홀": [
+  "Chocolate River hole",
+  "チョコの川のホール",
+  "巧克力河洞"
+ ],
+ "연못이 초콜릿 강이에요! 빠지면 벌타 1. 공은 나중에 닦아 드릴게요.": [
+  "The pond is a chocolate river! Falling in costs 1 stroke. We'll wipe your ball later.",
+  "池がチョコの川です！落ちると罰打1。ボールは後で拭いておきます。",
+  "池塘是巧克力河！掉进去罚1杆。球之后帮你擦干净。"
+ ],
+ "초코 오리 홀": [
+  "Choco Duck hole",
+  "チョコアヒルのホール",
+  "巧克力鸭洞"
+ ],
+ "초코 연못에 오리 가족이 살아요. 공이 빠져도 건져다 줘요(무벌타).": [
+  "A duck family lives in the choco pond. They fetch your ball if it falls in (no penalty).",
+  "チョコ池にアヒル一家が住んでいます。落ちても拾ってくれます（罰打なし）。",
+  "巧克力池里住着鸭子一家。球掉进去也会帮你捞回来（不罚杆）。"
+ ],
+ "솜사탕 바람 홀": [
+  "Cotton Candy Breeze hole",
+  "綿あめ風のホール",
+  "棉花糖风洞"
+ ],
+ "솜사탕 바람이 불어요! 공이 바람에 밀려요.": [
+  "A cotton candy breeze! The wind pushes the ball.",
+  "綿あめの風が吹きます！ボールが風に流されます。",
+  "棉花糖风吹来！球会被风吹偏。"
+ ],
+ "젤리 새 홀": [
+  "Jelly Bird hole",
+  "ゼリー鳥のホール",
+  "果冻鸟洞"
+ ],
+ "젤리 새가 공을 노려요. 공에서 눈을 떼지 마세요!": [
+  "A jelly bird is eyeing your ball. Keep watching it!",
+  "ゼリー鳥がボールを狙っています。目を離さないで！",
+  "果冻鸟盯上了你的球。别移开视线！"
+ ],
+ "케이크 갤러리 홀": [
+  "Cake Gallery hole",
+  "ケーキギャラリーのホール",
+  "蛋糕观众洞"
+ ],
+ "마지막 홀! 케이크 앞 갤러리가 지켜보고 있어요.": [
+  "Last hole! The gallery by the cake is watching.",
+  "最終ホール！ケーキの前のギャラリーが見守っています。",
+  "最后一洞！蛋糕前的观众在看着。"
+ ],
+ "정글 입구": [
+  "Jungle Gate",
+  "ジャングル入口",
+  "丛林入口"
+ ],
+ "정글 토끼 숲": [
+  "Jungle Bunny Woods",
+  "ジャングルうさぎの森",
+  "丛林兔子林"
+ ],
+ "악어 늪": [
+  "Croc Swamp",
+  "ワニ沼",
+  "鳄鱼沼泽"
+ ],
+ "스콜 언덕": [
+  "Squall Hill",
+  "スコールの丘",
+  "暴雨山丘"
+ ],
+ "정글 보물찾기": [
+  "Jungle Treasure Hunt",
+  "ジャングルの宝探し",
+  "丛林寻宝"
+ ],
+ "오리 늪": [
+  "Duck Swamp",
+  "アヒル沼",
+  "鸭子沼泽"
+ ],
+ "밀림 멧돼지 숲": [
+  "Jungle Boar Woods",
+  "密林のイノシシの森",
+  "密林野猪林"
+ ],
+ "앵무새 둥지": [
+  "Parrot Nest",
+  "オウムの巣",
+  "鹦鹉窝"
+ ],
+ "폭포 갤러리": [
+  "Waterfall Gallery",
+  "滝ギャラリー",
+  "瀑布观众席"
+ ],
+ "용암 입구": [
+  "Lava Gate",
+  "溶岩入口",
+  "熔岩入口"
+ ],
+ "까마귀 바위": [
+  "Crow Rock",
+  "カラス岩",
+  "乌鸦岩"
+ ],
+ "검은 숲 멧돼지": [
+  "Black Forest Boars",
+  "黒い森のイノシシ",
+  "黑森林野猪"
+ ],
+ "부글부글 연못": [
+  "Bubbling Pond",
+  "ぐつぐつ池",
+  "咕嘟池"
+ ],
+ "화산 보물찾기": [
+  "Volcano Treasure Hunt",
+  "火山の宝探し",
+  "火山寻宝"
+ ],
+ "화산재 언덕": [
+  "Ash Hill",
+  "火山灰の丘",
+  "火山灰山丘"
+ ],
+ "용암 강": [
+  "Lava River",
+  "溶岩の川",
+  "熔岩河"
+ ],
+ "화산 토끼 굴": [
+  "Volcano Bunny Burrow",
+  "火山うさぎの巣穴",
+  "火山兔子洞"
+ ],
+ "분화구 갤러리": [
+  "Crater Gallery",
+  "火口ギャラリー",
+  "火山口观众席"
+ ],
+ "사탕 입구": [
+  "Candy Gate",
+  "キャンディ入口",
+  "糖果入口"
+ ],
+ "마시멜로 토끼밭": [
+  "Marshmallow Bunny Field",
+  "マシュマロうさぎ畑",
+  "棉花糖兔子田"
+ ],
+ "초콜릿 강": [
+  "Chocolate River",
+  "チョコの川",
+  "巧克力河"
+ ],
+ "솜사탕 언덕": [
+  "Cotton Candy Hill",
+  "綿あめの丘",
+  "棉花糖山丘"
+ ],
+ "과자 보물찾기": [
+  "Snack Treasure Hunt",
+  "お菓子の宝探し",
+  "零食寻宝"
+ ],
+ "초코 오리 연못": [
+  "Choco Duck Pond",
+  "チョコアヒル池",
+  "巧克力鸭子池"
+ ],
+ "쿠키 숲 멧돼지": [
+  "Cookie Forest Boars",
+  "クッキーの森のイノシシ",
+  "饼干林野猪"
+ ],
+ "젤리 새 둥지": [
+  "Jelly Bird Nest",
+  "ゼリー鳥の巣",
+  "果冻鸟窝"
+ ],
+ "케이크 갤러리": [
+  "Cake Gallery",
+  "ケーキギャラリー",
+  "蛋糕观众席"
+ ],
+ "벙커(검은 모래)": [
+  "Bunker (black sand)",
+  "バンカー（黒い砂）",
+  "沙坑（黑沙）"
+ ],
+ "벙커(설탕 가루)": [
+  "Bunker (powdered sugar)",
+  "バンカー（粉砂糖）",
+  "沙坑（糖粉）"
+ ],
+ "💡 캐디 찬스 {0}": [
+  "💡 Caddie tip {0}",
+  "💡 キャディチャンス {0}",
+  "💡 球童提示 {0}"
+ ],
+ "✕ 취소": [
+  "✕ Cancel",
+  "✕ キャンセル",
+  "✕ 取消"
+ ],
+ "🏌️ {0} ▾": [
+  "🏌️ {0} ▾",
+  "🏌️ {0} ▾",
+  "🏌️ {0} ▾"
+ ],
+ "밀림 소리 들으며 천천히! 그린 앞 벙커만 조심하세요.": [
+  "Take it slow with the jungle sounds! Just watch the bunkers by the green.",
+  "密林の音を聞きながらゆっくり！グリーン手前のバンカーだけ注意。",
+  "听着丛林声慢慢来！只要小心果岭前的沙坑。"
+ ],
+ "러프에 가면 토끼가 도와줄지도요.": [
+  "In the rough, a bunny might help you.",
+  "ラフに入るとうさぎが助けてくれるかも。",
+  "进了长草区，兔子可能会帮你。"
+ ],
+ "늪에 악어가 있어요. 꺾이는 곳까지 끊어 가세요.": [
+  "There's a croc in the swamp. Lay up to the bend.",
+  "沼にワニがいます。曲がり角まで刻んでいきましょう。",
+  "沼泽里有鳄鱼。先打到转弯处。"
+ ],
+ "스콜 바람이 불어요. 그린을 바로 노리면 늪에 빠질 수 있어요.": [
+  "A squall! Go straight for the green and you might hit the swamp.",
+  "スコールの風が吹きます。グリーンを直接狙うと沼に落ちるかも。",
+  "暴风来了。直接攻果岭可能会掉进沼泽。"
+ ],
+ "오리 늪은 빠져도 괜찮아요. 꺾이는 곳까지 쭉.": [
+  "Falling into the duck swamp is fine. Go all the way to the bend.",
+  "アヒル沼は落ちても大丈夫。曲がり角までまっすぐ。",
+  "掉进鸭子沼泽也没关系。一路打到转弯处。"
+ ],
+ "밀림이 빽빽해요. 숲에 들어가면 멧돼지 조심!": [
+  "The jungle is dense. Watch out for boars in the woods!",
+  "密林がうっそうとしています。森に入るとイノシシに注意！",
+  "丛林很密。进了林子小心野猪！"
+ ],
+ "앵무새가 많아요. 빨리 그린에 올리는 게 상책이에요.": [
+  "Lots of parrots. Best to get on the green fast.",
+  "オウムが多いです。早くグリーンに乗せるのが一番。",
+  "鹦鹉很多。最好快点上果岭。"
+ ],
+ "마지막 홀, 폭포 앞에서 멋지게 마무리해요!": [
+  "Last hole: finish in style by the waterfall!",
+  "最終ホール、滝の前でかっこよく締めましょう！",
+  "最后一洞，在瀑布前漂亮收尾！"
+ ],
+ "까마귀가 공을 노려요. 빨리 그린에 올리는 게 상책이에요.": [
+  "A crow is after your ball. Best to get on the green fast.",
+  "カラスがボールを狙っています。早くグリーンに乗せるのが一番。",
+  "乌鸦盯着你的球。最好快点上果岭。"
+ ],
+ "검은 숲에 들어가면 멧돼지 조심!": [
+  "Watch out for boars in the black forest!",
+  "黒い森に入るとイノシシに注意！",
+  "进了黑森林小心野猪！"
+ ],
+ "용암 연못은 피해 가세요. 꺾이는 곳까지 끊어 가요.": [
+  "Avoid the lava pond. Lay up to the bend.",
+  "溶岩池は避けて。曲がり角まで刻んでいきましょう。",
+  "避开熔岩池。先打到转弯处。"
+ ],
+ "화산 바람이 세요! 바람 방향을 보고 치세요.": [
+  "Strong volcanic wind! Check the wind before you hit.",
+  "火山の風が強い！風向きを見て打ちましょう。",
+  "火山风很大！看好风向再打。"
+ ],
+ "용암 강을 넘기려면 충분히 세게!": [
+  "Hit it hard enough to carry the lava river!",
+  "溶岩の川を越えるにはしっかり強く！",
+  "要飞过熔岩河就得用力！"
+ ],
+ "검은 모래 벙커가 넓어요. 러프에 가면 토끼가 도와줄지도요.": [
+  "The black sand bunkers are wide. In the rough, a bunny might help you.",
+  "黒い砂のバンカーが広いです。ラフに入るとうさぎが助けてくれるかも。",
+  "黑沙坑很宽。进了长草区，兔子可能会帮你。"
+ ],
+ "마지막 홀, 화산 앞에서 멋지게 마무리해요!": [
+  "Last hole: finish in style by the volcano!",
+  "最終ホール、火山の前でかっこよく締めましょう！",
+  "最后一洞，在火山前漂亮收尾！"
+ ],
+ "달콤하게 천천히! 그린 앞 설탕 벙커만 조심하세요.": [
+  "Sweet and slow! Just watch the sugar bunker by the green.",
+  "甘くゆっくり！グリーン手前の砂糖バンカーだけ注意。",
+  "甜甜地慢慢来！只要小心果岭前的糖粉沙坑。"
+ ],
+ "러프에 가면 마시멜로 토끼가 도와줄지도요.": [
+  "In the rough, a marshmallow bunny might help you.",
+  "ラフに入るとマシュマロうさぎが助けてくれるかも。",
+  "进了长草区，棉花糖兔子可能会帮你。"
+ ],
+ "초콜릿 강에 빠지면 벌타예요. 꺾이는 곳까지 끊어 가세요.": [
+  "Falling into the chocolate river costs a stroke. Lay up to the bend.",
+  "チョコの川に落ちると罰打です。曲がり角まで刻んでいきましょう。",
+  "掉进巧克力河要罚杆。先打到转弯处。"
+ ],
+ "솜사탕 바람이 불어요. 그린을 바로 노리면 초콜릿에 빠질 수 있어요.": [
+  "A cotton candy breeze! Go straight for the green and you might land in chocolate.",
+  "綿あめの風が吹きます。グリーンを直接狙うとチョコに落ちるかも。",
+  "棉花糖风吹来。直接攻果岭可能会掉进巧克力。"
+ ],
+ "초코 오리 연못은 빠져도 괜찮아요. 꺾이는 곳까지 쭉.": [
+  "Falling into the choco duck pond is fine. Go all the way to the bend.",
+  "チョコアヒル池は落ちても大丈夫。曲がり角までまっすぐ。",
+  "掉进巧克力鸭子池也没关系。一路打到转弯处。"
+ ],
+ "쿠키 숲이 좁아요. 들어가면 멧돼지 조심!": [
+  "The cookie forest is narrow. Watch out for boars inside!",
+  "クッキーの森は狭いです。入るとイノシシに注意！",
+  "饼干林很窄。进去小心野猪！"
+ ],
+ "젤리 새가 많아요. 빨리 그린에 올리는 게 상책이에요.": [
+  "Lots of jelly birds. Best to get on the green fast.",
+  "ゼリー鳥が多いです。早くグリーンに乗せるのが一番。",
+  "果冻鸟很多。最好快点上果岭。"
+ ],
+ "마지막 홀, 케이크 앞에서 멋지게 마무리해요!": [
+  "Last hole: finish in style by the cake!",
+  "最終ホール、ケーキの前でかっこよく締めましょう！",
+  "最后一洞，在蛋糕前漂亮收尾！"
+ ],
+ "앗 뜨거! 용암에 빠졌어요 · 벌타 1 (공은 멀쩡해요)": [
+  "Ouch, hot! Into the lava · 1 penalty stroke (the ball is fine)",
+  "あちっ！溶岩に落ちました・罰打1（ボールは無事です）",
+  "哎哟好烫！掉进熔岩了 · 罚1杆（球没事）"
+ ],
+ "초콜릿 강에 퐁당! · 벌타 1 (공은 닦아 드릴게요)": [
+  "Splash into the chocolate river! · 1 penalty stroke (we'll wipe the ball)",
+  "チョコの川にポチャン！・罰打1（ボールは拭いておきます）",
+  "扑通掉进巧克力河！· 罚1杆（球帮你擦干净）"
  ]
 }
