@@ -435,3 +435,6 @@ td.cur,th.cur{background:color-mix(in srgb,var(--leaf) 14%,transparent)}
 .app.moving #goBall{display:none}
 .app.moving #minimap{opacity:.75}
 .feed,.help,#holePar,.emotewrap,#goBall,#minimap{transition:opacity .25s}
+
+.duelbadge .dt{font-weight:700;font-size:12px;padding:2px 8px;border-radius:999px;background:#f4e3df;color:#9b2c20}
+.duelbadge .dt.me{background:#2e7d4f;color:#fff}

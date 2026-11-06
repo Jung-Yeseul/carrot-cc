@@ -1334,14 +1334,17 @@ function duelMsg(m) {
     case 'no': if (DUEL.sent === m.from) { DUEL.sent = 0; closeOverlay(); toast(m.busy ? `${o ? o.nick : '상대'} 님은 지금 대전을 받을 수 없어요` : `${o ? o.nick : '상대'} 님이 다음에 하자고 했어요`, 2400); } break;
     case 'wait': toast('잠시 후에 다시 신청해 주세요', 1600); break;
     case 'start': {
+      const iAsked = DUEL.sent === m.with;
       DUEL.sent = 0; DUEL.ask = null; clearTimeout(DUEL.sentT); clearTimeout(DUEL.askT);
       if (S.mode === 'aim') exitAim();
       duelReset(); DUEL.starting = true; resetRound(true); DUEL.starting = false;
-      Object.assign(DUEL, { on: true, op: m.with, nick: m.nick });
+      Object.assign(DUEL, { on: true, op: m.with, nick: m.nick, honor: iAsked ? 'me' : 'op', ost: null, turn: null, turnSince: 0 });
       updDuel(); feed(`${m.nick} 님과 대전 시작!`); toast(`⚔️ ${m.nick} 님과 대전 시작! 1번 홀부터 홀마다 승부예요`, 3000);
       break;
     }
     case 'hole': if (DUEL.on && m.from === DUEL.op) { DUEL.their[m.h] = m.s; duelCheck(m.h); updDuel(); } break;
+    case 'st': if (DUEL.on && m.from === DUEL.op) { DUEL.ost = { h: m.h, bx: m.bx / 10, bz: m.bz / 10, s: m.s, fin: m.fin, fly: m.fly, idle: m.idle, at: performance.now() }; duelTurnTick(); } break;
+    case 'ride': if (DUEL.on && m.from === DUEL.op) duelJoinRide(m); break;
     case 'gone': if (DUEL.on && m.from === DUEL.op) { const nk = DUEL.nick, [a, b] = DUEL.pts; duelReset(); feed(`${nk} 님이 대전을 그만뒀어요 (${a} : ${b})`); toast(m.why === 'left' ? `${nk} 님이 나가서 대전이 끝났어요. 그때까지 ${a} : ${b}` : `${nk} 님이 그만둬서 대전이 끝났어요. 그때까지 ${a} : ${b}`, 3200); } break;
   }
 }
@@ -1349,7 +1352,7 @@ function duelHole(h, s) { if (!DUEL.on) return; DUEL.my[h] = s; sendNet({ t: 'du
 function duelCheck(h) {
   const a = DUEL.my[h], b = DUEL.their[h]; if (a == null || b == null || DUEL.told[h]) return;
   DUEL.told[h] = 1;
-  const r = a < b ? 0 : a > b ? 1 : -1; if (r >= 0) DUEL.pts[r]++;
+  const r = a < b ? 0 : a > b ? 1 : -1; if (r >= 0) DUEL.pts[r]++; if (r === 0) DUEL.honor = 'me'; else if (r === 1) DUEL.honor = 'op';
   const [p, q] = DUEL.pts;
   setTimeout(() => toast(`${h + 1}번 홀 승부: 나 ${a}타 · 상대 ${b}타 → ${r === 0 ? '내가 이겼어요!' : r === 1 ? `${DUEL.nick} 님 승!` : '비겼어요'} (${p} : ${q})`, 3200), 2800);
   if (r === 0) { tone(784, .2, 'triangle', .14, 2.8); tone(1047, .3, 'triangle', .14, 2.95); }
@@ -1377,9 +1380,86 @@ function updDuel() {
   if (!DUEL.on) { b.hidden = true; for (const o of NET.others.values()) o.tag?.classList.remove('rival'); return; }
   const o = NET.others.get(DUEL.op), myDone = DUEL.my.filter(x => x != null).length, thDone = DUEL.their.filter(x => x != null).length;
   const wait = myDone > thDone ? ` · 상대는 ${Math.min(thDone + 1, HOLES.length)}번 홀` : '';
-  b.hidden = false; b.innerHTML = `<span>⚔️ vs ${esc(DUEL.nick)}</span><b>${DUEL.pts[0]} : ${DUEL.pts[1]}</b><span class="dw">${wait}</span><button type="button" id="duelStop" aria-label="대전 그만하기">그만</button>`;
+  const tn = DUEL.turn === 'me' ? '<span class="dt me">⛳ 내 차례</span>' : DUEL.turn === 'op' ? `<span class="dt">⏳ ${esc(DUEL.nick)} 차례</span>` : DUEL.turn === 'wait' ? '<span class="dt">🏌️ 공 날아가는 중</span>' : '';
+  b.hidden = false; b.innerHTML = `<span>⚔️ vs ${esc(DUEL.nick)}</span><b>${DUEL.pts[0]} : ${DUEL.pts[1]}</b>${tn}<span class="dw">${wait}</span><button type="button" id="duelStop" aria-label="대전 그만하기">그만</button>`;
   $('duelStop').onclick = () => { overlay(`<h2>대전을 그만할까요?</h2><p>지금까지 ${DUEL.pts[0]} : ${DUEL.pts[1]}이에요. 그만두면 상대에게도 알려져요.</p><div class="btns"><button class="btn" id="dqY">그만하기</button><button class="btn sub" id="dqN">계속하기</button></div>`); $('dqY').onclick = () => { closeOverlay(); duelQuit('대전을 그만뒀어요'); }; $('dqN').onclick = closeOverlay; };
   if (o && o.tag) o.tag.classList.add('rival');
+}
+// ---- 대전 순서: 깃발에서 공이 더 먼 사람이 먼저 쳐요. 티샷은 지난 홀 이긴 사람(아너)부터, 1번 홀은 신청한 사람부터 ----
+const duelMySt = () => ({ h: S.hole, bx: Math.round(S.ball.x * 10), bz: Math.round(S.ball.z * 10), s: S.strokes, fin: S.scores[S.hole] != null ? 1 : 0, fly: S.ball.state !== 'rest' || S.mode === 'flight' ? 1 : 0, idle: S.mode === 'walk' && S.ball.state === 'rest' ? 1 : 0 });
+function duelTurn() {
+  if (!DUEL.on || DUEL.done) return null;
+  const o = DUEL.ost, my = duelMySt();
+  if (my.fin) return null;
+  if (!o || performance.now() - o.at > 20000) return 'me';          // 상대 소식이 끊기면 그냥 쳐요
+  if (o.h > my.h) return 'me';
+  if (o.h < my.h) return o.fin ? 'me' : 'op';                          // 상대가 이전 홀을 마무리하는 중
+  if (o.fin) return 'me';
+  if (my.fly || o.fly) return 'wait';
+  if (my.s === 0 && o.s === 0) return DUEL.honor || 'me';
+  const c = HOLES[my.h].cup, dm = Math.hypot(S.ball.x - c[0], S.ball.z - c[1]), dop = Math.hypot(o.bx - c[0], o.bz - c[1]);
+  if (Math.abs(dm - dop) < .05) return NET.id < DUEL.op ? 'me' : 'op';
+  return dm > dop ? 'me' : 'op';
+}
+function duelWhy(t) {
+  const my = duelMySt(), o = DUEL.ost;
+  if (!o || !my) return '';
+  if (o.h < my.h) return '상대가 앞 홀을 마무리하는 중이에요';
+  if (my.s === 0 && o.s === 0) return DUEL.honor === t ? (my.h === 0 ? '대전을 신청한 사람이 먼저 티샷해요' : '지난 홀을 이긴 사람이 먼저 티샷해요') : '';
+  return t === 'me' ? '내 공이 깃발에서 더 멀어요' : '상대 공이 깃발에서 더 멀어요';
+}
+function duelTurnTick() {
+  const t = duelTurn(); if (t === DUEL.turn) return;
+  DUEL.turn = t; DUEL.turnSince = performance.now(); lastActKey = '';
+  if (t === 'me') { toast(`⛳ 내 차례예요! ${duelWhy('me')}`, 2600); tone(784, .1, 'triangle', .08); tone(1047, .14, 'triangle', .08, .1); }
+  else if (t === 'op') toast(`⏳ ${DUEL.nick} 님 차례예요. ${duelWhy('op')}`, 2600);
+  updDuel();
+}
+// 상대 차례인데 1분 넘게 안 치면 먼저 쳐도 돼요
+const duelMayShoot = () => !DUEL.on || DUEL.turn !== 'op' && DUEL.turn !== 'wait' || DUEL.turn === 'op' && performance.now() - DUEL.turnSince > 60000;
+let duelStKey = '', duelStT = 0;
+setInterval(() => {
+  if (!DUEL.on || !NET.open) return;
+  const st = duelMySt(), k = JSON.stringify(st), now = performance.now();
+  if (k !== duelStKey || now - duelStT > 3000) { duelStKey = k; duelStT = now; sendNet({ t: 'duel', op: 'st', ...st }); }
+  duelTurnTick();
+}, 400);
+// ---- 같이 카트 타기: 대전 중 카트를 부르면 상대도 같이 태우고, 깃발에서 먼 공부터 들러요 ----
+function stopFor(bx, bz) {
+  const c = HOLES[S.hole].cup, a = Math.atan2(c[0] - bx, c[1] - bz);
+  let x = bx - Math.sin(a) * 1.4, z = bz - Math.cos(a) * 1.4;
+  for (let k = 1; k < 12 && !canStand(x, z); k++) { x = bx - Math.sin(a + k * .7) * (1.4 + k * .3); z = bz - Math.cos(a + k * .7) * (1.4 + k * .3); }
+  return [x, z, a];
+}
+function duelShareRide(say, mid) {
+  const o = DUEL.ost, op = NET.others.get(DUEL.op);
+  if (!o || !op || performance.now() - o.at > 5000 || !o.idle || o.h !== S.hole || o.fin || S.scores[S.hole] != null) return false;
+  if (Math.hypot(op.tx - o.bx, op.tz - o.bz) < 6) return false;           // 상대는 이미 자기 공 옆
+  const A = stopFor(S.ball.x, S.ball.z), B = stopFor(o.bx, o.bz);
+  const c = HOLES[S.hole].cup, dA = Math.hypot(S.ball.x - c[0], S.ball.z - c[1]), dB = Math.hypot(o.bx - c[0], o.bz - c[1]);
+  let stops;
+  if (Math.hypot(A[0] - B[0], A[1] - B[1]) < 8) stops = [[A[0], A[1], 2]];
+  else stops = dA >= dB ? [[A[0], A[1], 0], [B[0], B[1], 1]] : [[B[0], B[1], 1], [A[0], A[1], 0]];
+  sendNet({ t: 'duel', op: 'ride', sx: Math.round(me.x * 10), sz: Math.round(me.z * 10), stops: stops.map(([x, z, w]) => [Math.round(x * 10), Math.round(z * 10), w]) });
+  startSharedRide(stops.map(([x, z, w]) => ({ x, z, mine: w !== 1 })), say, mid);
+  feed(`${DUEL.nick} 님과 같이 카트 타요`); return true;
+}
+function duelJoinRide(m) {
+  if (S.mode !== 'walk' || TUT.on) return;
+  const o = DUEL.ost; if (o && o.h !== S.hole) return;
+  if ($('overlay') && !$('overlay').hidden) closeOverlay();
+  me.x = m.sx / 10; me.z = m.sz / 10; snapCam();
+  const stops = m.stops.map(([x, z, w]) => ({ x: x / 10, z: z / 10, mine: w !== 0 }));
+  // 내 정류장은 내 공 기준으로 다시 잡아요
+  for (const st of stops) if (st.mine) { const [x, z] = stopFor(S.ball.x, S.ball.z); if (Math.hypot(x - st.x, z - st.z) < 12) { st.x = x; st.z = z; } }
+  startSharedRide(stops, `${DUEL.nick} 님이랑 같이 모실게요~`, '');
+  toast(`🚗 ${DUEL.nick} 님 카트에 같이 탔어요`, 2000);
+}
+function startSharedRide(stops, say, mid) {
+  RIDE.stops = stops; RIDE.si = 0;
+  const st = stops[0]; const face = st.mine ? Math.atan2(aimTarget()[0] - S.ball.x, aimTarget()[1] - S.ball.z) : null;
+  rideTo(st.x, st.z, face, say, mid);
+  RIDE.stops = stops; RIDE.si = 0;
 }
 // 코스를 떠나면(클럽하우스·연습장·정문) 대전은 끝나요
 setInterval(() => { if (DUEL.on && !onCourse()) duelQuit('코스를 떠나서 대전이 끝났어요'); if (DUEL.on) updDuel(); }, 1000);
@@ -1414,7 +1494,7 @@ function updActions() {
   let key;
   if (S.mode === 'aim') key = `aim${S.club}${S.chance}${S.chanceBusy ? 1 : 0}${S.readLie ? 1 : 0}`;
   const nearRR = Math.hypot(me.x - RR_DOORS.m[0], me.z - (RR_DOORS.m[1] + RR_DOORS.w[1]) / 2) < 5;
-  if (S.mode === 'walk') key = `walk${S.warpTix | 0}${S.ball.state}${near}${inShade}${nearRR}${S.mulligans && S.prev ? 1 : 0}${okReady() ? 1 : 0}${S.okTix}${S.ballVis}`;
+  if (S.mode === 'walk') key = `walk${DUEL.on ? DUEL.turn : ''}${S.warpTix | 0}${S.ball.state}${near}${inShade}${nearRR}${S.mulligans && S.prev ? 1 : 0}${okReady() ? 1 : 0}${S.okTix}${S.ballVis}`;
   else if (S.mode !== 'aim') key = S.mode;
   if (S.mode === 'ride') key = 'ride';
   if (S.mode === 'range') key = `range${RG.club}`;
@@ -1431,7 +1511,7 @@ function updActions() {
       <button class="act sub" id="cancel">취소</button>`;
   } else if (S.mode === 'walk') {
     if (S.ball.state === 'rest') {
-      if (near) html += '<button class="act" id="ready">공 치기 준비 (E)</button>';
+      if (near) html += DUEL.on && !duelMayShoot() ? `<button class="act sub" id="ready">⏳ ${esc(DUEL.nick)} 님 차례</button>` : '<button class="act" id="ready">공 치기 준비 (E)</button>';
       else html += `<button class="act" id="cartBall">카트</button><button class="act sub" id="goBall">걸어가기</button>${S.warpTix > 0 ? `<button class="act sub" id="warpBall">순간이동 (${S.warpTix})</button>` : ''}`;
     }
     if (inShade) html += '<button class="act" id="menuBtn">그늘집 메뉴판 보기</button>';
@@ -1528,6 +1608,8 @@ function startEngine() {
 }
 function stopEngine() { if (!eng) return; const e = eng; eng = null; e.g.gain.setTargetAtTime(0, AC.currentTime, .15); setTimeout(() => { try { e.o.stop(); } catch {} }, 700); }
 function cartTo(x, z, toBall, say, mid) {
+  if (toBall && DUEL.on && S.mode === 'walk' && duelShareRide(say, mid)) return;
+  RIDE.stops = null;
   let tx = x, tz = z, face = null;
   if (toBall) { const tg = aimTarget(), a = Math.atan2(tg[0] - x, tg[1] - z); tx = x - Math.sin(a) * 1.4; tz = z - Math.cos(a) * 1.4; face = a; }
   for (let k = 0; k < 20 && !canStand(tx, tz); k++) { tx += rand(-1.5, 1.5); tz += rand(-1.5, 1.5); }
@@ -1555,9 +1637,20 @@ function placeCart() {
   const v = new T.Vector3(-.38, .55, -.3); c.localToWorld(v);
   me.x = v.x; me.z = v.z; me.yaw = RIDE.yaw; me.seat = v; me.seatPitch = pitch; me.anim = 4;
 }
+function rideStopDone() {
+  // 같이 타기: 내 정류장이 아니면 잠깐 서서 상대를 내려주고 다음 정류장으로
+  const st = RIDE.stops && RIDE.stops[RIDE.si];
+  if (!st || st.mine) return false;
+  RIDE.si++; const nx = RIDE.stops[RIDE.si]; if (!nx) return false;
+  RIDE.pause = 1.6; RIDE.sp = 0; caddieSay(`${DUEL.nick || '상대'} 님 여기서 내리세요~ 나이스 샷!`, 2200);
+  RIDE.pts = planRoute(RIDE.x, RIDE.z, nx.x, nx.z); RIDE.i = 0; RIDE.dest = [nx.x, nx.z];
+  RIDE.face = nx.mine ? Math.atan2(aimTarget()[0] - S.ball.x, aimTarget()[1] - S.ball.z) : null;
+  return true;
+}
 function updateRide(dt) {
+  if (RIDE.pause > 0) { RIDE.pause -= dt; placeCart(); return; }
   const tgt = RIDE.pts[RIDE.i];
-  if (!tgt) return arrive();
+  if (!tgt) { if (rideStopDone()) return; return arrive(); }
   let rem = Math.hypot(tgt[0] - RIDE.x, tgt[1] - RIDE.z); for (let i = RIDE.i + 1; i < RIDE.pts.length; i++) rem += Math.hypot(RIDE.pts[i][0] - RIDE.pts[i - 1][0], RIDE.pts[i][1] - RIDE.pts[i - 1][1]);
   const want = Math.min(RIDE.rush ? 20 : 13, rem * 1.4 + 1.2);
   RIDE.sp += clamp(want - RIDE.sp, -14 * dt, 7 * dt);
@@ -1569,10 +1662,10 @@ function updateRide(dt) {
   cam.yaw += angDiff(cam.yaw, RIDE.yaw) * Math.min(1, dt * 1.5);
   if (eng) eng.o.frequency.setTargetAtTime(45 + RIDE.sp * 4, AC.currentTime, .1);
   if (!RIDE.midSaid && rem < RIDE.total * .6) { RIDE.midSaid = true; caddieSay(RIDE.mid, 4200); }
-  if (RIDE.i >= RIDE.pts.length) arrive();
+  if (RIDE.i >= RIDE.pts.length) { if (rideStopDone()) return; arrive(); }
 }
 function arrive() {
-  RIDE.rush = false;
+  RIDE.rush = false; RIDE.stops = null; RIDE.pause = 0;
   stopEngine(); tone(880, .08, 'sine', .08); tone(990, .1, 'sine', .08, .1);
   const [dx, dz] = RIDE.dest; me.x = dx; me.z = dz; me.seat = null; me.anim = 0;
   if (RIDE.face != null) { me.yaw = RIDE.face; cam.yaw = RIDE.face; }
@@ -1584,12 +1677,13 @@ function arrive() {
   S.mode = 'walk'; lastActKey = ''; caddieSay(['도착했습니다~ 나이스 샷 하세요!', '여기서 내리시면 돼요~', '도착! 천천히 치세요~'][Math.random() * 3 | 0], 2600);
   me.jump = .6;
 }
-function skipRide() { if (S.mode !== 'ride') return; RIDE.i = RIDE.pts.length; const [dx, dz] = RIDE.dest; RIDE.x = dx; RIDE.z = dz; arrive(); snapCam(); }
+function skipRide() { if (S.mode !== 'ride') return; if (RIDE.stops) { const mine = RIDE.stops.find((st, i) => i >= RIDE.si && st.mine); if (mine) RIDE.dest = [mine.x, mine.z]; } RIDE.i = RIDE.pts.length; const [dx, dz] = RIDE.dest; RIDE.x = dx; RIDE.z = dz; arrive(); snapCam(); }
 
 // ================= 샷 =================
 function enterAim() {
   if (S.mode !== 'walk' || S.ball.state !== 'rest') return;
   if (Math.hypot(me.x - S.ball.x, me.z - S.ball.z) > 3.2) return;
+  if (DUEL.on && !duelMayShoot()) { toast(DUEL.turn === 'wait' ? '공이 날아가는 중이에요. 멈추면 순서를 알려줄게요' : `⏳ 지금은 ${DUEL.nick} 님 차례예요. ${duelWhy('op')}`, 2400); return; }
   S.mode = 'aim'; S.club = autoClub(); S.clubAuto = true;
   const tgt = aimTarget(); S.aimYaw = Math.atan2(tgt[0] - S.ball.x, tgt[1] - S.ball.z); cam.aimYaw = S.aimYaw;
   $('power').hidden = false; $('pow').style.width = '0%'; $('powLabel').textContent = `${CLUBS[S.club].name}(${CLUBS[S.club].hint})`;
@@ -4059,6 +4153,12 @@ function frame() {
       o.cart.visible = true; o.cart.position.set(cx, gy, cz); o.cart.rotation.set(0, o.yaw, 0);
       o.seat = (o.seat || new T.Vector3()).set(o.x, gy + .55, o.z); o.seatPitch = 0;
     } else if (o.cart) o.cart.visible = false;
+    // 대전 상대와 같이 타는 중이면 내 카트 뒷자리에 앉혀요
+    if (DUEL.on && o.id === DUEL.op && o.a === 4 && S.mode === 'ride' && RIDE.stops && me.cart && Math.hypot(o.x - me.x, o.z - me.z) < 14) {
+      if (o.cart) o.cart.visible = false;
+      const v = new T.Vector3(.1, .62, -1.2); me.cart.localToWorld(v); o.x = o.tx = v.x; o.z = o.tz = v.z; o.yaw = o.tyaw = RIDE.yaw + Math.PI;
+      o.seat = (o.seat || new T.Vector3()).copy(v); o.seatPitch = me.seatPitch || 0;
+    }
     if (o.a === 3 && !o.swingT) o.swingT = .01;
     if (o.a !== 3 && o.swingT > 1) o.swingT = 0;
     animateAvatar(o.av, o, dt, t);
