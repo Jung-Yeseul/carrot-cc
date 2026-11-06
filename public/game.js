@@ -1494,7 +1494,10 @@ function updActions() {
   let key;
   if (S.mode === 'aim') key = `aim${S.club}${S.chance}${S.chanceBusy ? 1 : 0}${S.readLie ? 1 : 0}`;
   const nearRR = Math.hypot(me.x - RR_DOORS.m[0], me.z - (RR_DOORS.m[1] + RR_DOORS.w[1]) / 2) < 5;
-  if (S.mode === 'walk') key = `walk${DUEL.on ? DUEL.turn : ''}${S.warpTix | 0}${S.ball.state}${near}${inShade}${nearRR}${S.mulligans && S.prev ? 1 : 0}${okReady() ? 1 : 0}${S.okTix}${S.ballVis}`;
+  // 그늘집·화장실 쉼터: 둘이 가까워서 하나로 묶어요. 들어오면 버튼 3개 고정(살짝 나가도 바로 안 바뀌게)
+  const dRest = Math.min(Math.hypot(me.x - SHADE.x, me.z - SHADE.z) - 2, Math.hypot(me.x - RR_DOORS.m[0], me.z - (RR_DOORS.m[1] + RR_DOORS.w[1]) / 2));
+  S.inRest = S.inRest ? dRest < 10 : dRest < 6;
+  if (S.mode === 'walk') key = `walk${S.inRest ? 'R' : ''}${DUEL.on ? DUEL.turn : ''}${S.warpTix | 0}${S.ball.state}${near}${inShade}${nearRR}${S.mulligans && S.prev ? 1 : 0}${okReady() ? 1 : 0}${S.okTix}${S.ballVis}`;
   else if (S.mode !== 'aim') key = S.mode;
   if (S.mode === 'ride') key = 'ride';
   if (S.mode === 'range') key = `range${RG.club}`;
@@ -1514,8 +1517,10 @@ function updActions() {
       if (near) html += DUEL.on && !duelMayShoot() ? `<button class="act sub" id="ready">⏳ ${esc(DUEL.nick)} 님 차례</button>` : '<button class="act" id="ready">공 치기 준비 (E)</button>';
       else html += `<button class="act" id="cartBall">카트</button><button class="act sub" id="goBall">걸어가기</button>${S.warpTix > 0 ? `<button class="act sub" id="warpBall">순간이동 (${S.warpTix})</button>` : ''}`;
     }
-    if (inShade) html += '<button class="act" id="menuBtn">그늘집 메뉴판 보기</button>';
-    if (nearRR) html += '<button class="act wc m" id="wcM">남자 화장실</button><button class="act wc w" id="wcW">여자 화장실</button>';
+    if (S.inRest) {
+      // 쉼터에서는 늘 같은 3개: 그늘집 · 화장실 · 공으로(카트)
+      html = (S.ball.state === 'rest' && near ? html : '') + '<button class="act" id="restShade">🍢 그늘집</button><button class="act wc" id="restWC">🚻 화장실</button>' + (S.ball.state === 'rest' && !near ? '<button class="act sub" id="cartBall">🚗 공으로</button>' : '');
+    }
     if (S.mulligans && S.prev && S.ball.state === 'rest') html += `<button class="act sub" id="mull">다시 치기 (멀리건 ${S.mulligans})</button>`;
     if (okReady()) html += `<button class="act" id="okBtn">OK! 넣은 걸로 (${S.okTix})</button>`;
   }
@@ -1536,6 +1541,8 @@ function updActions() {
   const on = (id, f) => { const el = $(id); if (el) el.onclick = f; };
   on('skipRide', skipRide); on('eatDone', () => { EAT.t = EAT_SEC; }); on('skipFlight', skipFlight); on('ready', enterAim); on('goBall', walkToBall); on('cartBall', () => cartTo(S.ball.x, S.ball.z, true)); on('warpBall', warpToBall); on('menuBtn', showShade); on('mull', mulligan); on('okBtn', useOk); on('pickBtn', pickUp);
   on('wcM', () => useRestroom('m')); on('wcW', () => useRestroom('w'));
+  on('restShade', () => walkThen([SHADE.x, SHADE.z + 2.5], 4.5, [SHADE.x, SHADE.z], showShade));
+  on('restWC', () => { overlay(`<span class="eyebrow">화장실</span><h2>어느 쪽으로 갈까요?</h2><div class="btns"><button class="act wc m" id="wcPickM">남자 화장실</button><button class="act wc w" id="wcPickW">여자 화장실</button></div><button class="linkbtn" id="wcPickX">닫기</button>`, true); wcPickBind(); });
   on('cancel', exitAim); on('clubBtn', () => { S.club = (S.club + 1) % 4; S.clubAuto = false; lastActKey = ''; clearChance('클럽을 바꿔서 캐디 찬스가 풀렸어요'); }); on('chanceBtn', caddieChance); on('lieBtn', toggleLie);
   on('rClub', () => { RG.club = (RG.club + 1) % 3; rangeHud(); lastActKey = ''; }); on('rLobby', () => backToClub('range'));
   on('clEnter', () => startCine('enter')); on('clDress', openDress); on('clLobby', () => walkPath([[-13, 0], [-9, 0], [-2, -2.2]]));
@@ -1938,6 +1945,20 @@ function buildWC() {
   const lamp = new T.PointLight(0xfff4e0, 1.1, 14); lamp.position.set(0, 3.6, -.5); g.add(lamp);
   add(new T.CylinderGeometry(.4, .4, .06, 16), new T.MeshBasicMaterial({ color: 0xfff4e0 }), 0, 3.97, -.5);
   const actor = makeCarrot('#ffffff'); g.add(actor); WC.actor = actor; WC.S = .62;
+}
+function wcPickBind() {
+  const go = k => { closeOverlay(); const d = RR_DOORS[k]; walkThen([d[0] + 1 * RR_SIDE, d[1]], 2.2, d, () => useRestroom(k)); };
+  $('wcPickM').onclick = () => go('m'); $('wcPickW').onclick = () => go('w'); $('wcPickX').onclick = closeOverlay;
+}
+// 목적지까지 걸어간 다음 할 일을 해요 (이미 가까우면 바로)
+function walkThen(pt, near, center, fn) {
+  if (Math.hypot(me.x - center[0], me.z - center[1]) < near) return fn();
+  me.moveT = pt; me.path = null; const t0 = performance.now();
+  const iv = setInterval(() => {
+    if (S.mode !== 'walk' || performance.now() - t0 > 12000) return clearInterval(iv);
+    if (Math.hypot(me.x - center[0], me.z - center[1]) < near) { clearInterval(iv); me.moveT = null; fn(); }
+    else if (!me.moveT) { clearInterval(iv); }
+  }, 120);
 }
 function useRestroom(kind) {
   if (S.mode !== 'walk') return;
