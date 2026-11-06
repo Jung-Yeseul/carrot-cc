@@ -341,7 +341,8 @@ td.cur,th.cur{background:color-mix(in srgb,var(--leaf) 14%,transparent)}
 @keyframes coachIn{from{opacity:0;transform:translate(-50%,-6px)}to{opacity:1;transform:translate(-50%,0)}}
 @media (max-width:640px){.coach{top:calc(128px + env(safe-area-inset-top,0px));padding:7px 10px;gap:2px 8px;border-radius:14px}.coach span#coachText{font-size:13px;flex-basis:100%;order:2}.coach .coach-btns{order:1;margin-left:auto}.coach b{order:0}}
 /* ---- 코스 고르기 ---- */
-.course-list{display:grid;gap:10px;margin-top:6px}
+.course-list{display:grid;gap:7px;margin-top:6px}
+.course-list .course-card{padding:8px 12px;grid-template-columns:38px 1fr}.course-list .course-card .cemoji{font-size:26px}.course-list .course-card b{font-size:17px}.course-list .course-card .cdesc{font-size:12px}
 .course-card{display:grid;grid-template-columns:48px 1fr;grid-template-rows:auto auto;column-gap:12px;align-items:center;text-align:left;border:2px solid var(--line);border-radius:16px;background:color-mix(in srgb,var(--surface) 92%,transparent);color:var(--fg);padding:12px 14px;cursor:pointer;font:inherit}
 .course-card .cemoji{grid-row:1 / span 3;font-size:34px;text-align:center}
 .course-card b{font:400 20px var(--display)}

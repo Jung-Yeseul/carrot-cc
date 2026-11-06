@@ -4508,5 +4508,435 @@
   "Hole {0}: me {1} · opponent {2} → {3} ({4} : {5})",
   "{0}番ホールの勝負：私 {1}打・相手 {2}打 → {3}（{4} : {5}）",
   "第{0}洞：我 {1}杆 · 对手 {2}杆 → {3}（{4} : {5}）"
+ ],
+ "벚꽃 코스": [
+  "Cherry Blossom Course",
+  "桜コース",
+  "樱花球场"
+ ],
+ "벚꽃 터널 사이로 꽃잎이 흩날리는 봄 코스": [
+  "A spring course with petals drifting through cherry blossom tunnels",
+  "桜のトンネルに花びらが舞う春のコース",
+  "花瓣在樱花隧道间飘舞的春日球场"
+ ],
+ "캐니언 코스": [
+  "Canyon Course",
+  "キャニオンコース",
+  "峡谷球场"
+ ],
+ "붉은 바위산과 선인장, 넓은 모래 벙커와 오아시스": [
+  "Red mesas, cacti, wide sand bunkers and oases",
+  "赤い岩山とサボテン、広い砂のバンカーとオアシス",
+  "红色岩山与仙人掌，宽阔沙坑和绿洲"
+ ],
+ "별빛 야간 코스": [
+  "Starlight Night Course",
+  "星空ナイターコース",
+  "星光夜场球场"
+ ],
+ "조명 켜진 밤 골프장, 반딧불과 쏟아지는 별": [
+  "A floodlit night course with fireflies and a sky full of stars",
+  "照明が灯る夜のゴルフ場、ホタルと降るような星",
+  "灯火通明的夜间球场，萤火虫和满天繁星"
+ ],
+ "독수리": [
+  "Eagle",
+  "ワシ",
+  "老鹰"
+ ],
+ "부엉이": [
+  "Owl",
+  "フクロウ",
+  "猫头鹰"
+ ],
+ "벚꽃길": [
+  "Blossom Path",
+  "桜の道",
+  "樱花路"
+ ],
+ "꽃밭 토끼": [
+  "Flower Bed Bunny",
+  "花畑うさぎ",
+  "花田兔子"
+ ],
+ "벚꽃 연못 악어": [
+  "Blossom Pond Croc",
+  "桜の池のワニ",
+  "樱花池鳄鱼"
+ ],
+ "꽃바람 언덕": [
+  "Blossom Breeze Hill",
+  "花風の丘",
+  "花风山丘"
+ ],
+ "꽃놀이 보물찾기": [
+  "Blossom Treasure Hunt",
+  "花見の宝探し",
+  "赏花寻宝"
+ ],
+ "꽃잎 오리 연못": [
+  "Petal Duck Pond",
+  "花びらのアヒル池",
+  "花瓣鸭子池"
+ ],
+ "벚나무 멧돼지 숲": [
+  "Cherry Grove Boars",
+  "桜の森のイノシシ",
+  "樱树林野猪"
+ ],
+ "까마귀 꽃동산": [
+  "Crow Flower Hill",
+  "カラスの花の丘",
+  "乌鸦花山"
+ ],
+ "벚꽃 갤러리": [
+  "Blossom Gallery",
+  "桜ギャラリー",
+  "樱花观众席"
+ ],
+ "붉은 협곡": [
+  "Red Gorge",
+  "赤い峡谷",
+  "红色峡谷"
+ ],
+ "독수리 바위": [
+  "Eagle Rock",
+  "ワシの岩",
+  "老鹰岩"
+ ],
+ "선인장 숲 멧돼지": [
+  "Cactus Grove Boars",
+  "サボテンの森のイノシシ",
+  "仙人掌林野猪"
+ ],
+ "오리 오아시스": [
+  "Duck Oasis",
+  "アヒルのオアシス",
+  "鸭子绿洲"
+ ],
+ "사막 보물찾기": [
+  "Desert Treasure Hunt",
+  "砂漠の宝探し",
+  "沙漠寻宝"
+ ],
+ "모래바람 언덕": [
+  "Sandstorm Hill",
+  "砂嵐の丘",
+  "沙尘山丘"
+ ],
+ "악어 오아시스": [
+  "Croc Oasis",
+  "ワニのオアシス",
+  "鳄鱼绿洲"
+ ],
+ "사막 토끼 굴": [
+  "Desert Bunny Burrow",
+  "砂漠うさぎの巣穴",
+  "沙漠兔子洞"
+ ],
+ "메사 갤러리": [
+  "Mesa Gallery",
+  "メサギャラリー",
+  "岩山观众席"
+ ],
+ "달빛 티샷": [
+  "Moonlight Tee Shot",
+  "月明かりのティーショット",
+  "月光开球"
+ ],
+ "부엉이 숲": [
+  "Owl Woods",
+  "フクロウの森",
+  "猫头鹰林"
+ ],
+ "밤 멧돼지 숲": [
+  "Night Boar Woods",
+  "夜のイノシシの森",
+  "夜间野猪林"
+ ],
+ "반딧불 오리 연못": [
+  "Firefly Duck Pond",
+  "ホタルのアヒル池",
+  "萤火虫鸭子池"
+ ],
+ "반딧불 보물찾기": [
+  "Firefly Treasure Hunt",
+  "ホタルの宝探し",
+  "萤火虫寻宝"
+ ],
+ "밤바람 언덕": [
+  "Night Breeze Hill",
+  "夜風の丘",
+  "夜风山丘"
+ ],
+ "달빛 악어 연못": [
+  "Moonlit Croc Pond",
+  "月明かりのワニ池",
+  "月光鳄鱼池"
+ ],
+ "달토끼 언덕": [
+  "Moon Bunny Hill",
+  "月うさぎの丘",
+  "月兔山丘"
+ ],
+ "별빛 갤러리": [
+  "Starlight Gallery",
+  "星空ギャラリー",
+  "星光观众席"
+ ],
+ "벚꽃길 홀": [
+  "Blossom Path hole",
+  "桜の道のホール",
+  "樱花路洞"
+ ],
+ "꽃잎 맞으며 천천히 감 잡는 홀이에요. 특별한 이벤트는 없어요.": [
+  "Warm up slowly under falling petals. No special events here.",
+  "花びらを浴びながらゆっくり感覚をつかむホール。特別なイベントはありません。",
+  "迎着花瓣慢慢找手感的洞。没有特别事件。"
+ ],
+ "꽃바람 홀": [
+  "Blossom Breeze hole",
+  "花風のホール",
+  "花风洞"
+ ],
+ "봄바람이 불어요! 꽃잎이 날리는 쪽으로 공도 밀려요.": [
+  "A spring breeze! The ball drifts the same way as the petals.",
+  "春風が吹きます！花びらが飛ぶ方へボールも流されます。",
+  "春风吹来！球也会往花瓣飘的方向偏。"
+ ],
+ "꽃놀이 보물찾기 홀": [
+  "Blossom Treasure Hunt hole",
+  "花見の宝探しのホール",
+  "赏花寻宝洞"
+ ],
+ "벚꽃 갤러리 홀": [
+  "Blossom Gallery hole",
+  "桜ギャラリーのホール",
+  "樱花观众洞"
+ ],
+ "마지막 홀! 벚꽃 아래 갤러리가 지켜보고 있어요.": [
+  "Last hole! The gallery under the blossoms is watching.",
+  "最終ホール！桜の下のギャラリーが見守っています。",
+  "最后一洞！樱花下的观众在看着。"
+ ],
+ "붉은 협곡 홀": [
+  "Red Gorge hole",
+  "赤い峡谷のホール",
+  "红色峡谷洞"
+ ],
+ "협곡 바람 맞으며 감 잡는 홀이에요. 특별한 이벤트는 없어요.": [
+  "Warm up in the canyon wind. No special events here.",
+  "峡谷の風を受けながら感覚をつかむホール。特別なイベントはありません。",
+  "迎着峡谷风找手感的洞。没有特别事件。"
+ ],
+ "모래바람 홀": [
+  "Sandstorm hole",
+  "砂嵐のホール",
+  "沙尘洞"
+ ],
+ "모래바람이 세게 불어요! 공이 바람에 크게 밀려요.": [
+  "Strong sandy wind! The wind pushes the ball a lot.",
+  "砂嵐が強い！ボールが風に大きく流されます。",
+  "沙尘风很大！球会被风吹偏很多。"
+ ],
+ "독수리 홀": [
+  "Eagle hole",
+  "ワシのホール",
+  "老鹰洞"
+ ],
+ "독수리가 공을 노려요. 공에서 눈을 떼지 마세요!": [
+  "An eagle is eyeing your ball. Keep watching it!",
+  "ワシがボールを狙っています。目を離さないで！",
+  "老鹰盯上了你的球。别移开视线！"
+ ],
+ "오아시스 악어 홀": [
+  "Oasis Croc hole",
+  "オアシスのワニのホール",
+  "绿洲鳄鱼洞"
+ ],
+ "오아시스에 악어가 세 마리! 물가에 공이 멈추면 훔쳐가요. 한 홀에 한 번만이에요.": [
+  "Three crocs in the oasis! They steal balls that stop by the water. Only once per hole.",
+  "オアシスにワニが3匹！水辺でボールが止まると盗まれます。1ホールに1回だけ。",
+  "绿洲里有三条鳄鱼！球停在水边会被偷走。每洞只有一次。"
+ ],
+ "오아시스 오리 홀": [
+  "Oasis Duck hole",
+  "オアシスのアヒルのホール",
+  "绿洲鸭子洞"
+ ],
+ "오아시스에 오리 가족이 살아요. 공이 빠져도 건져다 줘요(무벌타).": [
+  "A duck family lives in the oasis. They fetch your ball if it falls in (no penalty).",
+  "オアシスにアヒル一家が住んでいます。落ちても拾ってくれます（罰打なし）。",
+  "绿洲里住着鸭子一家。球掉进去也会帮你捞回来（不罚杆）。"
+ ],
+ "메사 갤러리 홀": [
+  "Mesa Gallery hole",
+  "メサギャラリーのホール",
+  "岩山观众洞"
+ ],
+ "마지막 홀! 바위산 앞 갤러리가 지켜보고 있어요.": [
+  "Last hole! The gallery by the mesa is watching.",
+  "最終ホール！岩山の前のギャラリーが見守っています。",
+  "最后一洞！岩山前的观众在看着。"
+ ],
+ "달빛 홀": [
+  "Moonlight hole",
+  "月明かりのホール",
+  "月光洞"
+ ],
+ "조명 아래서 천천히 감 잡는 홀이에요. 특별한 이벤트는 없어요.": [
+  "Warm up slowly under the lights. No special events here.",
+  "照明の下でゆっくり感覚をつかむホール。特別なイベントはありません。",
+  "在灯光下慢慢找手感的洞。没有特别事件。"
+ ],
+ "밤바람 홀": [
+  "Night Breeze hole",
+  "夜風のホール",
+  "夜风洞"
+ ],
+ "밤바람이 불어요. 공이 바람에 밀려요.": [
+  "A night breeze blows. The wind pushes the ball.",
+  "夜風が吹きます。ボールが風に流されます。",
+  "夜风吹来，球会被风吹偏。"
+ ],
+ "부엉이 홀": [
+  "Owl hole",
+  "フクロウのホール",
+  "猫头鹰洞"
+ ],
+ "부엉이가 공을 노려요. 공에서 눈을 떼지 마세요!": [
+  "An owl is eyeing your ball. Keep watching it!",
+  "フクロウがボールを狙っています。目を離さないで！",
+  "猫头鹰盯上了你的球。别移开视线！"
+ ],
+ "반딧불 보물찾기 홀": [
+  "Firefly Treasure Hunt hole",
+  "ホタルの宝探しのホール",
+  "萤火虫寻宝洞"
+ ],
+ "반짝이는 트램펄린·황금 당근·물음표 상자를 맞혀 보세요!": [
+  "Hit the glowing trampoline, golden carrot and mystery box!",
+  "光るトランポリン・金のにんじん・はてなボックスに当ててみて！",
+  "试着击中闪亮的蹦床、金胡萝卜和问号箱！"
+ ],
+ "별빛 갤러리 홀": [
+  "Starlight Gallery hole",
+  "星空ギャラリーのホール",
+  "星光观众洞"
+ ],
+ "마지막 홀! 조명 아래 갤러리가 지켜보고 있어요.": [
+  "Last hole! The gallery under the lights is watching.",
+  "最終ホール！照明の下のギャラリーが見守っています。",
+  "最后一洞！灯光下的观众在看着。"
+ ],
+ "벚꽃 구경하며 천천히! 그린 앞 벙커만 조심하세요.": [
+  "Enjoy the blossoms and take it slow! Just watch the bunkers by the green.",
+  "桜を見ながらゆっくり！グリーン手前のバンカーだけ注意。",
+  "边赏樱边慢慢打！只要小心果岭前的沙坑。"
+ ],
+ "꽃밭(러프)에 가면 토끼가 도와줄지도요.": [
+  "In the flower beds (rough), a bunny might help you.",
+  "花畑（ラフ）に入るとうさぎが助けてくれるかも。",
+  "进了花田（长草区），兔子可能会帮你。"
+ ],
+ "연못에 악어가 있어요. 꺾이는 곳까지 끊어 가세요.": [
+  "There's a croc in the pond. Lay up to the bend.",
+  "池にワニがいます。曲がり角まで刻んでいきましょう。",
+  "池塘里有鳄鱼。先打到转弯处。"
+ ],
+ "꽃바람이 불어요. 그린을 바로 노리면 연못에 빠질 수 있어요.": [
+  "A blossom breeze! Go straight for the green and you might hit the pond.",
+  "花風が吹きます。グリーンを直接狙うと池に落ちるかも。",
+  "花风吹来。直接攻果岭可能会掉进池塘。"
+ ],
+ "벚나무 사이가 좁아요. 숲에 들어가면 멧돼지 조심!": [
+  "It's narrow between the cherry trees. Watch out for boars in the woods!",
+  "桜の木の間が狭いです。森に入るとイノシシに注意！",
+  "樱树之间很窄。进了林子小心野猪！"
+ ],
+ "마지막 홀, 벚꽃 아래서 멋지게 마무리해요!": [
+  "Last hole: finish in style under the blossoms!",
+  "最終ホール、桜の下でかっこよく締めましょう！",
+  "最后一洞，在樱花下漂亮收尾！"
+ ],
+ "첫 홀부터 길어요! 드라이버로 시원하게 쳐 보세요.": [
+  "The first hole is long! Let it rip with the driver.",
+  "最初から長いホール！ドライバーで思い切り打ってみて。",
+  "第一洞就很长！用一号木痛快地打吧。"
+ ],
+ "독수리가 공을 노려요. 빨리 그린에 올리는 게 상책이에요.": [
+  "An eagle is after your ball. Best to get on the green fast.",
+  "ワシがボールを狙っています。早くグリーンに乗せるのが一番。",
+  "老鹰盯着你的球。最好快点上果岭。"
+ ],
+ "선인장 사이가 좁아요. 숲에 들어가면 멧돼지 조심!": [
+  "It's narrow between the cacti. Watch out for boars in the woods!",
+  "サボテンの間が狭いです。森に入るとイノシシに注意！",
+  "仙人掌之间很窄。进了林子小心野猪！"
+ ],
+ "오아시스는 빠져도 오리가 건져 줘요. 꺾이는 곳까지 쭉.": [
+  "Ducks fetch your ball from the oasis. Go all the way to the bend.",
+  "オアシスに落ちてもアヒルが拾ってくれます。曲がり角までまっすぐ。",
+  "掉进绿洲鸭子会帮你捞。一路打到转弯处。"
+ ],
+ "모래바람이 세요! 바람 방향을 보고 치세요.": [
+  "Strong sandy wind! Check the wind direction before you hit.",
+  "砂嵐が強い！風向きを見て打ちましょう。",
+  "沙尘风很大！看好风向再打。"
+ ],
+ "오아시스에 악어가 있어요. 꺾이는 곳까지 끊어 가세요.": [
+  "There's a croc in the oasis. Lay up to the bend.",
+  "オアシスにワニがいます。曲がり角まで刻んでいきましょう。",
+  "绿洲里有鳄鱼。先打到转弯处。"
+ ],
+ "모래 벙커가 넓어요. 러프에 가면 토끼가 도와줄지도요.": [
+  "The sand bunkers are wide. In the rough, a bunny might help you.",
+  "砂のバンカーが広いです。ラフに入るとうさぎが助けてくれるかも。",
+  "沙坑很宽。进了长草区，兔子可能会帮你。"
+ ],
+ "마지막 홀, 바위산 앞에서 멋지게 마무리해요!": [
+  "Last hole: finish in style by the mesa!",
+  "最終ホール、岩山の前でかっこよく締めましょう！",
+  "最后一洞，在岩山前漂亮收尾！"
+ ],
+ "조명 아래 첫 티샷! 첫 홀부터 길어요.": [
+  "First tee shot under the lights! The first hole is long.",
+  "照明の下で最初のティーショット！最初から長いホールです。",
+  "灯光下的第一杆！第一洞就很长。"
+ ],
+ "부엉이가 공을 노려요. 빨리 그린에 올리는 게 상책이에요.": [
+  "An owl is after your ball. Best to get on the green fast.",
+  "フクロウがボールを狙っています。早くグリーンに乗せるのが一番。",
+  "猫头鹰盯着你的球。最好快点上果岭。"
+ ],
+ "어두운 숲에 들어가면 멧돼지 조심!": [
+  "Watch out for boars in the dark woods!",
+  "暗い森に入るとイノシシに注意！",
+  "进了黑暗的树林小心野猪！"
+ ],
+ "오리 연못은 빠져도 괜찮아요. 꺾이는 곳까지 쭉.": [
+  "Falling into the duck pond is fine. Go all the way to the bend.",
+  "アヒルの池は落ちても大丈夫。曲がり角までまっすぐ。",
+  "掉进鸭子池也没关系。一路打到转弯处。"
+ ],
+ "반짝이는 트램펄린은 공을 튕기고, 황금 당근은 캐디 찬스예요.": [
+  "The glowing trampoline bounces your ball, and the golden carrot gives a caddie tip.",
+  "光るトランポリンはボールを跳ね返し、金のにんじんはキャディチャンス。",
+  "闪亮的蹦床会弹球，金胡萝卜是球童提示。"
+ ],
+ "밤바람이 불어요. 그린을 바로 노리면 연못에 빠질 수 있어요.": [
+  "A night breeze! Go straight for the green and you might hit the pond.",
+  "夜風が吹きます。グリーンを直接狙うと池に落ちるかも。",
+  "夜风吹来。直接攻果岭可能会掉进池塘。"
+ ],
+ "러프에 가면 달토끼가 도와줄지도요.": [
+  "In the rough, the moon bunny might help you.",
+  "ラフに入ると月うさぎが助けてくれるかも。",
+  "进了长草区，月兔可能会帮你。"
+ ],
+ "마지막 홀, 별빛 아래서 멋지게 마무리해요!": [
+  "Last hole: finish in style under the stars!",
+  "最終ホール、星空の下でかっこよく締めましょう！",
+  "最后一洞，在星光下漂亮收尾！"
  ]
 }
