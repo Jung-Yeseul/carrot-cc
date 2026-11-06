@@ -135,7 +135,7 @@ function nickname() {
 function counts() { return channels.slice(1).map(m => m.size); }
 function total() { return sockets.size; }
 function lobbyPayload() { return { t: 'lobby', total: total(), cap: CAPACITY, ch: counts() }; }
-function publicPlayer(p) { return { id: p.id, nick: p.nick, color: p.color, h: p.h, x: p.x, z: p.z, r: p.r, a: p.a, bx: p.bx, bz: p.bz, bv: p.bv, st: p.st, sc: p.sc, dn: p.dn, cr: p.cr || 0, lk: p.lk }; }
+function publicPlayer(p) { return { id: p.id, nick: p.nick, color: p.color, h: p.h, x: p.x, z: p.z, r: p.r, a: p.a, bx: p.bx, bz: p.bz, bv: p.bv, st: p.st, sc: p.sc, dn: p.dn, cr: p.cr || 0, dw: p.dw || 0, lk: p.lk }; }
 
 function send(ws, msg) { if (ws.readyState === 1) ws.send(typeof msg === 'string' ? msg : JSON.stringify(msg)); }
 function toChannel(ch, msg, exceptId) {
@@ -239,8 +239,8 @@ wss.on('connection', (ws) => {
         // st: 이번 홀 타수, sc: 지금까지 합계(파 대비), dn: 끝낸 홀 수
         const st = int(m.st ?? 0, 0, 40), sc = int(m.sc ?? 0, -40, 99), dn = int(m.dn ?? 0, 0, HOLES), cr = int(m.cr ?? 0, 0, COURSES - 1);
         if ([h, x, z, r, a, bx, bz, st, sc, dn, cr].includes(null)) return;
-        Object.assign(p, { h, x, z, r, a, bx, bz, bv: m.bv ? 1 : 0, st, sc, dn, cr });
-        toChannel(p.ch, { t: 'pos', id: p.id, h, x, z, r, a, bx, bz, bv: p.bv, st, sc, dn, cr }, p.id);
+        Object.assign(p, { h, x, z, r, a, bx, bz, bv: m.bv ? 1 : 0, st, sc, dn, cr, dw: m.dw ? 1 : 0 });
+        toChannel(p.ch, { t: 'pos', id: p.id, h, x, z, r, a, bx, bz, bv: p.bv, st, sc, dn, cr, dw: p.dw }, p.id);
         break;
       }
       case 'look': {
