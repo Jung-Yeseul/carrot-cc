@@ -398,3 +398,11 @@ td.cur,th.cur{background:color-mix(in srgb,var(--leaf) 14%,transparent)}
 .duel-tb th,.duel-tb td{padding:4px;border-bottom:1px solid rgba(0,0,0,.08)}
 .duel-tb td.w{color:#c0392b;font-weight:700}
 @media (max-width:640px){.duelbadge{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(118px + env(safe-area-inset-bottom,0px));margin:0;font-size:12px;z-index:5}.duelbadge .dw{display:none}}
+
+/* 입구: 오늘의 코스 */
+.crsbox{width:100%;max-width:420px;margin:4px auto 0;text-align:center}
+.crspick{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px}
+.crspick button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;border:2px solid var(--line);border-radius:14px;background:color-mix(in srgb,var(--surface) 85%,transparent);color:var(--fg);font:600 12px var(--body,inherit);cursor:pointer;line-height:1.2}
+.crspick button span{font-size:22px}
+.crspick button.on{border-color:var(--carrot);background:color-mix(in srgb,var(--carrot) 14%,var(--surface))}
+.crsdesc{font-size:12px;color:var(--muted);margin:6px 0 0;min-height:1.3em}

@@ -343,7 +343,7 @@ function setLive(m) {
   const g = $('chGrid');
   if (!lobbyRendered) {
     g.innerHTML = m.ch.map((_, i) => `<button type="button" data-ch="${i + 1}">${i + 1}채널<span></span></button>`).join('');
-    g.querySelectorAll('button').forEach(b => b.onclick = () => joinChannel(+b.dataset.ch));
+    g.querySelectorAll('button').forEach(b => b.onclick = () => teeUpTo(+b.dataset.ch));
     lobbyRendered = true;
   }
   g.querySelectorAll('button').forEach((b, i) => { const n = m.ch[i] || 0; b.lastChild.textContent = `${n}/${m.cap}`; b.disabled = n >= m.cap; });
@@ -355,7 +355,20 @@ function joinChannel(ch) {
   sendNet({ t: 'join', ch });
   pendingJoin = setTimeout(() => { pendingJoin = 0; enterGame(); }, 2500);
 }
-$('teeUp').onclick = () => joinChannel(invitedCh());
+// 입구 화면에서 오늘의 코스를 골라요. 다른 코스면 그 코스로 새로 지어서(새로고침) 바로 클럽하우스 앞으로 가요.
+let entryCrs = CRS_ID;
+function renderEntryCrs() {
+  const el = $('crsPick'); if (!el) return;
+  el.innerHTML = COURSE_IDS.map(id => `<button type="button" data-ecrs="${id}" class="${id === entryCrs ? 'on' : ''}" aria-pressed="${id === entryCrs}"><span>${COURSES[id].emoji}</span>${COURSES[id].name}</button>`).join('');
+  el.querySelectorAll('[data-ecrs]').forEach(b => b.onclick = () => { entryCrs = b.dataset.ecrs; tone(880, .05, 'triangle', .05); renderEntryCrs(); });
+  const d = $('crsDesc'); if (d) d.textContent = COURSES[entryCrs].desc;
+}
+renderEntryCrs();
+function teeUpTo(ch) {
+  if (entryCrs !== CRS_ID) { switchCourse(entryCrs, 'club'); try { const a = JSON.parse(sessionStorage.getItem('carrotAuto')); a.ch = ch; sessionStorage.setItem('carrotAuto', JSON.stringify(a)); } catch {} return; }
+  joinChannel(ch);
+}
+$('teeUp').onclick = () => teeUpTo(invitedCh());
 // 코스를 바꿔서 새로고침한 경우: 같은 채널로 바로 들어가서 스타트 하우스로
 let AUTO = null; try { AUTO = JSON.parse(sessionStorage.getItem('carrotAuto')); sessionStorage.removeItem('carrotAuto'); if (AUTO && Date.now() - AUTO.at > 60000) AUTO = null; } catch {}
 if (AUTO) { let n = 0; const go = () => { if (!$('app').hidden) return; if (!NET.open && n++ < 20) return setTimeout(go, 200); joinChannel(AUTO.ch || invitedCh()); }; setTimeout(go, 300); }
@@ -767,6 +780,8 @@ function buildNight(R) {
   FIREFLY = new T.Points(fg, new T.PointsMaterial({ color: 0xd9ff7a, size: .32, transparent: true, opacity: .95, depthWrite: false, blending: T.AdditiveBlending, fog: false })); scene.add(FIREFLY);
 }
 function updateCourseFx(dt, t) {
+  const indoor = S.mode === 'club' && me.z - LB.z < 10.4 && Math.abs(me.x - LB.x) < 23;
+  if (SNOW) SNOW.visible = !indoor; if (FIREFLY) FIREFLY.visible = !indoor;
   if (FIREFLY) {
     FIREFLY.position.set(Math.round(camera.position.x / 35) * 35, 0, Math.round(camera.position.z / 35) * 35);
     const a = FIREFLY.geometry.attributes.position.array, b = FIREFLY.geometry.userData.base;
@@ -2679,13 +2694,86 @@ function clubCanStand(x, z) {
   if (!CL.allow.some(inR) || CL.block.some(inR)) return false;
   return !CL.circles.some(c => Math.hypot(lx - c[0], lz - c[1]) < c[2]);
 }
+// ---- 코스마다 다른 클럽하우스 (색·정원 나무·장식) ----
+const CLUB_TH = {
+  classic: { wall: 0xf4ecdb, roof: 0x2b5a3c, deep: 0x2d5a3a, sign: '#2d5a3a', fg: '#e8c873', carpet: 0x1f4a2e, lawn: ['#6aa64f', '#77b45a'], tree: 'maple', leaf: 0xd9581f, plant: 0x3f8a3f, flowers: [0xff8fb8, 0xffd23f, 0xffffff, 0xe0453a, 0xb07bd8], tag: 'MAPLE CLUBHOUSE' },
+  seaside: { wall: 0xffffff, roof: 0x2f7fb5, deep: 0x1f6a94, sign: '#1f6a94', fg: '#ffe9a8', carpet: 0x2b88b0, lawn: ['#eedba8', '#f4e4b8'], tree: 'palm', leaf: 0x3a9a48, plant: 0x3fa35a, flowers: [0xff4f6a, 0xffd23f, 0xffffff, 0xff8a3d], tag: 'SEASIDE CLUBHOUSE', hedge: 0x3f9a5a },
+  snow: { wall: 0xf1e7d8, roof: 0xf6f9fc, deep: 0x6a3f2a, sign: '#5a3420', fg: '#f4e9cf', carpet: 0x8a2f2a, lawn: ['#f2f6f8', '#e7eef2'], tree: 'pine', leaf: 0x2f5f34, plant: 0x2f6a3a, flowers: [0xffffff, 0xe8f2f8, 0xd2442c], tag: 'SNOW LODGE', hedge: 0x2f6a3a },
+  cherry: { wall: 0xfff6f6, roof: 0x9c3d5a, deep: 0x8a3550, sign: '#8a3550', fg: '#ffd6e4', carpet: 0xb04a6a, lawn: ['#79b85e', '#86c468'], tree: 'cherry', leaf: 0xffb0cc, plant: 0xff9cc0, flowers: [0xffb7cf, 0xffffff, 0xff8fb8, 0xffe066], tag: 'BLOSSOM CLUBHOUSE', hedge: 0x4f9a48 },
+  canyon: { wall: 0xe2ad7c, roof: 0xb4562f, deep: 0x7a3a1e, sign: '#7a3a1e', fg: '#f6d79a', carpet: 0xc4622f, lawn: ['#d9a86c', '#e2b67c'], tree: 'cactus', leaf: 0x4f8f43, plant: 0x4f8f43, flowers: [0xff8a3d, 0xffd23f, 0xe0453a], tag: 'CANYON LODGE', hedge: 0xb86a3c },
+  night: { wall: 0xe8e2d6, roof: 0x1e2c4f, deep: 0x1e2c4f, sign: '#1e2c4f', fg: '#ffe9a8', carpet: 0x243a66, lawn: ['#3f7a3a', '#477f3f'], tree: 'oak', leaf: 0x2f6a3a, plant: 0x3f8a3f, flowers: [0xfff4b0, 0xd8e8ff, 0xffd98a], tag: 'STARLIGHT CLUBHOUSE' },
+}[CRS_ID];
+function clubTree(g, add, TH, leafM, trunkM, x, z, s) {
+  if (TH.tree === 'palm') {
+    for (let k = 0; k < 6; k++) add(new T.CylinderGeometry(.22 * s, .28 * s, 1.1 * s, 6), trunkM, x + k * .14 * s, (.55 + k * 1.05) * s, z, true);
+    for (let k = 0; k < 7; k++) { const lf = add(new T.BoxGeometry(2.6 * s, .07, .6 * s), leafM, x + .84 * s, 6.4 * s, z, true); lf.geometry.translate(1.3 * s, 0, 0); lf.rotation.set(0, k / 7 * TAU, -.35); }
+    return;
+  }
+  if (TH.tree === 'cactus') {
+    add(new T.CylinderGeometry(.45 * s, .5 * s, 3.6 * s, 8), leafM, x, 1.8 * s, z, true); add(new T.SphereGeometry(.45 * s, 8, 5, 0, TAU, 0, Math.PI / 2), leafM, x, 3.6 * s, z);
+    for (const sd of [-1, 1]) { add(new T.CylinderGeometry(.3 * s, .3 * s, 1.4 * s, 8), leafM, x + sd * .85 * s, (1.9 + sd * .3) * s, z, true); add(new T.BoxGeometry(.9 * s, .5 * s, .5 * s), leafM, x + sd * .5 * s, (1.4 + sd * .3) * s, z); }
+    return;
+  }
+  add(new T.CylinderGeometry(.25 * s, .35 * s, 2.2 * s, 7), trunkM, x, 1.1 * s, z, true);
+  if (TH.tree === 'pine') {
+    const snowM = mat(0xffffff, { flatShading: true });
+    for (const [y, k] of [[2.6, 1], [4.1, .72], [5.4, .48]]) { add(new T.ConeGeometry(2 * s * k, 2.6 * s * k, 7), leafM, x, y * s, z, true); add(new T.ConeGeometry(1.1 * s * k, 1 * s * k, 7), snowM, x, (y + .9 * k) * s, z); }
+    return;
+  }
+  const cn = add(new T.IcosahedronGeometry(1.9 * s, 0), leafM, x, 3.2 * s, z, true); cn.scale.y = 1.15;
+  const c2 = add(new T.IcosahedronGeometry(1.2 * s, 0), leafM, x + 1.1 * s, 2.7 * s, z + .6 * s, true);
+  if (NIGHT) for (let k = 0; k < 14; k++) { const a = k / 14 * TAU * 2, h = 1.8 + k * .14; add(new T.SphereGeometry(.09, 6, 4), new T.MeshBasicMaterial({ color: [0xffe9a8, 0xffb36b, 0xbfe3ff][k % 3] }), x + Math.cos(a) * 1.9 * s * (1 - k / 30), h * s, z + Math.sin(a) * 1.9 * s * (1 - k / 30)); }
+}
+function clubThemeDeco(g, add, plane, TH, signTex) {
+  const R = rng(CRS.seed + 5);
+  // 정문 옆 코스 간판
+  const c = COURSES[CRS_ID];
+  plane(3.6, 1, new T.MeshLambertMaterial({ map: signTex(720, 200, `${c.emoji} ${c.name}`, TH.tag) }), 5.6, 1.4, 16.5, 0);
+  for (const x of [4.2, 7]) { add(new T.CylinderGeometry(.06, .06, 1.4, 6), mat(0x4a2f1b), x, .7, 16.45); CL.circles.push([x, 16.45, .4]); } CL.circles.push([5.6, 16.45, .5]);
+  if (CRS_ID === 'seaside') {
+    // 파라솔, 서핑보드, 구명 튜브
+    const cols = [0xff6f61, 0x4d9de0, 0xffd23f, 0x3bc4b4];
+    for (const [x, z, k] of [[-11, 22, 0], [11, 22, 1], [-15, 32, 2], [15, 32, 3]]) { add(new T.CylinderGeometry(.06, .06, 2.8, 6), mat(0xffffff), x, 1.4, z); const um = add(new T.ConeGeometry(1.7, .8, 8, 1, true), new T.MeshLambertMaterial({ color: cols[k], side: T.DoubleSide }), x, 2.8, z); um.castShadow = true; add(new T.BoxGeometry(.7, .1, 1.6), mat(0xffffff), x + 1.1, .35, z).rotation.x = -.3; }
+    for (const [x, k] of [[-10.6, 0], [-11.4, 1], [10.8, 2]]) { const b = add(new T.BoxGeometry(.7, 2.6, .12), mat(cols[k]), x, 1.3, 10.6, true); b.rotation.z = (x < 0 ? .14 : -.14); }
+    const ring = add(new T.TorusGeometry(.6, .17, 8, 20), mat(0xff5a4a), -3.8, 3.4, 10.25); for (let k = 0; k < 4; k++) { const st = add(new T.TorusGeometry(.6, .175, 8, 3, .35), mat(0xffffff), -3.8, 3.4, 10.26); st.rotation.z = k * Math.PI / 2; }
+    for (const [x, z] of [[-8.6, -4], [8.6, -6]]) { const p = add(new T.CylinderGeometry(.08, .1, 1.6, 6), mat(0x9b7448), x, .8, z); for (let k = 0; k < 5; k++) { const lf = add(new T.BoxGeometry(1.1, .05, .3), mat(0x3a9a48), x, 1.6, z); lf.geometry.translate(.55, 0, 0); lf.rotation.set(0, k / 5 * TAU, -.4); } }
+  } else if (ICE) {
+    // 눈사람, 처마 고드름, 로비 벽난로, 스키
+    for (const [x, z, sc] of [[-6, 22, 1], [6.5, 26, .85]]) { const sm = mat(0xffffff); for (const [y, r] of [[.8, .85], [1.95, .58], [2.8, .4]]) add(new T.SphereGeometry(r * sc, 14, 10), sm, x, y * sc, z, true); add(new T.ConeGeometry(.08, .45, 6), mat(0xf08a2f), x, 2.8 * sc, z + .45 * sc).rotation.x = Math.PI / 2; add(new T.CylinderGeometry(.3, .32, .38, 10), mat(0x222222), x, 3.3 * sc, z); add(new T.TorusGeometry(.45 * sc, .1, 6, 14), mat(0xd2442c), x, 2.4 * sc, z).rotation.x = Math.PI / 2; }
+    const iceM = new T.MeshPhongMaterial({ color: 0xdff2fb, transparent: true, opacity: .85, shininess: 120 });
+    for (let x = -10.5; x <= 10.5; x += .7) { const h = .3 + R() * .7; const ic = add(new T.ConeGeometry(.1, h, 5), iceM, x, 6.95 - h / 2, 10.45); ic.rotation.x = Math.PI; }
+    // 벽난로 (트로피 선반이 벽난로 위 선반이 돼요)
+    add(new T.BoxGeometry(3.6, 2.3, .8), mat(0x8a8178, { flatShading: true }), -6.2, 1.15, -9.4); add(new T.BoxGeometry(2, 1.2, .3), mat(0x1b1410), -6.2, .75, -8.95);
+    add(new T.ConeGeometry(.42, .85, 6), new T.MeshBasicMaterial({ color: 0xff8a2a }), -6.2, .6, -8.85); add(new T.ConeGeometry(.24, .55, 6), new T.MeshBasicMaterial({ color: 0xffd23f }), -6.1, .5, -8.75);
+    const pl = new T.PointLight(0xff9a4a, .9, 9); pl.position.set(-6.2, 1.2, -8); g.add(pl);
+    { const x = 3.4, z = -8.6; add(new T.ConeGeometry(1, 2.8, 7), mat(0x2f5f34, { flatShading: true }), x, 1.6, z); add(new T.ConeGeometry(.15, .3, 5), new T.MeshBasicMaterial({ color: 0xffd23f }), x, 3.15, z); for (let k = 0; k < 10; k++) add(new T.SphereGeometry(.09, 6, 4), new T.MeshBasicMaterial({ color: [0xd2442c, 0xffd23f, 0x5ab4f0][k % 3] }), x + Math.cos(k * 2.3) * (.85 - k * .07), .6 + k * .22, z + Math.sin(k * 2.3) * (.85 - k * .07)); }
+    for (const [x, k] of [[-11, 0], [-11.6, 1]]) { const sk = add(new T.BoxGeometry(.14, 3, .05), mat([0xd2442c, 0x2f6fd6][k]), x, 1.5, 10.6); sk.rotation.z = .12; }
+  } else if (CHERRY) {
+    // 꽃잎 깔린 마당, 분홍 등불
+    const pm = new T.InstancedMesh(new T.CircleGeometry(.08, 5), new T.MeshBasicMaterial({ color: 0xffc4d8 }), 900), M4 = new T.Matrix4(), Q = new T.Quaternion().setFromAxisAngle(new T.Vector3(1, 0, 0), -Math.PI / 2), V = new T.Vector3(), S1 = new T.Vector3(1, 1, 1);
+    for (let k = 0; k < 900; k++) { M4.compose(V.set((R() - .5) * 60, .04, 14 + R() * 30), Q, S1); pm.setMatrixAt(k, M4); } g.add(pm);
+    for (const x of [-9.2, -4.6, 4.6, 9.2]) { add(new T.CylinderGeometry(.015, .015, .5, 4), mat(0x333333), x, 6.6, 10.6); const ln = add(new T.SphereGeometry(.32, 10, 8), new T.MeshBasicMaterial({ color: 0xffb7cf }), x, 6.2, 10.6); ln.scale.y = 1.3; }
+  } else if (CANYON) {
+    // 바위, 나무 울타리, 소품 마차 바퀴
+    const rc = [0xb4562f, 0xc46a3a, 0xa04a2c];
+    for (let k = 0; k < 10; k++) { const x = (R() < .5 ? -1 : 1) * (12 + R() * 16), z = 16 + R() * 26; const r = add(new T.DodecahedronGeometry(.8 + R() * 1.4, 0), mat(rc[k % 3], { flatShading: true }), x, .5, z, true); r.scale.y = .7; CL.circles.push([x, z, 1.2]); }
+    for (let x = -26; x <= 26; x += 2.6) { if (Math.abs(x) < 3) continue; add(new T.BoxGeometry(.16, 1.1, .16), mat(0x7a5233), x, .55, 44); }
+    for (const y of [.4, .85]) for (const sd of [-1, 1]) add(new T.BoxGeometry(23, .1, .08), mat(0x8a6040), sd * 14.5, y, 44);
+    const wh = add(new T.TorusGeometry(.8, .09, 6, 18), mat(0x6a4529), -8.4, .85, 10.6); for (let k = 0; k < 4; k++) add(new T.BoxGeometry(1.6, .06, .06), mat(0x6a4529), -8.4, .85, 10.6).rotation.z = k * Math.PI / 4;
+  } else if (NIGHT) {
+    // 줄 조명(정원 길 위), 밝은 창문
+    const bulbC = [0xffe9a8, 0xffb36b, 0xbfe3ff, 0xff8fb8];
+    for (const sd of [-1, 1]) for (let k = 0; k <= 24; k++) { const z = 16 + k * .75, y = 3.3 - Math.sin(k / 24 * Math.PI * 2 % Math.PI) * .45; add(new T.SphereGeometry(.08, 6, 4), new T.MeshBasicMaterial({ color: bulbC[k % 4] }), sd * 2.9, y, z); }
+    const pl = new T.PointLight(0xffe2b0, 1, 30); pl.position.set(0, 4, 22); g.add(pl);
+  }
+}
 function buildLobby() {
   if (LB.built) return; LB.built = true;
   const g = new T.Group(), y0 = EDGE_H; g.position.set(LB.x, y0, LB.z); LB.g = g;
   const add = (geo, m, x, y, z, sh = false) => { const o = new T.Mesh(geo, m); o.position.set(x, y, z); o.receiveShadow = true; o.castShadow = sh; g.add(o); return o; };
   const plane = (w, h, m, x, y, z, ry = 0, rx = 0) => { const o = add(new T.PlaneGeometry(w, h), m, x, y, z); o.rotation.set(rx, ry, 0); return o; };
-  const signTex = (w, h, top, sub, bg = '#2d5a3a', fg = '#e8c873') => textTexture(w, h, (c, W, H) => { c.fillStyle = bg; c.fillRect(0, 0, W, H); c.strokeStyle = fg; c.lineWidth = Math.max(4, H * .05); c.strokeRect(c.lineWidth, c.lineWidth, W - c.lineWidth * 2, H - c.lineWidth * 2); c.fillStyle = fg; c.textAlign = 'center'; c.textBaseline = 'middle'; c.font = `400 ${H * (sub ? .42 : .55)}px ${FONT}`; c.fillText(top, W / 2, H * (sub ? .4 : .52)); if (sub) { c.font = `600 ${H * .17}px "IBM Plex Mono",monospace`; c.fillText(sub, W / 2, H * .76); } });
-  const cream = mat(0xf4ecdb), wood = mat(0x6a4529), darkWood = mat(0x4a2f1b), brass = mat(0xd4af5a, { emissive: 0x3a2a00 }), deep = mat(0x2d5a3a), roofM = new T.MeshPhongMaterial({ color: 0x2b5a3c, flatShading: true, shininess: 6 });
+  const signTex = (w, h, top, sub, bg = TH.sign, fg = TH.fg) => textTexture(w, h, (c, W, H) => { c.fillStyle = bg; c.fillRect(0, 0, W, H); c.strokeStyle = fg; c.lineWidth = Math.max(4, H * .05); c.strokeRect(c.lineWidth, c.lineWidth, W - c.lineWidth * 2, H - c.lineWidth * 2); c.fillStyle = fg; c.textAlign = 'center'; c.textBaseline = 'middle'; c.font = `400 ${H * (sub ? .42 : .55)}px ${FONT}`; c.fillText(top, W / 2, H * (sub ? .4 : .52)); if (sub) { c.font = `600 ${H * .17}px "IBM Plex Mono",monospace`; c.fillText(sub, W / 2, H * .76); } });
+  const TH = CLUB_TH, cream = mat(TH.wall), wood = mat(0x6a4529), darkWood = mat(0x4a2f1b), brass = mat(0xd4af5a, { emissive: 0x3a2a00 }), deep = mat(TH.deep), roofM = new T.MeshPhongMaterial({ color: TH.roof, flatShading: true, shininess: 6 });
   const warm = new T.MeshBasicMaterial({ color: 0xfff0c8 });
 
   // ---- 바닥: 크림 대리석(로비) · 원목(락커룸) · 잔디와 돌길(정원) ----
@@ -2695,7 +2783,7 @@ function buildLobby() {
   const plankT = textTexture(256, 256, (c, w, h) => { for (let i = 0; i < 8; i++) { c.fillStyle = i % 2 ? '#a77a52' : '#b4875c'; c.fillRect(0, i * 32, w, 32); c.fillStyle = 'rgba(0,0,0,.12)'; c.fillRect(0, i * 32, w, 2); c.fillRect((i * 97) % w, i * 32, 2, 32); } });
   plankT.wrapS = plankT.wrapT = T.RepeatWrapping; plankT.repeat.set(3, 3);
   const lfl = plane(12, 14, new T.MeshLambertMaterial({ map: plankT }), -16, .01, 0, 0, -Math.PI / 2);
-  const lawnT = textTexture(64, 256, (c, w, h) => { for (let i = 0; i < 8; i++) { c.fillStyle = i % 2 ? '#6aa64f' : '#77b45a'; c.fillRect(0, i * 32, w, 32); } });
+  const lawnT = textTexture(64, 256, (c, w, h) => { for (let i = 0; i < 8; i++) { c.fillStyle = TH.lawn[i % 2]; c.fillRect(0, i * 32, w, 32); } });
   lawnT.wrapS = lawnT.wrapT = T.RepeatWrapping; lawnT.repeat.set(12, 6);
   const lawn = plane(90, 40, new T.MeshLambertMaterial({ map: lawnT }), 0, .005, 30, 0, -Math.PI / 2);
   LB.floors = [fl, lfl, lawn];
@@ -2728,7 +2816,7 @@ function buildLobby() {
   // 기둥과 캐노피
   for (const x of [-3, 3]) { add(new T.CylinderGeometry(.42, .5, 5.2, 14), cream, x, 2.6, 12.2, true); add(new T.BoxGeometry(1.2, .3, 1.2), brass, x, .15, 12.2); add(new T.BoxGeometry(1.1, .25, 1.1), brass, x, 5.1, 12.2); }
   add(new T.BoxGeometry(8.8, .45, 3.6), deep, 0, 5.35, 11.9, false);
-  plane(8.8, .45, new T.MeshLambertMaterial({ map: signTex(880, 46, 'EST. 2026 · PRIVATE GOLF CLUB', '', '#2d5a3a', '#e8c873') }), 0, 5.35, 13.71);
+  plane(8.8, .45, new T.MeshLambertMaterial({ map: signTex(880, 46, TH.tag + ' · EST. 2026', '', TH.sign, TH.fg) }), 0, 5.35, 13.71);
   // 바깥 창문 (따뜻한 실내 불빛)
   for (const x of [-6.5, 6.5]) { plane(3.4, 2.6, new T.MeshBasicMaterial({ color: 0xffe9bb }), x, 3, 10.22); for (const [w, h, ox, oy] of [[3.6, .16, 0, 1.38], [3.6, .16, 0, -1.38], [.16, 2.9, 1.72, 0], [.16, 2.9, -1.72, 0], [.1, 2.6, 0, 0], [3.4, .1, 0, 0]]) add(new T.BoxGeometry(w, h, .1), wood, x + ox, 3 + oy, 10.25); }
   // 유리 정문 (양쪽으로 열려요)
@@ -2738,7 +2826,7 @@ function buildLobby() {
 
   // ---- 정원: 화단, 나무, 가로등, 당근 조형물 ----
   const soil = mat(0x6b4a2e);
-  const FLOWER_N = 70, flowers = new T.InstancedMesh(new T.IcosahedronGeometry(.18, 0), new T.MeshLambertMaterial(), FLOWER_N * 2), M4 = new T.Matrix4(), FC = [0xff8fb8, 0xffd23f, 0xffffff, 0xe0453a, 0xb07bd8].map(c => new T.Color(c));
+  const FLOWER_N = 70, flowers = new T.InstancedMesh(new T.IcosahedronGeometry(.18, 0), NIGHT ? new T.MeshBasicMaterial() : new T.MeshLambertMaterial(), FLOWER_N * 2), M4 = new T.Matrix4(), FC = TH.flowers.map(c => new T.Color(c));
   let fi = 0; const R = rng(33);
   for (const [x0, x1] of [[-9.5, -4.5], [4.5, 9.5]]) {
     add(new T.BoxGeometry(x1 - x0, .35, 1.8), soil, (x0 + x1) / 2, .17, 11.7);
@@ -2746,25 +2834,24 @@ function buildLobby() {
     for (let i = 0; i < FLOWER_N; i++) { M4.makeTranslation(x0 + .2 + R() * (x1 - x0 - .4), .45 + R() * .15, 10.9 + R() * 1.6); flowers.setMatrixAt(fi, M4); flowers.setColorAt(fi, FC[(R() * FC.length) | 0]); fi++; }
   }
   flowers.instanceMatrix.needsUpdate = true; if (flowers.instanceColor) flowers.instanceColor.needsUpdate = true; g.add(flowers);
-  const leafM = new T.MeshPhongMaterial({ color: 0x3f8a3f, flatShading: true, shininess: 4 }), trunkM = mat(0x6b4a2e);
+  const leafM = new T.MeshPhongMaterial({ color: TH.leaf, flatShading: true, shininess: 4, emissive: new T.Color(TH.leaf).multiplyScalar(TH.tree === 'cherry' ? .25 : 0) }), trunkM = mat(0x6b4a2e);
   for (const [x, z, s] of [[-17, 18, 1.2], [17, 18, 1.2], [-24, 30, 1.4], [24, 30, 1.4], [-13, 38, 1], [13, 38, 1], [-27, 14, 1.1], [27, 14, 1.1]]) {
-    add(new T.CylinderGeometry(.25 * s, .35 * s, 2.2 * s, 7), trunkM, x, 1.1 * s, z, true);
-    const cn = add(new T.IcosahedronGeometry(1.9 * s, 0), leafM, x, 3.2 * s, z, true); cn.scale.y = 1.15; CL.circles.push([x, z, .9 * s]);
+    clubTree(g, add, TH, leafM, trunkM, x, z, s); CL.circles.push([x, z, .9 * s]);
   }
   for (const [x, z] of [[-2.9, 17], [2.9, 17], [-2.9, 33], [2.9, 33]]) { add(new T.CylinderGeometry(.07, .1, 3.2, 6), darkWood, x, 1.6, z, true); add(new T.SphereGeometry(.3, 10, 8), warm, x, 3.35, z); CL.circles.push([x, z, .35]); }
-  for (const z of [36, 39, 42]) for (const x of [-3.3, 3.3]) { add(new T.BoxGeometry(1.4, .8, 1.4), mat(0x3a7a3a, { flatShading: true }), x, .4, z, true); CL.circles.push([x, z, .9]); }
+  for (const z of [36, 39, 42]) for (const x of [-3.3, 3.3]) { add(new T.BoxGeometry(1.4, .8, 1.4), mat(TH.hedge || 0x3a7a3a, { flatShading: true }), x, .4, z, true); if (ICE) add(new T.BoxGeometry(1.5, .22, 1.5), mat(0xffffff), x, .88, z); CL.circles.push([x, z, .9]); }
   add(new T.CylinderGeometry(1.8, 2.1, 1.1, 20), cream, 0, .55, 24, true); add(new T.CylinderGeometry(1.85, 1.85, .12, 20), brass, 0, 1.12, 24);
   const statue = makeCarrot('#d4af5a'); statue.position.set(0, 1.15, 24); statue.scale.setScalar(1.25); statue.rotation.y = 0; g.add(statue); statue.userData.club.visible = false; LB.statue = statue;
-  plane(1.6, .5, new T.MeshLambertMaterial({ map: signTex(320, 100, 'EST. 2026', '', '#3d2a08', '#e8c873') }), 0, .6, 26.11);
+  plane(1.6, .5, new T.MeshLambertMaterial({ map: signTex(320, 100, 'EST. 2026', '', '#3d2a08', TH.fg) }), 0, .6, 26.11);
 
   // ---- 로비 실내 ----
-  const carpetB = plane(3.6, 14.2, brass, 0, .015, 3, 0, -Math.PI / 2); const carpet = plane(3.2, 14, mat(0x1f4a2e), 0, .02, 3, 0, -Math.PI / 2);
+  const carpetB = plane(3.6, 14.2, brass, 0, .015, 3, 0, -Math.PI / 2); const carpet = plane(3.2, 14, mat(TH.carpet), 0, .02, 3, 0, -Math.PI / 2);
   // 프론트 데스크 (원목 + 대리석 상판 + 황동)
   const desk = new T.Group(); desk.position.set(0, 0, -5.2); g.add(desk);
   const dm = new T.Mesh(new T.BoxGeometry(8, 1.15, 1.3), darkWood); dm.position.y = .58; desk.add(dm);
   const top = new T.Mesh(new T.BoxGeometry(8.4, .12, 1.6), new T.MeshLambertMaterial({ map: marbleT })); top.position.y = 1.2; desk.add(top);
   for (const y of [.18, 1.05]) { const s = new T.Mesh(new T.BoxGeometry(8.02, .06, .04), brass); s.position.set(0, y, .66); desk.add(s); }
-  const front = new T.Mesh(new T.PlaneGeometry(4.2, .6), new T.MeshLambertMaterial({ map: textTexture(512, 74, (c, w, h) => { c.fillStyle = '#4a2f1b'; c.fillRect(0, 0, w, h); c.fillStyle = '#e8c873'; c.font = `400 52px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('FRONT · 프론트', w / 2, h / 2 + 3); }) })); front.position.set(0, .62, .661); desk.add(front);
+  const front = new T.Mesh(new T.PlaneGeometry(4.2, .6), new T.MeshLambertMaterial({ map: textTexture(512, 74, (c, w, h) => { c.fillStyle = '#4a2f1b'; c.fillRect(0, 0, w, h); c.fillStyle = TH.fg; c.font = `400 52px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('FRONT · 프론트', w / 2, h / 2 + 3); }) })); front.position.set(0, .62, .661); desk.add(front);
   const bell = new T.Mesh(new T.SphereGeometry(.14, 12, 8, 0, TAU, 0, Math.PI / 2), brass); bell.position.set(2.4, 1.27, .2); desk.add(bell);
   const book = new T.Mesh(new T.BoxGeometry(.7, .06, .5), deep); book.position.set(-1.6, 1.29, .2); book.rotation.y = .2; desk.add(book);
   const lamp = new T.Mesh(new T.CylinderGeometry(.22, .3, .35, 12), mat(0xfff1c8, { emissive: 0x6a5a30 })); lamp.position.set(-3.2, 1.75, -.1); desk.add(lamp); const ls = new T.Mesh(new T.CylinderGeometry(.04, .04, .5, 6), brass); ls.position.set(-3.2, 1.45, -.1); desk.add(ls);
@@ -2772,16 +2859,16 @@ function buildLobby() {
   const staff = makeCaddie(); staff.position.set(.3, .55, -6.2); staff.scale.setScalar(1.2); g.add(staff); LB.staff = staff;
   const bow = new T.Mesh(new T.BoxGeometry(.22, .1, .05), mat(0xd2442c)); bow.position.set(0, 1.05, .33); staff.add(bow);
   // 뒷벽 로고, 트로피, 명예의 전당 액자
-  const logo = new T.Mesh(new T.PlaneGeometry(8, 1.9), new T.MeshLambertMaterial({ map: textTexture(1024, 240, (c, w, h) => { c.fillStyle = '#2d5a3a'; c.fillRect(0, 0, w, h); c.strokeStyle = '#e8c873'; c.lineWidth = 10; c.strokeRect(12, 12, w - 24, h - 24); carrotIcon(c, 120, 122, 5); c.fillStyle = '#e8c873'; c.font = `400 104px ${FONT}`; c.textBaseline = 'middle'; c.fillText('당근 컨트리클럽', 210, 104); c.font = `600 32px "IBM Plex Mono",monospace`; c.fillText('CARROT COUNTRY CLUB · EST. 2026', 214, 184); }) }));
+  const logo = new T.Mesh(new T.PlaneGeometry(8, 1.9), new T.MeshLambertMaterial({ map: textTexture(1024, 240, (c, w, h) => { c.fillStyle = TH.sign; c.fillRect(0, 0, w, h); c.strokeStyle = TH.fg; c.lineWidth = 10; c.strokeRect(12, 12, w - 24, h - 24); carrotIcon(c, 120, 122, 5); c.fillStyle = TH.fg; c.font = `400 104px ${FONT}`; c.textBaseline = 'middle'; c.fillText('당근 컨트리클럽', 210, 104); c.font = `600 32px "IBM Plex Mono",monospace`; c.fillText('CARROT COUNTRY CLUB · EST. 2026', 214, 184); }) }));
   logo.position.set(0, 4.5, -9.78); g.add(logo);
   add(new T.BoxGeometry(3.4, .12, .6), darkWood, -6.2, 2.4, -9.6);
   for (let i = 0; i < 4; i++) { const cup = new T.Group(); cup.position.set(-7.4 + i * .8, 2.46, -9.55); const b = new T.Mesh(new T.CylinderGeometry(.06, .12, .1, 10), brass); b.position.y = .05; cup.add(b); const st = new T.Mesh(new T.CylinderGeometry(.03, .03, .25, 6), brass); st.position.y = .22; cup.add(st); const bw = new T.Mesh(new T.CylinderGeometry(.16, .08, .22, 12), brass); bw.position.y = .44; cup.add(bw); g.add(cup); }
-  const hof = new T.Mesh(new T.PlaneGeometry(2.6, 1.8), new T.MeshLambertMaterial({ map: textTexture(320, 220, (c, w, h) => { c.fillStyle = '#3d2a08'; c.fillRect(0, 0, w, h); c.fillStyle = '#e8c873'; c.fillRect(10, 10, w - 20, h - 20); c.fillStyle = '#3d2a08'; c.textAlign = 'center'; c.font = `400 38px ${FONT}`; c.fillText('명예의 전당', w / 2, 60); c.font = `400 26px ${FONT}`; c.fillText('HOLE IN ONE', w / 2, 100); c.font = `400 22px ${FONT}`; c.fillText('홀인원하면 이름이 올라가요', w / 2, 150); }) }));
+  const hof = new T.Mesh(new T.PlaneGeometry(2.6, 1.8), new T.MeshLambertMaterial({ map: textTexture(320, 220, (c, w, h) => { c.fillStyle = '#3d2a08'; c.fillRect(0, 0, w, h); c.fillStyle = TH.fg; c.fillRect(10, 10, w - 20, h - 20); c.fillStyle = '#3d2a08'; c.textAlign = 'center'; c.font = `400 38px ${FONT}`; c.fillText('명예의 전당', w / 2, 60); c.font = `400 26px ${FONT}`; c.fillText('HOLE IN ONE', w / 2, 100); c.font = `400 22px ${FONT}`; c.fillText('홀인원하면 이름이 올라가요', w / 2, 150); }) }));
   hof.position.set(6.3, 3, -9.78); g.add(hof);
   // 라운지: 소파, 티 테이블, 화분, 샹들리에
   // 소파는 출입구를 막지 않게: 왼쪽은 앞쪽 벽, 오른쪽은 두 출입구 사이 벽
   for (const [x, sz] of [[-8.3, 5.5], [8.3, 0]]) { const so = new T.Group(); so.position.set(x, 0, sz); g.add(so); const base = new T.Mesh(new T.BoxGeometry(1.3, .5, 3.2), deep); base.position.y = .45; so.add(base); const back = new T.Mesh(new T.BoxGeometry(.32, 1, 3.2), deep); back.position.set(x < 0 ? -.55 : .55, .95, 0); so.add(back); for (const z of [-1.7, 1.7]) { const arm = new T.Mesh(new T.BoxGeometry(1.3, .75, .25), deep); arm.position.set(0, .6, z); so.add(arm); } const tb = new T.Mesh(new T.CylinderGeometry(.6, .6, .08, 18), new T.MeshLambertMaterial({ map: marbleT })); tb.position.set(x < 0 ? 1.4 : -1.4, .55, 0); so.add(tb); const tl = new T.Mesh(new T.CylinderGeometry(.06, .1, .5, 8), brass); tl.position.set(x < 0 ? 1.4 : -1.4, .27, 0); so.add(tl); }
-  for (const [x, z] of [[-8.6, 8.6], [8.6, 8.6], [-8.6, -8.4], [8.6, -8.4]]) { add(new T.CylinderGeometry(.45, .35, .8, 12), mat(0xb5653a), x, .4, z, true); const lf = add(new T.IcosahedronGeometry(.9, 0), mat(0x3f8a3f, { flatShading: true }), x, 1.5, z, true); lf.scale.y = 1.3; }
+  for (const [x, z] of [[-8.6, 8.6], [8.6, 8.6], [-8.6, -8.4], [8.6, -8.4]]) { add(new T.CylinderGeometry(.45, .35, .8, 12), mat(0xb5653a), x, .4, z, true); const lf = add(new T.IcosahedronGeometry(.9, 0), mat(TH.plant, { flatShading: true }), x, 1.5, z, true); lf.scale.y = 1.3; }
   for (const [x, z] of [[-4, -1], [4, -1], [0, 5]]) { add(new T.SphereGeometry(.38, 12, 8), warm, x, 6.2, z); add(new T.CylinderGeometry(.02, .02, .8, 4), brass, x, 6.6, z); }
   for (const [x, z] of [[0, -1], [-16, 0]]) { const pl = new T.PointLight(0xffe2b0, .8, 22); pl.position.set(x, 5.6, z); g.add(pl); }
   // 출입구 표지판 (실내)
@@ -2805,7 +2892,7 @@ function buildLobby() {
     const z = -5.85 + i * 1.3, num = 101 + i;
     add(new T.BoxGeometry(1, 3, 1.3), darkWood, -21.5, 1.5, z, false);
     const pivot = new T.Group(); pivot.position.set(-20.98, 1.5, z - .62); g.add(pivot);
-    const door = new T.Mesh(new T.BoxGeometry(.06, 2.8, 1.22), new T.MeshLambertMaterial({ map: textTexture(64, 160, (c, w, h) => { c.fillStyle = '#7a5233'; c.fillRect(0, 0, w, h); c.strokeStyle = 'rgba(0,0,0,.25)'; c.lineWidth = 3; c.strokeRect(6, 6, w - 12, h - 12); c.fillStyle = 'rgba(0,0,0,.3)'; for (let k = 0; k < 4; k++) c.fillRect(16, 14 + k * 7, 32, 3); c.fillStyle = '#e8c873'; c.fillRect(18, 52, 28, 16); c.fillStyle = '#3d2a08'; c.font = '700 13px sans-serif'; c.textAlign = 'center'; c.fillText(num, 32, 65); }) }));
+    const door = new T.Mesh(new T.BoxGeometry(.06, 2.8, 1.22), new T.MeshLambertMaterial({ map: textTexture(64, 160, (c, w, h) => { c.fillStyle = '#7a5233'; c.fillRect(0, 0, w, h); c.strokeStyle = 'rgba(0,0,0,.25)'; c.lineWidth = 3; c.strokeRect(6, 6, w - 12, h - 12); c.fillStyle = 'rgba(0,0,0,.3)'; for (let k = 0; k < 4; k++) c.fillRect(16, 14 + k * 7, 32, 3); c.fillStyle = TH.fg; c.fillRect(18, 52, 28, 16); c.fillStyle = '#3d2a08'; c.font = '700 13px sans-serif'; c.textAlign = 'center'; c.fillText(num, 32, 65); }) }));
     door.position.z = .61; pivot.add(door);
     const knob = new T.Mesh(new T.SphereGeometry(.05, 8, 6), brass); knob.position.set(.05, 0, 1.1); pivot.add(knob);
     LB.lockers.push({ pivot, num, z });
@@ -2825,8 +2912,9 @@ function buildLobby() {
   for (let i = 0; i < 12; i++) { const x = -19.6 + i * .66, c = wearC[i % wearC.length]; const sh = add(new T.BoxGeometry(.5, .95, .14), mat(c), x, 1.9, 6.35, true); sh.rotation.y = (i % 2 ? .12 : -.12); add(new T.BoxGeometry(.5, .04, .04), brass, x, 2.42, 6.35); }
   add(new T.BoxGeometry(8.4, .08, .6), wood, -16, 3.3, 6.5);
   for (let i = 0; i < 6; i++) { const cap = add(new T.SphereGeometry(.22, 10, 6, 0, TAU, 0, Math.PI / 2), mat([0xffffff, 0xff8a2a, 0x5ab4f0, 0x3f9a4e, 0xffd23f, 0x2b2b2b][i]), -19.5 + i * 1.4, 3.34, 6.45); cap.scale.y = .7; }
-  for (const [x, z] of [[-11, -6.2], [-21, 6.4]]) { add(new T.CylinderGeometry(.35, .28, .7, 12), mat(0xb5653a), x, .35, z, true); add(new T.IcosahedronGeometry(.7, 0), mat(0x3f8a3f, { flatShading: true }), x, 1.3, z, true); }
+  for (const [x, z] of [[-11, -6.2], [-21, 6.4]]) { add(new T.CylinderGeometry(.35, .28, .7, 12), mat(0xb5653a), x, .35, z, true); add(new T.IcosahedronGeometry(.7, 0), mat(TH.plant, { flatShading: true }), x, 1.3, z, true); }
   const lsign = plane(3, .78, new T.MeshLambertMaterial({ map: signTex(640, 166, '락커룸', 'LOCKER ROOM') }), -16, 4.4, -6.78);
+  clubThemeDeco(g, add, plane, TH, signTex);
   scene.add(g);
 }
 
@@ -2847,7 +2935,9 @@ function startClubAt(where) {
 function fadeTo(fn) { $('fade').classList.add('on'); sndCart(); setTimeout(() => { fn(); setTimeout(() => $('fade').classList.remove('on'), 150); }, 500); }
 
 // ---- 입장·퇴장 연출 ----
+function setClubTitle() { const c = COURSES[CRS_ID], t = $('clubTitle'); if (!t || t.dataset.crs === CRS_ID) return; t.dataset.crs = CRS_ID; t.querySelector('span').textContent = `${c.emoji} ${c.name} · EST. 2026`; t.querySelector('p').textContent = `“당근 컨트리클럽 ${c.name}에 오신 것을 환영합니다.”`; }
 function startCine(kind) {
+  setClubTitle();
   S.mode = 'cine'; me.moveT = null; me.path = null; LB.cam = null; lastActKey = ''; $('lobbyUI').hidden = true;
   if (kind === 'enter') {
     const sx = clamp(me.x - LB.x, -2.5, 2.5);
@@ -2889,8 +2979,9 @@ function lbShow(name, say, btns) {
 }
 function openDesk(welcome) {
   LB.desk = 'open';
-  lbShow('프론트 토끼 매니저', welcome ? `어서 오세요, ${NET.nick} 님! 당근 컨트리클럽입니다. 오늘은 무엇을 도와드릴까요?` : '어서 오세요! 당근 컨트리클럽입니다. 오늘은 무엇을 도와드릴까요?',
-    [['락커룸 안내', 'g-locker'], ['드라이빙 레인지 안내', 'g-range', 'sub'], ['티오프(스타트 하우스) 안내', 'g-course', 'sub'], ['이름 바꾸기', 'nick', 'link']]);
+  const cn = COURSES[CRS_ID].name;
+  lbShow('프론트 토끼 매니저', welcome ? `어서 오세요, ${NET.nick} 님! 당근 컨트리클럽 ${cn}입니다. 오늘은 무엇을 도와드릴까요?` : `어서 오세요! 당근 컨트리클럽 ${cn}입니다. 오늘은 무엇을 도와드릴까요?`,
+    [['락커룸 안내', 'g-locker'], ['드라이빙 레인지 안내', 'g-range', 'sub'], ['티오프(스타트 하우스) 안내', 'g-course', 'sub'], ['코스 바꾸기', 'crs', 'link'], ['이름 바꾸기', 'nick', 'link']]);
   tone(1568, .4, 'sine', .08);
 }
 function closeDesk(snooze) { LB.desk = 'idle'; LB.welcome = null; if (snooze) LB.deskSnooze = true; if (!LB.lockerUI) $('lobbyUI').hidden = true; }
@@ -2902,6 +2993,7 @@ function lobbyAct(a) {
   else if (a === 'g-range') guide('드라이빙 레인지는 오른쪽 앞 문이에요. 문으로 들어가시면 바로 연습장이에요!', [[5.5, -2.6], [10.2, -4.5]]);
   else if (a === 'g-course') guide('스타트 하우스는 오른쪽 뒤 문이에요. 토끼 캐디가 티오프 준비하고 기다리고 있어요!', [[5.5, 2.6], [10.2, 4.5]]);
   else if (a === 'nick') { $('nick').click(); const iv = setInterval(() => { if ($('overlay').hidden) { clearInterval(iv); if (LB.desk === 'open') openDesk(false); } }, 300); }
+  else if (a === 'crs') pickCourse(() => openDesk(false));
   else if (a === 'lkdone') closeLocker();
   else if (a === 'lv-pro') { LB.asking = false; tutEnd(false); openDesk(true); }
   else if (a === 'lv-new') { LB.asking = false; LB.welcome = null; TUT.on = true; $('lobbyUI').hidden = true; tutGo('desk'); }
@@ -2960,13 +3052,12 @@ function pickCourse(then) {
   document.querySelectorAll('[data-crs]').forEach(b => b.onclick = () => { const id = b.dataset.crs; closeOverlay(); if (id === CRS_ID) then(); else switchCourse(id); });
 }
 // 다른 코스는 새로 지어야 해서 새로고침해요. 같은 채널로 바로 다시 들어와서 스타트 하우스로 가요.
-function switchCourse(id) {
-  try { localStorage.setItem('carrotCourse', id); sessionStorage.setItem('carrotAuto', JSON.stringify({ ch: NET.ch || 0, at: Date.now() })); } catch {}
+function switchCourse(id, go = 'lobby') {
+  try { localStorage.setItem('carrotCourse', id); sessionStorage.setItem('carrotAuto', JSON.stringify({ ch: NET.ch || 0, at: Date.now(), go })); } catch {}
   $('fade').classList.add('on'); toast(`${COURSES[id].name}로 이동 중…`, 3000);
   setTimeout(() => location.reload(), 450);
 }
 function goCourseDoor(picked) {
-  if (!picked && !TUT.on) { pickCourse(() => goCourseDoor(true)); return; }
   me.moveT = null; me.path = null; closeDesk();
   const saved = !roundHasProgress() && loadRound();
   if (!roundHasProgress() && !saved) { if (S.scores.every(x => x != null)) resetRound(false); enterCourse(false); return; }
@@ -3847,7 +3938,7 @@ function enterGame() {
   me.tag.querySelector('.nm').textContent = NET.nick;
   audio(); startAmbience(); setMaster(true);
   resetRound(false);
-  if (AUTO) { AUTO = null; startClubAt('course'); setTimeout(() => goCourseDoor(true), 300); } else startClubAt('outside');
+  const go = AUTO && AUTO.go; AUTO = null; if (go === 'lobby') { startClubAt('lobby'); setTimeout(() => { if (S.mode === 'club') openDesk(false); }, 600); } else if (go === 'course') { startClubAt('course'); setTimeout(() => goCourseDoor(true), 300); } else startClubAt('outside');
   updChannelBadge(); resize();
   if (!running) { running = true; clock.getDelta(); requestAnimationFrame(frame); }
   if (window.innerWidth < 640) $('help').textContent = '드래그: 시점 · 땅 탭: 걷기 · 두 손가락: 확대';
