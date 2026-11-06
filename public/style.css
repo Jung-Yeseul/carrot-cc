@@ -317,7 +317,10 @@ td.cur,th.cur{background:color-mix(in srgb,var(--leaf) 14%,transparent)}
 .card .btns.col .btn{flex:none;width:100%;min-height:46px}
 .linkbtn{display:block;margin:10px auto 0;background:none;border:0;color:var(--muted);text-decoration:underline;font:500 13px var(--body);cursor:pointer;padding:6px}
 /* ---- 모바일: 오른쪽 위 버튼들을 ☰ 메뉴 하나로 ---- */
-.hud.tr .row .mmenu-btn{display:none}
+.hud.tr .row .mmenu-btn{display:inline-flex;font-weight:700;border-color:var(--carrot);color:var(--carrot)}
+.hud.tr .row:not(:first-child){display:none}
+.hud.tr .row:first-child{grid-template-columns:auto auto auto}
+.hud.tr .mm-cap{display:none}
 .qmenu{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px}
 .qmenu .btn{min-height:48px;padding:8px 10px;font-size:15px}
 .qmenu .btn.wide{grid-column:1 / -1}
@@ -426,3 +429,9 @@ td.cur,th.cur{background:color-mix(in srgb,var(--leaf) 14%,transparent)}
 .overlay.soft.wc .card h2{font-size:22px;margin:0}
 .overlay.soft.wc .card p{margin:0;font-size:13px}
 .app.inwc .hud,.app.inwc #help{visibility:hidden}
+
+/* 움직이는 동안: 덜 중요한 것들은 잠깐 숨겨요 */
+.app.moving .feed,.app.moving .help,.app.moving #holePar,.app.moving .emotewrap{opacity:0;pointer-events:none}
+.app.moving #goBall{display:none}
+.app.moving #minimap{opacity:.75}
+.feed,.help,#holePar,.emotewrap,#goBall,#minimap{transition:opacity .25s}
