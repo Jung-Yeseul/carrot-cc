@@ -574,8 +574,10 @@ function makeCarrot(visor) {
 const HATS = [['흰색', '#ffffff'], ['당근', '#ff8a2a'], ['빨강', '#e0453a'], ['핑크', '#ff8fb8'], ['하늘', '#5ab4f0'], ['초록', '#3f9a4e'], ['노랑', '#ffd23f'], ['검정', '#2b2b2b']]; // 서버 LOOK_HATS와 개수 맞추기
 const TOPS = ['기본', '폴로 셔츠', '니트 조끼', '턱시도', '하와이안']; // 서버 LOOK_TOPS와 개수 맞추기
 const ACCS = ['없음', '선글라스', '리본', '헤드폰', '꽃 장식']; // 서버 LOOK_ACCS와 개수 맞추기
+// 그늘집에서 빌리는 코스튬 [이름, 이모지, 대여료, 한 줄 소개] (서버 LOOK_COS와 개수 맞추기)
+const COSTUMES = [['코스튬 없음', '🥕', 0, ''], ['상어 탈', '🦈', 12000, '물 근처에서 악어가 겁먹어요(기분상)'], ['펭귄 옷', '🐧', 12000, '뒤뚱뒤뚱, 눈꽃 코스 단골 패션'], ['공룡 옷', '🦖', 15000, '등에 뿔, 엉덩이에 꼬리'], ['산타 옷', '🎅', 15000, '하얀 수염이 포인트'], ['해적 모자', '🏴‍☠️', 9000, '안대는 덤. 한쪽 눈으로 퍼팅'], ['벚꽃 요정', '🌸', 13000, '꽃 왕관과 날개'], ['카우보이', '🤠', 11000, '캐니언 코스 보안관'], ['우주 헬멧', '🧑‍🚀', 18000, '달까지 날아갈 드라이버샷'], ['임금님', '👑', 20000, '금관과 빨간 망토. 오늘은 내가 회장님']];
 // 예전에 저장한 [모자, 옷] 두 칸짜리도 그대로 읽어요
-const normLook = v => { const a = Array.isArray(v) ? v : []; const h = a[0] | 0, t = a[1] | 0, c = a[2] | 0; return [HATS[h] ? h : 0, TOPS[t] ? t : 0, ACCS[c] ? c : 0]; };
+const normLook = v => { const a = Array.isArray(v) ? v : []; const h = a[0] | 0, t = a[1] | 0, c = a[2] | 0, k = a[3] | 0; return [HATS[h] ? h : 0, TOPS[t] ? t : 0, ACCS[c] ? c : 0, COSTUMES[k] ? k : 0]; };
 let myLook = (() => { try { const v = JSON.parse(localStorage.getItem('carrotLook')); if (Array.isArray(v) && v[0] >= 0 && v[0] < HATS.length && v[1] >= 0 && v[1] < TOPS.length) return normLook(v); } catch {} return null; })();
 function saveLook() { try { localStorage.setItem('carrotLook', JSON.stringify(myLook)); } catch {} sendNet({ t: 'look', lk: myLook }); }
 const TOP_TEX = {};
@@ -595,13 +597,60 @@ function applyLook(av, lk, fallback) {
   const col = new T.Color(lk ? HATS[lk[0]][1] : fallback || '#ffffff');
   if (ud.vis) { ud.vis.color.copy(col); ud.vis.emissive.copy(col).multiplyScalar(.25); }
   if (ud.outfit) { av.remove(ud.outfit); ud.outfit = null; }
-  const top = lk ? lk[1] | 0 : 0, acc = lk ? lk[2] | 0 : 0; if (!top && !acc) return;
+  const top = lk ? lk[1] | 0 : 0, acc = lk ? lk[2] | 0 : 0, cos = lk ? lk[3] | 0 : 0; if (!top && !acc && !cos) return;
   const o = new T.Group(), r = y => .6 * (y - .2) / 1.7 + .03;
-  av.add(o); ud.outfit = o; addAcc(o, acc); if (!top) return;
+  av.add(o); ud.outfit = o; addAcc(o, acc); addCostume(o, cos); if (!top) return;
   const shirt = new T.Mesh(new T.CylinderGeometry(r(1.4), r(.9), .5, 24, 1, true), new T.MeshLambertMaterial({ map: topTexture(top), side: T.DoubleSide }));
   shirt.position.y = 1.15; o.add(shirt);
   if (top === 1) for (const s of [-1, 1]) { const cl = new T.Mesh(new T.BoxGeometry(.2, .03, .14), mat(0xf7f7f2)); cl.position.set(s * .1, 1.41, .42); cl.rotation.set(-.5, s * .5, s * .35); o.add(cl); }
   if (top === 3) { const bm = mat(0xd2442c); const k = new T.Mesh(new T.BoxGeometry(.07, .07, .05), bm); k.position.set(0, 1.36, .45); o.add(k); for (const s of [-1, 1]) { const w = new T.Mesh(new T.ConeGeometry(.07, .12, 4), bm); w.rotation.z = s * Math.PI / 2; w.position.set(s * .08, 1.36, .44); o.add(w); } }
+}
+function addCostume(o, k) {
+  if (!k) return;
+  const put = (geo, m, x, y, z, rx = 0, ry = 0, rz = 0) => { const q = new T.Mesh(geo, m); q.position.set(x, y, z); q.rotation.set(rx, ry, rz); q.castShadow = true; o.add(q); return q; };
+  const r = y => .6 * (y - .2) / 1.7 + .05;
+  const hood = (m, open = 1.1) => { const h = put(new T.SphereGeometry(.7, 18, 10, Math.PI / 2 + open / 2, TAU - open, 0, Math.PI / 1.7), new T.MeshLambertMaterial({ color: m.color, side: T.DoubleSide }), 0, 1.82, 0); h.scale.y = .95; return h; };
+  const eyes = (y, z, sp = .2, r = .1) => { for (const sd of [-1, 1]) { put(new T.SphereGeometry(r, 10, 8), mat(0xffffff, { emissive: 0x555555 }), sd * sp, y, z); put(new T.SphereGeometry(r * .5, 8, 6), mat(0x111111), sd * sp, y + .01, z + r * .8); } };
+  const suit = (m, y0 = .55, y1 = 1.5, open = 1.2) => put(new T.CylinderGeometry(r(y1), r(y0), y1 - y0, 20, 1, true, Math.PI / 2 + open / 2, TAU - open), new T.MeshLambertMaterial({ color: m.color, side: T.DoubleSide }), 0, (y0 + y1) / 2, 0);
+  if (k === 1) { // 상어
+    const gm = mat(0x7d93a8), wm = mat(0xffffff, { emissive: 0x666666 }); hood(gm, 1.5); put(new T.ConeGeometry(.2, .6, 4), gm, 0, 2.55, -.2, -.35);
+    for (let i = 0; i < 9; i++) { const a = -.72 + i * .18; put(new T.ConeGeometry(.06, .17, 4), wm, Math.sin(a) * .66, 1.98, Math.cos(a) * .66, Math.PI); } eyes(2.2, .5, .32, .08);
+    suit(gm, .8, 1.45, 1.6); for (const sd of [-1, 1]) put(new T.BoxGeometry(.06, .3, .4), gm, sd * .55, 1.15, -.05, 0, 0, sd * .5);
+  } else if (k === 2) { // 펭귄
+    const bk = mat(0x1d1d24); hood(bk, 1.5); suit(bk, .5, 1.5, 1.7);
+    for (const sd of [-1, 1]) put(new T.BoxGeometry(.06, .55, .28), bk, sd * .56, 1.05, 0, 0, 0, sd * .35);
+    put(new T.ConeGeometry(.07, .18, 4), mat(0xf2a33a), 0, 1.98, .55, Math.PI / 2);
+  } else if (k === 3) { // 공룡
+    const gm = mat(0x5aa84a), sp = mat(0xffd23f); hood(gm, 1.4); suit(gm, .45, 1.5, 1.5); eyes(2.38, .32, .22, .11);
+    for (let i = 0; i < 6; i++) { const y = 2.08 - i * .26, z = -(i < 2 ? .3 + i * .15 : r(y) + .02); put(new T.ConeGeometry(.08, .2, 4), sp, 0, y, z, -.5 - i * .15); }
+    const tail = put(new T.ConeGeometry(.16, .8, 8), gm, 0, .5, -.55, -1.9);
+  } else if (k === 4) { // 산타
+    const rd = mat(0xd2302a), wh = mat(0xffffff); const hat = put(new T.ConeGeometry(.5, .9, 16), rd, .05, 2.3, -.05, -.2, 0, -.25);
+    put(new T.TorusGeometry(.52, .09, 8, 22), wh, 0, 1.92, 0, Math.PI / 2); put(new T.SphereGeometry(.11, 8, 6), wh, .3, 2.7, -.2);
+    const beard = put(new T.SphereGeometry(.34, 12, 8), mat(0xffffff, { emissive: 0x777777 }), 0, 1.33, .4); beard.scale.set(1.1, 1, .45);
+    suit(rd, .5, 1.25, 1.2); put(new T.CylinderGeometry(r(.95) + .02, r(.95) + .02, .08, 20, 1, true), mat(0x2b2b2b), 0, .95, 0);
+  } else if (k === 5) { // 해적
+    const bk = mat(0x1d1d24), gd = mat(0xd4af5a); put(new T.CylinderGeometry(.62, .66, .12, 3), bk, 0, 2.02, 0, 0, Math.PI / 6); put(new T.CylinderGeometry(.42, .5, .32, 12), bk, 0, 2.18, 0);
+    put(new T.BoxGeometry(.18, .12, .02), mat(0xffffff), 0, 2.2, .44); put(new T.CylinderGeometry(.11, .11, .03, 12), bk, .19, 1.62, .53, Math.PI / 2);
+    put(new T.TorusGeometry(.56, .015, 4, 24), bk, 0, 1.68, 0, Math.PI / 2 - .15); put(new T.TorusGeometry(.06, .015, 6, 12), gd, -.5, 1.42, .3, 0, Math.PI / 2);
+  } else if (k === 6) { // 벚꽃 요정
+    const pk = mat(0xffb0cc, { emissive: 0x3a1020 }), wh = mat(0xffffff);
+    for (let i = 0; i < 9; i++) { const a = i / 9 * TAU; put(new T.SphereGeometry(.09, 8, 6), i % 3 ? pk : wh, Math.sin(a) * .55, 1.96, Math.cos(a) * .55); }
+    const wing = new T.MeshLambertMaterial({ color: 0xffd6e6, transparent: true, opacity: .75, side: T.DoubleSide });
+    for (const sd of [-1, 1]) { const w = put(new T.CircleGeometry(.45, 16), wing, sd * .35, 1.35, -.45, 0, sd * .6); w.scale.set(1, 1.5, 1); }
+  } else if (k === 7) { // 카우보이
+    const br = mat(0x8a5a32); put(new T.CylinderGeometry(.95, .95, .05, 20), br, 0, 1.98, 0); put(new T.CylinderGeometry(.42, .5, .4, 14), br, 0, 2.2, 0); put(new T.TorusGeometry(.48, .04, 6, 18), mat(0x2b2b2b), 0, 2.05, 0, Math.PI / 2);
+    const bd = put(new T.ConeGeometry(.3, .38, 3), mat(0xd2302a), 0, 1.28, .43, Math.PI); bd.scale.z = .3;
+  } else if (k === 8) { // 우주 헬멧
+    put(new T.SphereGeometry(.82, 20, 14), new T.MeshPhongMaterial({ color: 0xcfe9ff, transparent: true, opacity: .38, shininess: 140, specular: 0xffffff, depthWrite: false }), 0, 1.75, 0); put(new T.TorusGeometry(.5, .05, 6, 22), mat(0xff8a2a), 0, 1.68, .55);
+    put(new T.TorusGeometry(.6, .07, 8, 22), mat(0xe8e8ee), 0, 1.15, 0, Math.PI / 2); put(new T.CylinderGeometry(.02, .02, .4, 5), mat(0xbbbbbb), .3, 2.65, 0); put(new T.SphereGeometry(.06, 8, 6), new T.MeshBasicMaterial({ color: 0xff4a4a }), .3, 2.86, 0);
+    suit(mat(0xf2f2f4), .5, 1.1, 1);
+  } else if (k === 9) { // 임금님
+    const gd = mat(0xf2c23a, { emissive: 0x4a3400 }); put(new T.CylinderGeometry(.44, .44, .22, 10, 1, true), new T.MeshLambertMaterial({ color: 0xf2c23a, side: T.DoubleSide }), 0, 2.05, 0);
+    for (let i = 0; i < 5; i++) { const a = i / 5 * TAU; put(new T.ConeGeometry(.07, .2, 4), gd, Math.sin(a) * .44, 2.25, Math.cos(a) * .44); put(new T.SphereGeometry(.04, 6, 4), mat(0xd2302a), Math.sin(a) * .45, 2.05, Math.cos(a) * .45); }
+    const cape = put(new T.CylinderGeometry(r(1.55) + .04, .62, 1.3, 18, 1, true, Math.PI / 2 + 1.1, TAU - 2.2), new T.MeshLambertMaterial({ color: 0xb8202a, side: T.DoubleSide }), 0, .95, -.03);
+    put(new T.TorusGeometry(r(1.55) + .05, .06, 6, 20), mat(0xffffff), 0, 1.58, 0, Math.PI / 2);
+  }
 }
 function addAcc(o, acc) {
   const put = (geo, m, x, y, z, rx = 0, ry = 0, rz = 0) => { const k = new T.Mesh(geo, m); k.position.set(x, y, z); k.rotation.set(rx, ry, rz); o.add(k); return k; };
@@ -1760,17 +1809,17 @@ function useRestroom(kind) {
     me.av.visible = false; me.tag.style.visibility = 'hidden'; me.x = door[0] - 1.2; me.z = door[1];
     overlay(`<span class="eyebrow">${name}</span><h2 id="wcTitle">볼일 보는 중…</h2><div class="power wcbar"><div class="bar"><i id="wcPow"></i></div></div><p id="wcSub">잠시만 기다려 주세요. 노크는 사절이에요.</p><button class="btn sub" id="wcOut">급하게 나가기</button>`);
     $('fade').classList.remove('on');
-    let t = 0; const steps = [[0, '볼일 보는 중…', '잠시만 기다려 주세요. 노크는 사절이에요.'], [2.4, '물 내리는 중…', '쏴아아~'], [3.6, '손 씻는 중…', '비누로 30초 꼼꼼하게!']];
+    let t = 0; const steps = [[0, '볼일 보는 중…', '잠시만 기다려 주세요. 노크는 사절이에요.'], [2.4, '물 내리는 중…', '쏴아아~'], [3.6, '손 씻는 중…', '비누로 30초 꼼꼼하게!'], [4.8, '속이 다 시원합니다!', '이제 마음 편히 다음 샷 치러 가요~']];
     const iv = setInterval(() => {
       t += .1; const bar = $('wcPow'); if (!bar) { clearInterval(iv); return; }
-      bar.style.width = Math.min(100, t / 5 * 100) + '%';
+      bar.style.width = Math.min(100, t / 4.8 * 100) + '%';
       for (const [at, h, sub] of steps) if (Math.abs(t - at) < .05) { $('wcTitle').textContent = h; $('wcSub').textContent = sub; if (at === 2.4) sndFlush(); if (at === 3.6) sndWash(); }
-      if (t >= 5) { clearInterval(iv); leave(); }
+      if (t >= 5.9) { clearInterval(iv); leave(); }
     }, 100);
     const leave = () => {
       clearInterval(iv); closeOverlay(); sndDoor();
       me.x = door[0] + 1.2; me.z = door[1]; me.yaw = Math.PI / 2; me.av.visible = true; me.tag.style.visibility = '';
-      S.mode = 'walk'; lastActKey = ''; me.jump = .8; showBubble(me, ['개운하다~', '살았다!', '이제 좀 치겠네'][Math.random() * 3 | 0]);
+      S.mode = 'walk'; lastActKey = ''; me.jump = .8; showBubble(me, ['속이 다 시원합니다~', '개운하다~', '살았다!', '이제 좀 치겠네'][Math.random() * 4 | 0]);
     };
     $('wcOut').onclick = leave;
   }, 450);
@@ -1838,7 +1887,9 @@ function showShade() {
   overlay(`<span class="eyebrow">그늘집 · 오늘의 메뉴</span><h2>${had ? '또 오셨네요!' : '잠깐 쉬었다 가세요'}</h2>
     <p>${had ? `이미 ${esc(had.chip)} 효과가 있어요. 이번엔 간식으로 맛있게만 드세요~` : '하나 고르면 라운딩 끝까지 효과가 있어요.'}</p>
     <div class="menu">${MENU.map(m => `<button type="button" data-id="${m.id}"><span class="it">${m.name}</span><span class="pc">${m.price}</span><span class="ef">${m.eff}</span></button>`).join('')}</div>
+    <div class="btns"><button class="btn sub" id="shadeCos">🎭 코스튬 빌리기</button><button class="btn sub" id="shadeTalk">🗣️ 사장님이랑 노가리</button></div>
     <div class="shade-now" id="shadeNow">${shadeNames()}</div><button class="btn sub" id="shadeClose">그냥 구경만 할게요</button>`);
+  $('shadeCos').onclick = showCostumes; $('shadeTalk').onclick = () => startGossip();
   shadeTimer = setInterval(() => { const el = $('shadeNow'); if (el) el.innerHTML = shadeNames(); }, 1500);
   $('shadeClose').onclick = closeOverlay;
   document.querySelectorAll('.menu button').forEach(b => b.onclick = () => { eatFood(MENU.find(x => x.id === b.dataset.id)); });
@@ -2003,6 +2054,57 @@ const sndChew = () => { noise(.06, 1500, 2, .14); noise(.06, 1300, 2, .12, .14);
 const sndKya = () => { const a = audio(), m = out(); if (!a || !m) return; const o = a.createOscillator(), g = a.createGain(); o.type = 'sawtooth'; o.frequency.setValueAtTime(500, a.currentTime); o.frequency.linearRampToValueAtTime(900, a.currentTime + .12); o.frequency.linearRampToValueAtTime(400, a.currentTime + .4); g.gain.setValueAtTime(.04, a.currentTime); g.gain.exponentialRampToValueAtTime(.001, a.currentTime + .45); o.connect(g).connect(m); o.start(); o.stop(a.currentTime + .46); };
 const EAT_SND = { carrot: sndGulp, ramen: sndSlurp, makgeolli: sndGulp, odeng: sndChew, tteok: sndChew };
 const priceOf = m => +m.price.replace(/[^0-9]/g, '');
+// ---- 그늘집 코스튬: 빌려 입으면 다른 사람에게도 보이고, 다음에 와서 벗거나 바꿀 수 있어요 ----
+function showCostumes() {
+  const now = (myLook || [0, 0, 0, 0])[3] | 0;
+  overlay(`<span class="eyebrow">그늘집 · 코스튬 대여</span><h2>오늘은 뭘로 변신할까요?</h2><p>빌려 입으면 같이 치는 사람들에게도 보여요. 라운딩이 끝나도 계속 입고 있다가, 그늘집에서 벗을 수 있어요.</p>
+    <div class="cos-grid">${COSTUMES.map(([n, e, pr, d], i) => i ? `<button type="button" data-cos="${i}" class="${i === now ? 'on' : ''}"><span class="ce">${e}</span><b>${n}</b><small>${i === now ? '지금 입는 중' : `대여료 ${pr.toLocaleString('ko-KR')}원`}</small><span class="cd">${d}</span></button>` : '').join('')}</div>
+    <div class="btns">${now ? '<button class="btn sub" id="cosOff">코스튬 벗기</button>' : ''}<button class="btn sub" id="cosBack">메뉴로 돌아가기</button></div>`);
+  $('cosBack').onclick = showShade;
+  if ($('cosOff')) $('cosOff').onclick = () => wearCostume(0);
+  document.querySelectorAll('[data-cos]').forEach(b => b.onclick = () => wearCostume(+b.dataset.cos));
+}
+function wearCostume(k) {
+  const lk = normLook(myLook || [0, 0, 0, 0]); const was = lk[3]; lk[3] = k; myLook = lk; saveLook(); applyLook(me.av, myLook);
+  closeOverlay(); me.jump = .8; tone(660, .08, 'triangle', .1); tone(990, .12, 'triangle', .1, .1);
+  if (!k) { ownerSay('반납 확인했습니다~ 깨끗하게 입으셨네요!'); showBubble(me, '역시 당근은 당근 그대로'); return; }
+  if (k === was) { ownerSay('이미 입고 계세요! 잘 어울려요~'); return; }
+  const [n, e, pr] = COSTUMES[k]; S.spent = (S.spent || 0) + pr; renderSpent();
+  ownerSay(`${n} 대여 완료! 세탁비는 서비스예요~`); showBubble(me, `${e} 변신 완료!`); toast(`${n} ${pr.toLocaleString('ko-KR')}원 결제 · 그늘집 대여료는 원래 그래요`, 2400);
+}
+// ---- 그늘집 노가리: 사장님이 들려주는 골프장 썰 (GOSSIP에 이야기를 계속 추가하면 돼요) ----
+// 줄 형식: ['boss' | 'me' | 'guest', '대사']. guest는 옆 테이블 다람쥐 손님이에요.
+const GOSSIP = [
+  ['부장님의 멀리건', [['boss', '지난주에 어떤 부장님이 멀리건을 일곱 번 쓰셨어요.'], ['me', '일곱 번이요? 그늘집 음식을 다 드셨나 봐요.'], ['boss', '아뇨, 하나도 안 드셨어요. 그냥 "방금 건 연습이었어" 하시더라고요.'], ['guest', '우리 팀장님도 그래요. 회의도 "방금 건 연습"이래요.'], ['boss', '그래서 그분 스코어카드엔 1번 홀만 3장이에요.']]],
+  ['떡볶이가 9천 원인 이유', [['me', '사장님, 떡볶이가 왜 9천 원이에요?'], ['boss', '이 떡이 18홀을 걸어서 여기까지 왔거든요.'], ['me', '…9홀인데요?'], ['boss', '왕복이요.'], ['guest', '그럼 오뎅은 카트 타고 왔나 봐요. 더 비싸던데.']]],
+  ['악어의 부업', [['boss', '연못 악어 있잖아요. 걔가 공을 왜 훔쳐 가는지 아세요?'], ['me', '배고파서요?'], ['boss', '중고 마켓에 팔아요. "로스트볼 A급, 물기 살짝" 이렇게요.'], ['guest', '저 거기서 제 공 다시 샀어요. 이름까지 써 있던데.'], ['boss', '단골이시네요~']]],
+  ['고라니와 OB 말뚝', [['guest', '왜 OB 말뚝이 매주 조금씩 옮겨져 있어요?'], ['boss', '고라니가 밤마다 하나씩 뽑아서 옮겨요.'], ['me', '왜요?'], ['boss', '자기 집 마당 넓히는 중이래요. 이번 달 목표는 3번 홀이에요.'], ['me', '그래서 요즘 OB가 줄었구나…']]],
+  ['사장님의 홀인원', [['boss', '저도 젊을 때 홀인원 한 번 했어요.'], ['me', '우와, 진짜요?'], ['boss', '근데 아무도 못 봤어요. 캐디는 화장실, 동반자는 그늘집.'], ['guest', '그래서…?'], ['boss', '그래서 9번 홀에 갤러리를 앉혀 놨어요. 다시는 혼자 넣지 않으려고요.']]],
+  ['접대 골프 꿀팁', [['me', '사장님, 접대 골프 꿀팁 있어요?'], ['boss', '부장님 공이 OB 나면 "와, 바람이 장난 아니네요" 하세요.'], ['me', '바람이 안 불면요?'], ['boss', '"그러니까요, 바람이 너무 안 불어서 공이 혼자 갔네요."'], ['guest', '메모했습니다.']]],
+  ['카트가 "밟습니다!" 하는 이유', [['guest', '화장실 간다니까 캐디가 "밟습니다!" 하던데요.'], ['boss', '예전에 한 손님이 4번 홀에서 참다가…'], ['me', '참다가요?'], ['boss', '홀인원을 하셨어요. 너무 급해서 힘이 딱 들어갔대요.'], ['guest', '저도 오늘 물 많이 마셔야겠다.']]],
+  ['막걸리 퍼팅의 전설', [['boss', '막걸리 한 잔 하고 퍼팅 다 넣은 손님이 있었어요.'], ['me', '컵이 크게 보여서요?'], ['boss', '아뇨, 컵이 두 개로 보여서 아무 데나 쳐도 하나엔 들어갔대요.'], ['guest', '그건 실력이 아니라 확률이네요.'], ['boss', '그분은 그걸 "전략"이라고 부르셨어요.']]],
+  ['월요일 출근', [['boss', '손님, 내일 출근하세요?'], ['me', '…네.'], ['boss', '그럼 떡볶이 하나 더 드릴게요. 서비스 아니고 위로예요.'], ['guest', '저도 출근인데요.'], ['boss', '손님은 오뎅 국물 리필이요. 위로도 직급이 있거든요.']]],
+  ['토끼 캐디의 비밀', [['me', '캐디님은 왜 항상 당근을 들고 다녀요?'], ['boss', '그거 당근 아니고 거리 측정기예요.'], ['me', '진짜요?'], ['boss', '반은 거리 측정기, 반은 간식이에요. 배고프면 측정 거리가 짧아져요.'], ['guest', '어쩐지 오후엔 다 짧게 불러주더라.']]],
+];
+let gossipI = (Math.random() * GOSSIP.length) | 0;
+function startGossip() {
+  const [title, lines] = GOSSIP[gossipI % GOSSIP.length]; gossipI++;
+  const who = { boss: ['🐰', '그늘집 사장님'], me: ['🥕', NET.nick || '나'], guest: ['🐿️', '옆 테이블 다람쥐'] };
+  let n = 0;
+  const render = () => {
+    const shown = lines.slice(0, n + 1).map(([w, t]) => `<div class="gs ${w}"><span class="gw">${who[w][0]} ${esc(who[w][1])}</span><p>${esc(t)}</p></div>`).join('');
+    const last = n >= lines.length - 1;
+    overlay(`<span class="eyebrow">그늘집 노가리 · ${esc(title)}</span><div class="gossip" id="gossipBox">${shown}</div>
+      <div class="btns">${last ? '<button class="btn" id="gsMore">ㅋㅋㅋ 하나 더 해주세요</button><button class="btn sub" id="gsEnd">배꼽 빠지겠네요, 이제 칠게요</button>' : '<button class="btn" id="gsNext">그래서요? ▸</button><button class="btn sub" id="gsEnd">그만 듣기</button>'}</div>`);
+    const box = $('gossipBox'); if (box) box.scrollTop = box.scrollHeight;
+    const w = lines[n][0]; if (w === 'boss') { tone(520 + Math.random() * 80, .06, 'triangle', .05); ownerSay(lines[n][1], 2600); } else if (w === 'me') showBubble(me, lines[n][1].slice(0, 22)); else tone(1200, .05, 'triangle', .04);
+    if ($('gsNext')) $('gsNext').onclick = () => { n++; render(); };
+    if ($('gsMore')) $('gsMore').onclick = startGossip;
+    $('gsEnd').onclick = () => { closeOverlay(); showBubble(me, ['ㅋㅋㅋㅋ', '아 배야', '사장님 입담 최고'][Math.random() * 3 | 0]); };
+    if (last) { S.st.gossip = (S.st.gossip || 0) + 1; }
+  };
+  render();
+}
 function eatFood(m) {
   closeOverlay(); EAT.first = !S.buff; S.mode = 'eat'; lastActKey = ''; me.moveT = null;
   const sx = SHADE.x - .6 + rand(-.5, .5), seat = new T.Vector3(sx, SHADE_LV + .62, SHADE.z + 1.35);

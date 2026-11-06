@@ -406,3 +406,16 @@ td.cur,th.cur{background:color-mix(in srgb,var(--leaf) 14%,transparent)}
 .crspick button span{font-size:22px}
 .crspick button.on{border-color:var(--carrot);background:color-mix(in srgb,var(--carrot) 14%,var(--surface))}
 .crsdesc{font-size:12px;color:var(--muted);margin:6px 0 0;min-height:1.3em}
+
+/* 그늘집 코스튬 · 노가리 */
+.cos-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;max-height:46vh;overflow:auto}
+.cos-grid button{display:grid;grid-template-columns:34px 1fr;column-gap:8px;text-align:left;align-items:center;padding:8px;border:1.5px solid var(--line);border-radius:12px;background:transparent;color:var(--fg);cursor:pointer;font:inherit}
+.cos-grid button.on{border-color:var(--carrot);background:color-mix(in srgb,var(--carrot) 12%,transparent)}
+.cos-grid .ce{grid-row:1 / span 3;font-size:26px;text-align:center}
+.cos-grid b{font-size:14px}.cos-grid small{font:600 11px var(--mono);color:var(--carrot)}.cos-grid .cd{font-size:11px;color:var(--muted);line-height:1.3}
+.gossip{display:flex;flex-direction:column;gap:8px;max-height:48vh;overflow:auto}
+.gs{max-width:88%;padding:8px 12px;border-radius:14px;background:color-mix(in srgb,var(--fg) 6%,transparent)}
+.gs .gw{font-size:11px;font-weight:600;color:var(--muted)}.gs p{margin:2px 0 0;font-size:14px;line-height:1.45}
+.gs.me{align-self:flex-end;background:color-mix(in srgb,var(--carrot) 16%,transparent)}
+.gs.boss{background:color-mix(in srgb,#3f8a3f 12%,transparent)}
+@media (max-width:420px){.cos-grid{grid-template-columns:1fr}}
