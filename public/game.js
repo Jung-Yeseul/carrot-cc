@@ -1718,6 +1718,16 @@ function warpToBall() {
     setTimeout(() => { $('fade').classList.remove('on'); S.mode = 'walk'; lastActKey = ''; }, 120);
   }, 260);
 }
+// 공을 친 다음: 묻지 않고 알아서 이동해요. 멀면(약 60m 넘게) 카트, 가까우면 걸어가요
+const AUTO_CART_U = 20;
+setInterval(() => {
+  if (!S.autoGo || S.mode !== 'walk' || S.ball.state !== 'rest' || !S.ballVis || cam.focus || TUT.on) return;
+  if ($('overlay') && !$('overlay').hidden) return;
+  S.autoGo = false;
+  const d = Math.hypot(me.x - S.ball.x, me.z - S.ball.z);
+  if (d < 3.2) return;
+  if (d > AUTO_CART_U) cartTo(S.ball.x, S.ball.z, true); else walkToBall();
+}, 700);
 function walkToBall() {
   const tg = aimTarget(), a = Math.atan2(tg[0] - S.ball.x, tg[1] - S.ball.z);
   let tx = S.ball.x - Math.sin(a) * 1.4, tz = S.ball.z - Math.cos(a) * 1.4;
@@ -1897,7 +1907,7 @@ function shoot(p) {
   const lie = surface(S.ball.x, S.ball.z);
   const v = launchVel(p, yaw, S.club, lie);
   S.prev = { x: S.ball.x, z: S.ball.z, strokes: S.strokes }; S.last = { x: S.ball.x, z: S.ball.z };
-  S.strokes++; S.shots++; S.shotChance = S.chanceHit; recStart();
+  S.strokes++; S.shots++; S.shotChance = S.chanceHit; recStart(); S.autoGo = true;
   // 다운스윙: 올라간 채를 내려쳐요
   me.swingFrom = .2 + p * (S.club === 3 ? 1 : 2.8); me.swingT = .01; me.chargeP = 0; sndSwish();
   S.mode = 'swing'; S.aimDrag = false; $('power').hidden = true; aimArrow.visible = landRing.visible = pathLine.visible = ribbon.visible = false; $('aimTip').hidden = true;
@@ -2212,12 +2222,13 @@ function nextHoleCard(s) {
     <h2>다음은 ${done + 2}번 홀, ${esc(n.name)}</h2><p class="evtag"><b>${HOLE_EV[n.ev][0]}</b> ${HOLE_EV[n.ev][1]}</p><p>PAR ${n.par}. ${shade ? '그늘집에 들러 보세요. 음식을 사 먹으면 멀리건·OK권·순간이동권을 받아요.' : '노란 점선이 공략 경로예요. 아래 T가 티, 위 깃발이 그린이에요.'}</p>
     <canvas class="guide-map" id="guideMap" width="560" height="500" aria-label="다음 홀 지도"></canvas>
     <p class="guide-tip"><b>토끼 캐디</b> ${esc(HOLE_TIPS[done + 1] || '')}</p>
-    <div class="btns">${shade ? '<button class="btn" id="goShade">그늘집 들르기</button>' : ''}<button class="btn${shade ? ' sub' : ''}" id="goCart">카트 타고 티로</button><button class="btn sub" id="goWalk">걸어가기</button></div>`);
+    <div class="btns">${shade ? '<button class="btn" id="goShade">그늘집 들르기</button>' : ''}<button class="btn${shade ? ' sub' : ''}" id="goCart">다음 홀로 ▸</button></div>`);
   S.hole = done + 1; S.strokes = 0; S.prev = null; S.last = null; S.zoneUsed = {}; S.okHinted = false; S.crocDone = false; S.evUsed = false; S.randCrit = false; S.iceSaid = false; S.pengDone = false;
   const t = HOLES[S.hole].tee; Object.assign(S.ball, { x: t[0], y: 0, z: t[1], vx: 0, vy: 0, vz: 0, state: 'rest' }); S.ballVis = true;
   S.mode = 'walk'; lastActKey = ''; updHud(); renderCard(); bindGuide(S.hole);
-  $('goCart').onclick = () => { closeOverlay(); cartTo(t[0], t[1], true, '다음 홀로 모실게요~', holeTalk(S.hole)); };
-  $('goWalk').onclick = () => { closeOverlay(); walkToBall(); };
+  S.autoGo = false;
+  // 멀면 카트, 가까우면 걸어서 (묻지 않아요)
+  $('goCart').onclick = () => { closeOverlay(); if (Math.hypot(me.x - t[0], me.z - t[1]) > AUTO_CART_U) cartTo(t[0], t[1], true, '다음 홀로 모실게요~', holeTalk(S.hole)); else walkToBall(); };
   if (shade) $('goShade').onclick = () => { closeOverlay(); cartTo(SHADE.x + rand(-1, 1), SHADE.z + 5.3, false, '그늘집으로 모실게요~', '당근주스가 진짜 맛있어요. 꼭 드셔보세요!'); };
 }
 let shadeTimer = 0;
