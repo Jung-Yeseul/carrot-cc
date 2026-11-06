@@ -438,3 +438,22 @@ td.cur,th.cur{background:color-mix(in srgb,var(--leaf) 14%,transparent)}
 
 .duelbadge .dt{font-weight:700;font-size:12px;padding:2px 8px;border-radius:999px;background:#f4e3df;color:#9b2c20}
 .duelbadge .dt.me{background:#2e7d4f;color:#fff}
+
+/* 혼자 / 대전 고르기 */
+.modepick{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
+.modepick button{display:grid;grid-template-columns:30px 1fr;column-gap:6px;text-align:left;align-items:center;padding:8px 10px;border:2px solid var(--line);border-radius:14px;background:color-mix(in srgb,var(--surface) 85%,transparent);color:var(--fg);cursor:pointer;font:inherit}
+.modepick button span{grid-row:1 / span 2;font-size:22px}
+.modepick button b{font-size:14px}.modepick button small{font-size:11px;color:var(--muted)}
+.modepick button.on{border-color:var(--carrot);background:color-mix(in srgb,var(--carrot) 14%,var(--surface))}
+.duelfind{display:block;margin-top:6px;padding:6px 14px;border-radius:999px;border:1.5px solid #c0392b;background:#c0392b;color:#fff;font:700 13px var(--body,inherit);cursor:pointer;pointer-events:auto;box-shadow:0 4px 12px rgba(192,57,43,.3);animation:dfpulse 2.4s ease-in-out infinite}
+.duelfind[hidden]{display:none}
+@keyframes dfpulse{50%{transform:scale(1.04)}}
+@media (prefers-reduced-motion:reduce){.duelfind{animation:none}}
+.duel-lobby{list-style:none;margin:6px 0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:34vh;overflow:auto}
+.duel-lobby li{display:grid;grid-template-columns:14px 1fr auto;column-gap:8px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:12px}
+.duel-lobby li i{width:12px;height:12px;border-radius:50%;grid-row:1 / span 2}
+.duel-lobby li span{font-size:12px;color:var(--muted);grid-column:2}
+.duel-lobby li .btn{grid-column:3;grid-row:1 / span 2;min-height:36px;padding:0 12px}
+.duel-lobby li.empty{display:block;color:var(--muted);font-size:13px;text-align:center}
+.dwtag{display:inline-block;font-size:11px;color:#9b2c20;font-weight:700}
+@media (max-width:640px){.duelfind{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(118px + env(safe-area-inset-bottom,0px));margin:0;z-index:5;animation:none}}

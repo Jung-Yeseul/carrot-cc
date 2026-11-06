@@ -318,7 +318,7 @@ function onMsg(m) {
       const o = NET.others.get(m.id); if (!o) return;
       const x = m.x / 10, z = m.z / 10;
       if (!o.seen || Math.hypot(o.x - x, o.z - z) > 30) { o.x = x; o.z = z; }
-      o.tx = x; o.tz = z; o.tyaw = m.r / 10; o.a = m.a; o.h = m.h; o.bx = m.bx / 10; o.bz = m.bz / 10; o.bv = m.bv; o.st = m.st || 0; o.sc = m.sc || 0; o.dn = m.dn || 0; o.cr = m.cr | 0; o.seen = true;
+      o.tx = x; o.tz = z; o.tyaw = m.r / 10; o.a = m.a; o.h = m.h; o.bx = m.bx / 10; o.bz = m.bz / 10; o.bv = m.bv; o.st = m.st || 0; o.sc = m.sc || 0; o.dn = m.dn || 0; o.cr = m.cr | 0; if (m.dw && !o.dw && PLAY_MODE === 'duel' && !DUEL.on && o.cr === CRS_N && onCourse()) toast(`⚔️ ${o.nick} 님도 대전 상대를 찾고 있어요!`, 2600); o.dw = m.dw | 0; o.seen = true;
       break;
     }
     case 'duel': duelMsg(m); break;
@@ -357,6 +357,14 @@ function joinChannel(ch) {
 }
 // 입구 화면에서 오늘의 코스를 골라요. 다른 코스면 그 코스로 새로 지어서(새로고침) 바로 클럽하우스 앞으로 가요.
 let entryCrs = CRS_ID;
+// 혼자 치기 / 친구랑 대전 (입구에서 골라요). 초대 링크(#ch12-canyon-duel)로 오면 코스와 대전이 미리 골라져요
+let PLAY_MODE = 'solo'; try { if (localStorage.getItem('carrotMode') === 'duel') PLAY_MODE = 'duel'; } catch {}
+{ const m = /^#ch\d{1,3}(?:-([a-z]+))?(-duel)?$/.exec(location.hash); if (m) { if (m[1] && COURSES[m[1]]) entryCrs = m[1]; if (m[2]) PLAY_MODE = 'duel'; } }
+function renderEntryMode() {
+  const el = $('modePick'); if (!el) return;
+  el.querySelectorAll('[data-mode]').forEach(b => { const on = b.dataset.mode === PLAY_MODE; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); b.onclick = () => { PLAY_MODE = b.dataset.mode; try { localStorage.setItem('carrotMode', PLAY_MODE); } catch {} tone(880, .05, 'triangle', .05); renderEntryMode(); }; });
+}
+renderEntryMode();
 function renderEntryCrs() {
   const el = $('crsPick'); if (!el) return;
   el.innerHTML = COURSE_IDS.map(id => `<button type="button" data-ecrs="${id}" class="${id === entryCrs ? 'on' : ''}" aria-pressed="${id === entryCrs}"><span>${COURSES[id].emoji}</span>${COURSES[id].name}</button>`).join('');
@@ -365,6 +373,7 @@ function renderEntryCrs() {
 }
 renderEntryCrs();
 function teeUpTo(ch) {
+  try { localStorage.setItem('carrotMode', PLAY_MODE); } catch {}
   if (entryCrs !== CRS_ID) { switchCourse(entryCrs, 'club'); try { const a = JSON.parse(sessionStorage.getItem('carrotAuto')); a.ch = ch; sessionStorage.setItem('carrotAuto', JSON.stringify(a)); } catch {} return; }
   joinChannel(ch);
 }
@@ -392,11 +401,11 @@ $('coachSkip').onclick = () => { const st = TUT.step; tutEnd(false); toast('따�
 // 모바일 ☰ 메뉴: 오른쪽 위 버튼들을 한 곳에 모아요 (원래 버튼을 대신 눌러줘요)
 $('mMenuBtn').onclick = () => {
   const app = $('app'), course = !app.classList.contains('inclub') && !app.classList.contains('inrange');
-  const items = [['exitBtn', '🏛️ 나가기 (클럽하우스·정문)', 'wide'], ['cardBtn', '📋 스코어카드', '', course], ['sound', null, ''], ['goShadeBtn', '🍢 그늘집 가기', '', course], ['goWCBtn', '🚻 화장실 가기', '', course], ['pickQ', '🏳️ 이 홀 그만하기', '', course && S.mode === 'walk' && S.ball.state === 'rest' && S.ballVis], ['peopleBtn', null, ''], ['clipBtn', null, 'wide'], ['basicsQ', '📖 골프 쉽게 알기', ''], ['nick', `✏️ 이름표: ${NET.nick}`, ''], ['langBtnQ', '🌐 Language', 'wide']];
-  const list = items.filter(([id, , , ok]) => ok !== false && (id === 'langBtnQ' || id === 'basicsQ' || id === 'pickQ' || ($(id) && !$(id).hidden)));
+  const items = [['exitBtn', '🏛️ 나가기 (클럽하우스·정문)', 'wide'], ['cardBtn', '📋 스코어카드', '', course], ['sound', null, ''], ['goShadeBtn', '🍢 그늘집 가기', '', course], ['goWCBtn', '🚻 화장실 가기', '', course], ['duelQ', '⚔️ 대전하기', '', course && !DUEL.on], ['pickQ', '🏳️ 이 홀 그만하기', '', course && S.mode === 'walk' && S.ball.state === 'rest' && S.ballVis], ['peopleBtn', null, ''], ['clipBtn', null, 'wide'], ['basicsQ', '📖 골프 쉽게 알기', ''], ['nick', `✏️ 이름표: ${NET.nick}`, ''], ['langBtnQ', '🌐 Language', 'wide']];
+  const list = items.filter(([id, , , ok]) => ok !== false && (id === 'langBtnQ' || id === 'basicsQ' || id === 'pickQ' || id === 'duelQ' || ($(id) && !$(id).hidden)));
   overlay(`<span class="eyebrow">메뉴</span><div class="qmenu">${list.map(([id, label, cls]) => `<button type="button" class="btn sub ${cls}" data-q="${id}">${label || esc($(id).textContent.trim())}</button>`).join('')}</div><button type="button" class="linkbtn" id="qClose">닫기</button>`);
   $('qClose').onclick = closeOverlay;
-  document.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { if (b.dataset.q === 'langBtnQ') return openLangMenu(); if (b.dataset.q === 'basicsQ') return showBasics(); if (b.dataset.q === 'pickQ') { closeOverlay(); return pickUp(); } closeOverlay(); $(b.dataset.q).click(); });
+  document.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { if (b.dataset.q === 'langBtnQ') return openLangMenu(); if (b.dataset.q === 'basicsQ') return showBasics(); if (b.dataset.q === 'pickQ') { closeOverlay(); return pickUp(); } if (b.dataset.q === 'duelQ') return openDuelLobby(false); closeOverlay(); $(b.dataset.q).click(); });
 };
 // ---- 닉네임 ----
 const NICK_RE = /^[가-힣a-zA-Z0-9 _]+$/;
@@ -1131,7 +1140,7 @@ function showBubble(o, text) {
 // ---- 다른 사람 ----
 function addOther(p) {
   if (NET.others.has(p.id)) removeOther(p.id);
-  const o = { st: p.st || 0, sc: p.sc || 0, dn: p.dn || 0, id: p.id, nick: p.nick, color: p.color, x: (p.x || 0) / 10, z: (p.z || 0) / 10, tx: (p.x || 0) / 10, tz: (p.z || 0) / 10, yaw: 0, tyaw: (p.r || 0) / 10, a: p.a || 0, h: p.h || 0, bx: 0, bz: 0, bv: 0, seen: !!p.x, ph: 0, jump: 0, cr: p.cr | 0, lk: Array.isArray(p.lk) ? normLook(p.lk) : null };
+  const o = { dw: p.dw || 0, st: p.st || 0, sc: p.sc || 0, dn: p.dn || 0, id: p.id, nick: p.nick, color: p.color, x: (p.x || 0) / 10, z: (p.z || 0) / 10, tx: (p.x || 0) / 10, tz: (p.z || 0) / 10, yaw: 0, tyaw: (p.r || 0) / 10, a: p.a || 0, h: p.h || 0, bx: 0, bz: 0, bv: 0, seen: !!p.x, ph: 0, jump: 0, cr: p.cr | 0, lk: Array.isArray(p.lk) ? normLook(p.lk) : null };
   if (built) attachOther(o);
   NET.others.set(p.id, o);
 }
@@ -1259,7 +1268,7 @@ function whereText(x, z, a, h, done) {
   return `${h + 1}번 홀 ${place} · 깃발까지 ${d}m${a === 2 ? ' · 샷 준비 중' : a === 3 ? ' · 스윙!' : ''}`;
 }
 function scoreText(sc, done, st, h) { const tot = done ? (sc === 0 ? 'E' : sc > 0 ? `+${sc}` : `${sc}`) : '-'; return `${done}/${HOLES.length}홀 ${tot}${st ? ` · ${h + 1}H ${st}타` : ''}`; }
-function inviteURL() { return `${location.origin && location.origin !== 'null' ? location.origin : ''}${location.pathname}#ch${NET.ch || 1}`; }
+function inviteURL(duel) { return `${location.origin && location.origin !== 'null' ? location.origin : ''}${location.pathname}#ch${NET.ch || 1}-${CRS_ID}${duel || PLAY_MODE === 'duel' ? '-duel' : ''}`; }
 function renderPeople() {
   $('peopleN').textContent = NET.others.size + 1;
   if ($('peopleSheet').hidden) return;
@@ -1270,7 +1279,7 @@ function renderPeople() {
   const ul = $('plist'), sig = rows.map(o => o.id + ':' + o.nick).join('|');
   if (ul.dataset.sig !== sig) {
     ul.dataset.sig = sig;
-    ul.innerHTML = rows.map(o => `<li class="${o.mine ? 'me' : ''}" data-id="${o.id}"><i style="background:${esc(o.color)}"></i><span class="pn">${esc(o.nick)}${o.mine ? ' (나)' : ''}</span><span class="ps"></span><span class="pw"></span>${o.mine ? '' : `<button type="button" data-go="${o.id}">카트로 가기</button><button type="button" class="duel-ask" data-duel="${o.id}">⚔️ 대전</button>`}</li>`).join('');
+    ul.innerHTML = rows.map(o => `<li class="${o.mine ? 'me' : ''}" data-id="${o.id}"><i style="background:${esc(o.color)}"></i><span class="pn">${esc(o.nick)}${o.mine ? ' (나)' : ''}</span><span class="ps"></span><span class="pw"></span>${o.dw ? '<span class="dwtag">⚔️ 대전 상대 찾는 중</span>' : ''}${o.mine ? '' : `<button type="button" data-go="${o.id}">카트로 가기</button><button type="button" class="duel-ask" data-duel="${o.id}">⚔️ 대전</button>`}</li>`).join('');
   }
   rows.forEach((o, i) => { const li = ul.children[i]; if (!li) return; li.querySelector('.ps').textContent = scoreText(o.sc, o.dn, o.st, o.h); li.querySelector('.pw').textContent = !o.mine && (o.cr | 0) !== CRS_N ? `${COURSES[COURSE_IDS[o.cr | 0]] ? COURSES[COURSE_IDS[o.cr | 0]].name : '다른 코스'}에서 치는 중` : whereText(o.x, o.z, o.a, o.h, o.dn); const bt = li.querySelector('[data-go]'); if (bt) bt.disabled = busy; const db = li.querySelector('[data-duel]'); if (db) { db.disabled = DUEL.on || (o.cr | 0) !== CRS_N || !onCourse(); db.textContent = DUEL.on && DUEL.op === o.id ? '⚔️ 대전 중' : '⚔️ 대전'; } });
   ul.querySelectorAll('[data-duel]').forEach(b => b.onclick = () => duelAsk(+b.dataset.duel));
@@ -1385,6 +1394,37 @@ function updDuel() {
   $('duelStop').onclick = () => { overlay(`<h2>대전을 그만할까요?</h2><p>지금까지 ${DUEL.pts[0]} : ${DUEL.pts[1]}이에요. 그만두면 상대에게도 알려져요.</p><div class="btns"><button class="btn" id="dqY">그만하기</button><button class="btn sub" id="dqN">계속하기</button></div>`); $('dqY').onclick = () => { closeOverlay(); duelQuit('대전을 그만뒀어요'); }; $('dqN').onclick = closeOverlay; };
   if (o && o.tag) o.tag.classList.add('rival');
 }
+// ---- 대전 상대 찾기: 같은 채널·같은 코스 사람 목록 + 친구 초대 링크 ----
+$('duelFind') && ($('duelFind').onclick = () => openDuelLobby(false));
+function openDuelLobby(first) {
+  if (DUEL.on) return toast('이미 대전 중이에요', 1600);
+  const render = () => {
+    if (!$('duelLobby')) return clearInterval(DUEL.lobbyIv);
+    const rows = [...NET.others.values()].filter(o => o.seen && (o.cr | 0) === CRS_N).sort((a, b) => (b.dw | 0) - (a.dw | 0));
+    const html = rows.length ? rows.map(o => `<li><i style="background:${esc(o.color)}"></i><b>${esc(o.nick)}</b><span>${o.dw ? '⚔️ 대전 상대 찾는 중' : `${(o.h | 0) + 1}번 홀 치는 중`}</span><button type="button" class="btn" data-dl="${o.id}">⚔️ 신청</button></li>`).join('')
+      : `<li class="empty">아직 ${esc(COURSES[CRS_ID].name)}에 아무도 없어요. 아래 링크를 친구에게 보내면 같은 채널·같은 코스로 바로 들어와요.</li>`;
+    if (html === DUEL.lobbyHtml) return; DUEL.lobbyHtml = html; $('duelLobby').innerHTML = html;
+    $('duelLobby').querySelectorAll('[data-dl]').forEach(b => b.onclick = () => { clearInterval(DUEL.lobbyIv); duelAsk(+b.dataset.dl); });
+  };
+  closeSheets();
+  overlay(`<span class="eyebrow">⚔️ 친구랑 대전 · ${esc(COURSES[CRS_ID].emoji)} ${esc(COURSES[CRS_ID].name)} · ${NET.ch || '-'}채널</span><h2>누구랑 붙어 볼까요?</h2>
+    <p>홀마다 더 적게 친 사람이 1점, 9홀 끝나고 점수가 많은 사람이 이겨요. 깃발에서 먼 사람부터 치고, 카트도 같이 타요.</p>
+    <ul class="duel-lobby" id="duelLobby"></ul>
+    <div class="invite"><input id="duelLink" readonly value="${esc(inviteURL(true))}" aria-label="대전 초대 링크"><button class="btn sub" id="duelCopy">링크 복사</button></div>
+    <div class="btns"><button class="btn sub" id="duelSolo">${first ? '혼자 치면서 기다릴게요' : '닫기'}</button></div>
+    <p class="cs">혼자 치는 중에도 대전 신청이 오면 받을 수 있어요. 언제든 ☰ 메뉴의 ⚔️ 대전하기에서 다시 열 수 있어요.</p>`);
+  DUEL.lobbyHtml = ''; render(); clearInterval(DUEL.lobbyIv); DUEL.lobbyIv = setInterval(render, 1000);
+  $('duelCopy').onclick = async () => { const v = $('duelLink').value; try { if (navigator.share && window.innerWidth < 700) await navigator.share({ title: '당근 CC 대전', text: `${NET.nick} 님이 당근 CC ${COURSES[CRS_ID].name}에서 대전하재요!`, url: v }); else { await navigator.clipboard.writeText(v); toast('대전 초대 링크를 복사했어요', 1600); } } catch { $('duelLink').select(); } };
+  $('duelSolo').onclick = () => { clearInterval(DUEL.lobbyIv); closeOverlay(); if (first && S.hole === 0 && S.strokes === 0) showGuide(0); };
+}
+// 대전 모드인데 아직 상대가 없으면 화면 위에 '대전 상대 찾기' 칩을 보여줘요
+setInterval(() => {
+  const c = $('duelFind'); if (!c) return;
+  const show = PLAY_MODE === 'duel' && !DUEL.on && onCourse() && !$('app').hidden;
+  c.hidden = !show; if (!show) return;
+  const n = [...NET.others.values()].filter(o => o.seen && (o.cr | 0) === CRS_N).length, w = [...NET.others.values()].filter(o => o.dw && (o.cr | 0) === CRS_N).length;
+  c.textContent = w ? `⚔️ 대전 상대 찾기 · ${w}명 기다리는 중` : n ? `⚔️ 대전 상대 찾기 · ${n}명 있어요` : '⚔️ 대전 상대 찾기';
+}, 1000);
 // ---- 대전 순서: 깃발에서 공이 더 먼 사람이 먼저 쳐요. 티샷은 지난 홀 이긴 사람(아너)부터, 1번 홀은 신청한 사람부터 ----
 const duelMySt = () => ({ h: S.hole, bx: Math.round(S.ball.x * 10), bz: Math.round(S.ball.z * 10), s: S.strokes, fin: S.scores[S.hole] != null ? 1 : 0, fly: S.ball.state !== 'rest' || S.mode === 'flight' ? 1 : 0, idle: S.mode === 'walk' && S.ball.state === 'rest' ? 1 : 0 });
 function duelTurn() {
@@ -1464,7 +1504,7 @@ function startSharedRide(stops, say, mid) {
 // 코스를 떠나면(클럽하우스·연습장·정문) 대전은 끝나요
 setInterval(() => { if (DUEL.on && !onCourse()) duelQuit('코스를 떠나서 대전이 끝났어요'); if (DUEL.on) updDuel(); }, 1000);
 // 초대 링크(#ch12)로 들어오면 그 채널로 바로
-function invitedCh() { const m = /^#ch(\d{1,3})$/.exec(location.hash); return m ? +m[1] : 0; }
+function invitedCh() { const m = /^#ch(\d{1,3})(?:-[a-z]+)?(?:-duel)?$/.exec(location.hash); return m ? +m[1] : 0; }
 function showInvited() { const c = invitedCh(), el = $('invited'); if (c) { el.hidden = false; el.textContent = `친구가 초대한 ${c}채널로 들어가요`; } else el.hidden = true; }
 window.addEventListener('hashchange', showInvited); showInvited();
 $('emoToggle').onclick = () => { const w = $('emoToggle').parentElement; w.classList.toggle('open'); $('emoToggle').setAttribute('aria-expanded', String(w.classList.contains('open'))); };
@@ -3582,7 +3622,7 @@ function goFirstTee() {
   if (S.ball.state === 'rest' && S.strokes > 0) { const a = Math.atan2(hole().cup[0] - S.ball.x, hole().cup[1] - S.ball.z); for (const r of [2, 3, 4.5]) { const x = S.ball.x - Math.sin(a) * r, z = S.ball.z - Math.cos(a) * r; if (canStand(x, z)) { me.x = x; me.z = z; break; } } me.yaw = a; cam.yaw = a; }
   snapCam(); lastActKey = '';
   sendPos(true);
-  setTimeout(() => { if (S.hole === 0 && S.strokes === 0 && $('overlay').hidden && $('lobbyUI').hidden && S.mode === 'walk') showGuide(0); }, 900);
+  setTimeout(() => { if (PLAY_MODE === 'duel' && !DUEL.on && !TUT.on && S.mode === 'walk') return openDuelLobby(true); if (S.hole === 0 && S.strokes === 0 && $('overlay').hidden && $('lobbyUI').hidden && S.mode === 'walk') showGuide(0); }, 900);
   setTimeout(() => $('help').classList.add('off'), window.innerWidth < 640 ? 7000 : 12000);
 }
 
@@ -3965,8 +4005,8 @@ function sendPos(force) {
   const yaw = ((me.yaw % TAU) + TAU) % TAU;
   const bv = S.ballVis && S.ball.state === 'rest' ? 1 : 0;
   const dn = S.scores.filter(x => x != null).length;
-  const msg = { t: 'pos', h: S.hole, x: Math.round(me.x * 10), z: Math.round(me.z * 10), r: Math.round(yaw * 10), a: S.mode === 'eat' ? 0 : me.anim, bx: Math.round(S.ball.x * 10), bz: Math.round(S.ball.z * 10), bv, st: Math.min(40, S.strokes), sc: clamp(totalDiff(), -40, 99), dn, cr: CRS_N };
-  const key = `${CRS_N},${msg.h},${msg.x},${msg.z},${msg.r},${msg.a},${msg.bx},${msg.bz},${bv},${msg.st},${msg.sc},${dn}`, now = performance.now();
+  const msg = { t: 'pos', h: S.hole, x: Math.round(me.x * 10), z: Math.round(me.z * 10), r: Math.round(yaw * 10), a: S.mode === 'eat' ? 0 : me.anim, bx: Math.round(S.ball.x * 10), bz: Math.round(S.ball.z * 10), bv, st: Math.min(40, S.strokes), sc: clamp(totalDiff(), -40, 99), dn, cr: CRS_N, dw: PLAY_MODE === 'duel' && !DUEL.on ? 1 : 0 };
+  const key = `${msg.dw},${CRS_N},${msg.h},${msg.x},${msg.z},${msg.r},${msg.a},${msg.bx},${msg.bz},${bv},${msg.st},${msg.sc},${dn}`, now = performance.now();
   if (!force && key === NET.lastSent && now - NET.lastSentT < 4000) return;
   NET.lastSent = key; NET.lastSentT = now; sendNet(msg);
 }
