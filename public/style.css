@@ -457,3 +457,13 @@ td.cur,th.cur{background:color-mix(in srgb,var(--leaf) 14%,transparent)}
 .duel-lobby li.empty{display:block;color:var(--muted);font-size:13px;text-align:center}
 .dwtag{display:inline-block;font-size:11px;color:#9b2c20;font-weight:700}
 @media (max-width:640px){.duelfind{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(118px + env(safe-area-inset-bottom,0px));margin:0;z-index:5;animation:none}}
+
+/* 공 칠 때: 꼭 필요한 것만 (방향 · 스윙 · 거리), 나머지는 작게 */
+.aimtools{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;width:100%}
+.chipbtn{height:34px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:color-mix(in srgb,var(--surface) 88%,transparent);color:var(--fg);font:600 13px var(--body);cursor:pointer;backdrop-filter:blur(4px)}
+.chipbtn.chance{color:#2e7d4f;border-color:#2e7d4f}
+.chipbtn:disabled{opacity:.5;cursor:default}
+.actions .act.swing{flex:1 1 auto;max-width:280px}
+.app.aiming .hud.tr,.app.aiming #toLobby,.app.aiming .emotewrap,.app.aiming .feed,.app.aiming .help,.app.aiming #holePar,.app.aiming #duelFind{opacity:0;pointer-events:none}
+.hud.tr,#toLobby{transition:opacity .25s}
+@media (max-width:640px){.actions .act.swing{flex:1 1 auto}.actions .act.round{flex:0 0 52px}}
