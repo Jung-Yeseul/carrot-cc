@@ -419,3 +419,10 @@ td.cur,th.cur{background:color-mix(in srgb,var(--leaf) 14%,transparent)}
 .gs.me{align-self:flex-end;background:color-mix(in srgb,var(--carrot) 16%,transparent)}
 .gs.boss{background:color-mix(in srgb,#3f8a3f 12%,transparent)}
 @media (max-width:420px){.cos-grid{grid-template-columns:1fr}}
+
+/* 화장실 안 */
+.overlay.soft.wc{align-items:flex-start;padding:12px 16px 0}
+.overlay.soft.wc .card{max-width:320px;padding:12px 16px;gap:6px}
+.overlay.soft.wc .card h2{font-size:22px;margin:0}
+.overlay.soft.wc .card p{margin:0;font-size:13px}
+.app.inwc .hud,.app.inwc #help{visibility:hidden}
