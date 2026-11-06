@@ -283,6 +283,18 @@ wss.on('connection', (ws) => {
           const h = int(m.h, 0, HOLES - 1), sc = int(m.s, 1, 40), q = p.duel && ch.get(p.duel);
           if (h === null || sc === null || !q || q.duel !== p.id) return;
           send(q.ws, { t: 'duel', op: 'hole', from: p.id, h, s: sc });
+        } else if (op === 'st' || op === 'ride') {
+          const q = p.duel && ch.get(p.duel); if (!q || q.duel !== p.id) return;
+          if (op === 'st') {
+            const v = { h: int(m.h, 0, HOLES - 1), bx: int(m.bx, -3000, 3000), bz: int(m.bz, -3000, 3000), s: int(m.s, 0, 60), fin: m.fin ? 1 : 0, fly: m.fly ? 1 : 0, idle: m.idle ? 1 : 0 };
+            if (v.h === null || v.bx === null || v.bz === null || v.s === null) return;
+            send(q.ws, { t: 'duel', op: 'st', from: p.id, ...v });
+          } else {
+            if (now - (p.lastRide || 0) < 1500 || !Array.isArray(m.stops) || !m.stops.length || m.stops.length > 3) return; p.lastRide = now;
+            const sx = int(m.sx, -3000, 3000), sz = int(m.sz, -3000, 3000); if (sx === null || sz === null) return;
+            const stops = []; for (const st of m.stops) { if (!Array.isArray(st)) return; const x = int(st[0], -3000, 3000), z = int(st[1], -3000, 3000), w = int(st[2], 0, 2); if (x === null || z === null || w === null) return; stops.push([x, z, w]); }
+            send(q.ws, { t: 'duel', op: 'ride', from: p.id, sx, sz, stops });
+          }
         } else if (op === 'quit') endDuel(p, 'quit');
         else if (op === 'end') p.duel = 0;
         break;
