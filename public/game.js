@@ -382,9 +382,11 @@ renderEntryMode();
 function renderEntryCrs() {
   const el = $('crsPick'); if (!el) return;
   el.innerHTML = COURSE_IDS.map(id => `<button type="button" data-ecrs="${id}" class="${id === entryCrs ? 'on' : ''}" aria-pressed="${id === entryCrs}"><span>${COURSES[id].emoji}</span>${COURSES[id].name}</button>`).join('');
-  el.querySelectorAll('[data-ecrs]').forEach(b => b.onclick = () => { entryCrs = b.dataset.ecrs; tone(880, .05, 'triangle', .05); renderEntryCrs(); });
+  el.querySelectorAll('[data-ecrs]').forEach(b => b.onclick = () => { entryCrs = b.dataset.ecrs; tone(880, .05, 'triangle', .05); renderEntryCrs(); setTimeout(() => { $('crsBox').hidden = true; $('crsNow').setAttribute('aria-expanded', 'false'); }, 350); });
   const d = $('crsDesc'); if (d) d.textContent = COURSES[entryCrs].desc;
+  const n = $('crsNow'); if (n) n.innerHTML = `${COURSES[entryCrs].emoji} ${COURSES[entryCrs].name} <small>바꾸기 ▾</small>`;
 }
+if ($('crsNow')) $('crsNow').onclick = () => { const b = $('crsBox'); b.hidden = !b.hidden; $('crsNow').setAttribute('aria-expanded', String(!b.hidden)); };
 renderEntryCrs();
 function teeUpTo(ch) {
   try { localStorage.setItem('carrotMode', PLAY_MODE); } catch {}
@@ -397,7 +399,7 @@ let AUTO = null; try { AUTO = JSON.parse(sessionStorage.getItem('carrotAuto')); 
 if (AUTO) { let n = 0; const go = () => { if (!$('app').hidden) return; if (!NET.open && n++ < 20) return setTimeout(go, 200); joinChannel(AUTO.ch || invitedCh()); }; setTimeout(go, 300); }
 // ---- 언어 (버튼으로만 바꿔요. 바꾸면 새로고침, 라운딩은 저장돼서 이어서 칠 수 있어요) ----
 const LG = window.I18N || { lang: 'ko', LANGS: [['ko', '한국어']], set() {} };
-function renderLangPick() { const el = $('langPick'); if (!el) return; el.innerHTML = LG.LANGS.map(([k, n]) => `<button type="button" data-lang="${k}" class="${k === LG.lang ? 'on' : ''}" aria-pressed="${k === LG.lang}">${n}</button>`).join(''); el.querySelectorAll('[data-lang]').forEach(b => b.onclick = () => { if (b.dataset.lang !== LG.lang) LG.set(b.dataset.lang); }); }
+function renderLangPick() { const el = $('langPick'); if (!el) return; el.textContent = '🌐 ' + (LG.LANGS.find(l => l[0] === LG.lang) || ['', ''])[1]; el.onclick = openLangMenu; return; el.innerHTML = LG.LANGS.map(([k, n]) => `<button type="button" data-lang="${k}" class="${k === LG.lang ? 'on' : ''}" aria-pressed="${k === LG.lang}">${n}</button>`).join(''); el.querySelectorAll('[data-lang]').forEach(b => b.onclick = () => { if (b.dataset.lang !== LG.lang) LG.set(b.dataset.lang); }); }
 renderLangPick();
 if ($('basicsLink')) $('basicsLink').onclick = showBasics;
 function openLangMenu() {
@@ -3409,7 +3411,7 @@ function finishCine() {
   if (c.kind === 'enter') {
     me.yaw = Math.PI; cam.yaw = Math.PI;
     setTimeout(() => { $('clubTitle').hidden = true; }, 900);
-    LB.welcome = [me.x, me.z]; askLevel();
+    LB.welcome = [me.x, me.z]; let lv = null; try { lv = localStorage.getItem('carrotLv'); } catch {} if (lv) openDesk(true); else askLevel();   // '처음이에요/익숙해요'는 처음 한 번만 물어요
   } else { me.yaw = 0; cam.yaw = Math.PI; toast('정문 밖이에요. 언제든 다시 입장할 수 있어요', 2200); }
 }
 function skipCine() {
@@ -3430,7 +3432,7 @@ function openDesk(welcome) {
   LB.desk = 'open';
   const cn = COURSES[CRS_ID].name;
   lbShow('프론트 토끼 매니저', welcome ? `어서 오세요, ${NET.nick} 님! 당근 컨트리클럽 ${cn}입니다. 오늘은 무엇을 도와드릴까요?` : `어서 오세요! 당근 컨트리클럽 ${cn}입니다. 오늘은 무엇을 도와드릴까요?`,
-    [['락커룸 안내', 'g-locker'], ['드라이빙 레인지 안내', 'g-range', 'sub'], ['티오프(스타트 하우스) 안내', 'g-course', 'sub'], ['코스 바꾸기', 'crs', 'link'], ['이름 바꾸기', 'nick', 'link']]);
+    [['⛳ 바로 티오프', 'g-course'], ['👕 옷 갈아입기', 'g-locker', 'sub'], ['🏌️ 연습장', 'g-range', 'sub']]);
   tone(1568, .4, 'sine', .08);
 }
 function closeDesk(snooze) { LB.desk = 'idle'; LB.welcome = null; if (snooze) LB.deskSnooze = true; if (!LB.lockerUI) $('lobbyUI').hidden = true; }
@@ -3444,8 +3446,8 @@ function lobbyAct(a) {
   else if (a === 'nick') { $('nick').click(); const iv = setInterval(() => { if ($('overlay').hidden) { clearInterval(iv); if (LB.desk === 'open') openDesk(false); } }, 300); }
   else if (a === 'crs') pickCourse(() => openDesk(false));
   else if (a === 'lkdone') closeLocker();
-  else if (a === 'lv-pro') { LB.asking = false; tutEnd(false); openDesk(true); }
-  else if (a === 'lv-new') { LB.asking = false; LB.welcome = null; TUT.on = true; $('lobbyUI').hidden = true; tutGo('desk'); }
+  else if (a === 'lv-pro') { try { localStorage.setItem('carrotLv', 'pro'); } catch {} LB.asking = false; tutEnd(false); openDesk(true); }
+  else if (a === 'lv-new') { try { localStorage.setItem('carrotLv', 'new'); } catch {} LB.asking = false; LB.welcome = null; TUT.on = true; $('lobbyUI').hidden = true; tutGo('desk'); }
   else if (a === 'tut-locker') tutGo('locker');
   else if (a === 'cd-ok') { caddieBye(); toast('나이스 샷 기대할게요!', 1400); }
   else if (a === 'cd-guide') { caddieBye(); showGuide(S.hole); }

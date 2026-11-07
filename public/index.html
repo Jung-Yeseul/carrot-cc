@@ -42,7 +42,7 @@
       <path d="M141 186h17a4 4 0 0 1 0 8h-19z" fill="#a3aaa2"/>
       <path d="M117 106q12 4 5 12" stroke="#f08a2f" stroke-width="8" stroke-linecap="round" fill="none"/>
     </svg>
-    <div class="langpick" id="langPick" role="group" aria-label="Language"></div>
+    <button type="button" class="langbtn" id="langPick" aria-label="Language">🌐</button>
     <p class="eyebrow">CARROT COUNTRY CLUB · EST. 2026</p>
     <h1 class="brand-big">당근 CC<small>당근 컨트리클럽</small></h1>
     <p class="tagline">말없이 공만 치다 가는 골프장. 당근이 되어 코스를 걷고, 그늘집에서 쉬었다 가세요.</p>
@@ -55,8 +55,9 @@
       <button class="ghost" type="button" id="nickRandom">랜덤</button>
       <p class="nickerr" id="nickErr" role="alert"></p>
     </form>
-    <div class="crsbox"><span class="eyebrow">오늘의 코스</span><div class="crspick" id="crsPick" role="group" aria-label="오늘의 코스"></div><p class="crsdesc" id="crsDesc"></p></div>
-    <div class="crsbox"><span class="eyebrow">어떻게 칠까요? 누르면 바로 들어가요</span><div class="modepick" id="modePick" role="group" aria-label="어떻게 칠까요?"><button type="button" data-mode="solo"><span>🏌️</span><b>혼자 치기</b><small>내 속도로 느긋하게 · 누르면 바로 출발</small></button><button type="button" data-mode="duel"><span>⚔️</span><b>친구랑 대전</b><small>홀마다 승부 · 누르면 바로 출발</small></button></div></div>
+    <div class="crsrow">오늘의 코스 <button type="button" class="crsnow" id="crsNow" aria-expanded="false"></button></div>
+    <div class="crsbox" id="crsBox" hidden><div class="crspick" id="crsPick" role="group" aria-label="오늘의 코스"></div><p class="crsdesc" id="crsDesc"></p></div>
+    <div class="modepick" id="modePick" role="group" aria-label="어떻게 칠까요?"><button type="button" class="btn big" data-mode="solo">🏌️ 혼자 치기</button><button type="button" class="btn big sub" data-mode="duel">⚔️ 친구랑 대전</button></div>
     <p class="invited" id="invited" hidden></p>
     <button class="btn big" id="teeUp" hidden>티업하기</button>
     <button type="button" class="linkbtn" id="basicsLink">골프 처음이세요? 1분 설명 보기</button>
