@@ -144,11 +144,11 @@ const ROLL = { green: [.9, .5], fairway: [1.5, 1.2], tee: [1.5, 1.2], path: [1.2
 const LIE = { green: '그린(홀컵 근처)', fairway: '페어웨이(짧은 잔디)', tee: '출발 지점(티)', path: '카트 도로', rough: ICE ? '러프(눈밭)' : '러프(긴 풀)', sand: ICE ? '벙커(눈 더미)' : LAVA ? '벙커(검은 모래)' : CANDY ? '벙커(설탕 가루)' : '벙커(모래)', ice: '빙판(쭉 미끄러져요)' };
 const EMOTES = ['나이스샷!', '굿 퍼팅', '아깝다~', '오잘공!', '당근이지!', '캐디님 감사']; // 서버 EMOTES 개수와 맞추기
 const MENU = [
-  { id: 'carrot', name: '갓 짠 당근주스', price: '12,000원', eff: 'OK권 2장·순간이동권 1장 + 처음 먹으면 공이 날아갈 길이 미리 보여요.', chip: '당근주스: 궤적 미리보기', tix: [0, 2, 1] },
-  { id: 'ramen', name: '그늘집 컵라면', price: '9,000원', eff: '멀리건 1장·순간이동권 2장 + 처음 먹으면 비거리 +20%.', chip: '컵라면: 비거리 +20%', tix: [1, 0, 2] },
-  { id: 'makgeolli', name: '막걸리 한 잔', price: '15,000원', eff: '멀리건 1장·OK권 1장·순간이동권 1장 + 처음 먹으면 홀컵이 크게 보여요(손 떨림).', chip: '막걸리: 홀컵 크게, 손 떨림', tix: [1, 1, 1] },
-  { id: 'odeng', name: '오뎅 꼬치', price: '11,000원', eff: '멀리건 2장·순간이동권 1장. 동반자가 너그러워져요.', chip: '오뎅: 너그러운 동반자', tix: [2, 0, 1] },
-  { id: 'tteok', name: '매운 떡볶이', price: '13,000원', eff: '멀리건 1장·OK권 1장·순간이동권 2장 + 처음 먹으면 매워서 정신이 번쩍! 파워바가 천천히 움직여요.', chip: '떡볶이: 파워바 느리게', tix: [1, 1, 2] },
+  { id: 'carrot', img: '🥕', name: '갓 짠 당근주스', price: '12,000원', eff: 'OK권 2장·순간이동권 1장 + 처음 먹으면 공이 날아갈 길이 미리 보여요.', chip: '당근주스: 궤적 미리보기', tix: [0, 2, 1] },
+  { id: 'ramen', img: '🍜', name: '그늘집 컵라면', price: '9,000원', eff: '멀리건 1장·순간이동권 2장 + 처음 먹으면 비거리 +20%.', chip: '컵라면: 비거리 +20%', tix: [1, 0, 2] },
+  { id: 'makgeolli', img: '🍶', name: '막걸리 한 잔', price: '15,000원', eff: '멀리건 1장·OK권 1장·순간이동권 1장 + 처음 먹으면 홀컵이 크게 보여요(손 떨림).', chip: '막걸리: 홀컵 크게, 손 떨림', tix: [1, 1, 1] },
+  { id: 'odeng', img: '🍢', name: '오뎅 꼬치', price: '11,000원', eff: '멀리건 2장·순간이동권 1장. 동반자가 너그러워져요.', chip: '오뎅: 너그러운 동반자', tix: [2, 0, 1] },
+  { id: 'tteok', img: '🌶️', name: '매운 떡볶이', price: '13,000원', eff: '멀리건 1장·OK권 1장·순간이동권 2장 + 처음 먹으면 매워서 정신이 번쩍! 파워바가 천천히 움직여요.', chip: '떡볶이: 파워바 느리게', tix: [1, 1, 2] },
 ];
 
 // ================= 지형 판정 =================
@@ -1729,7 +1729,8 @@ setInterval(() => {
   S.autoGo = false;
   const d = Math.hypot(me.x - S.ball.x, me.z - S.ball.z);
   if (d < 3.2) return;
-  if (d > AUTO_CART_U) cartTo(S.ball.x, S.ball.z, true); else walkToBall();
+  const onGreen = greenSafe(S.ball.x, S.ball.z)[2];
+  if (d > AUTO_CART_U && !(onGreen && d < AUTO_CART_U * 2)) cartTo(S.ball.x, S.ball.z, true); else walkToBall();
 }, 700);
 function walkToBall() {
   const tg = aimTarget(), a = Math.atan2(tg[0] - S.ball.x, tg[1] - S.ball.z);
@@ -1775,8 +1776,22 @@ function cartTo(x, z, toBall, say, mid) {
   for (let k = 0; k < 20 && !canStand(tx, tz); k++) { tx += rand(-1.5, 1.5); tz += rand(-1.5, 1.5); }
   rideTo(tx, tz, face, say || (toBall ? '공 있는 데로 모실게요~' : '출발합니다~ 꽉 잡으세요!'), mid || (toBall ? ballTalk() : ''));
 }
+// 골프 룰: 카트는 그린(과 그 둘레)에 못 들어가요. 그린 가장자리에 세우고 나머지는 걸어가요
+function greenSafe(x, z) {
+  for (const h of HOLES) {
+    const c = h.cup, r = h.green + 5, d = Math.hypot(x - c[0], z - c[1]);
+    if (d >= r) continue;
+    const pv = h.fair[h.fair.length - 2], base = Math.atan2(pv[0] - c[0], pv[1] - c[1]);
+    for (let k = 0; k < 12; k++) {
+      const a = base + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * .35, ex = c[0] + Math.sin(a) * (r + 1), ez = c[1] + Math.cos(a) * (r + 1);
+      if (canStand(ex, ez)) return [ex, ez, true];
+    }
+  }
+  return [x, z, false];
+}
 function rideTo(dx, dz, face, say, mid) {
   if (S.mode === 'ride' || !me.cart) return;
+  { const [ex, ez, moved] = greenSafe(dx, dz); RIDE.walkTo = moved ? [dx, dz, face] : null; if (moved) { dx = ex; dz = ez; face = Math.atan2(RIDE.walkTo[0] - ex, RIDE.walkTo[1] - ez); } }
   // 카트를 내 옆에 대고 출발
   const route = planRoute(me.x, me.z, dx, dz);
   const first = route[0], yaw0 = Math.atan2(first[0] - me.x, first[1] - me.z);
@@ -1803,8 +1818,10 @@ function rideStopDone() {
   if (!st || st.mine) return false;
   RIDE.si++; const nx = RIDE.stops[RIDE.si]; if (!nx) return false;
   RIDE.pause = 1.6; RIDE.sp = 0; caddieSay(`${DUEL.nick || '상대'} 님 여기서 내리세요~ 나이스 샷!`, 2200);
-  RIDE.pts = planRoute(RIDE.x, RIDE.z, nx.x, nx.z); RIDE.i = 0; RIDE.dest = [nx.x, nx.z];
+  const [gx, gz, gm] = greenSafe(nx.x, nx.z);
+  RIDE.pts = planRoute(RIDE.x, RIDE.z, gx, gz); RIDE.i = 0; RIDE.dest = [gx, gz];
   RIDE.face = nx.mine ? Math.atan2(aimTarget()[0] - S.ball.x, aimTarget()[1] - S.ball.z) : null;
+  RIDE.walkTo = gm && nx.mine ? [nx.x, nx.z, RIDE.face] : null;
   return true;
 }
 function updateRide(dt) {
@@ -1834,10 +1851,16 @@ function arrive() {
   RIDE.x = dx + Math.sin(side) * 2.4; RIDE.z = dz + Math.cos(side) * 2.4;
   if (!canStand(RIDE.x, RIDE.z)) { RIDE.x = dx - Math.sin(side) * 2.4; RIDE.z = dz - Math.cos(side) * 2.4; }
   const sx = me.x, sz = me.z, sy = me.yaw; placeCart(); me.x = sx; me.z = sz; me.yaw = sy; me.seat = null; me.anim = 0;
-  S.mode = 'walk'; lastActKey = ''; caddieSay(['도착했습니다~ 나이스 샷 하세요!', '여기서 내리시면 돼요~', '도착! 천천히 치세요~'][Math.random() * 3 | 0], 2600);
+  S.mode = 'walk'; lastActKey = '';
+  if (RIDE.walkTo) {
+    // 그린 앞에서 내렸어요: 공까지는 걸어가요
+    const [wx, wz] = RIDE.walkTo; RIDE.walkTo = null;
+    caddieSay('그린에는 카트가 못 들어가요~ 여기서부터 걸어가세요!', 2600);
+    setTimeout(() => { if (S.mode === 'walk') { me.moveT = [wx, wz]; } }, 500);
+  } else caddieSay(['도착했습니다~ 나이스 샷 하세요!', '여기서 내리시면 돼요~', '도착! 천천히 치세요~'][Math.random() * 3 | 0], 2600);
   me.jump = .6;
 }
-function skipRide() { if (S.mode !== 'ride') return; if (RIDE.stops) { const mine = RIDE.stops.find((st, i) => i >= RIDE.si && st.mine); if (mine) RIDE.dest = [mine.x, mine.z]; } RIDE.i = RIDE.pts.length; const [dx, dz] = RIDE.dest; RIDE.x = dx; RIDE.z = dz; arrive(); snapCam(); }
+function skipRide() { if (S.mode !== 'ride') return; if (RIDE.stops) { const mine = RIDE.stops.find((st, i) => i >= RIDE.si && st.mine); if (mine) RIDE.dest = [mine.x, mine.z]; } RIDE.i = RIDE.pts.length; const [dx, dz] = RIDE.dest; RIDE.x = dx; RIDE.z = dz; if (RIDE.stops) { const [gx, gz, gm] = greenSafe(dx, dz); if (gm) { RIDE.walkTo = [dx, dz, null]; RIDE.dest = [gx, gz]; } } arrive(); snapCam(); }
 
 // ================= 샷 =================
 function enterAim() {
@@ -2243,8 +2266,8 @@ function showShade() {
   const had = S.buff && MENU.find(m => m.id === S.buff);
   overlay(`<span class="eyebrow">그늘집 · 오늘의 메뉴</span><h2>${had ? '또 오셨네요!' : '잠깐 쉬었다 가세요'}</h2>
     <p>${had ? `이미 ${esc(had.chip)} 효과가 있어요. 이번엔 간식으로 맛있게만 드세요~` : '하나 고르면 라운딩 끝까지 효과가 있어요.'}</p>
-    <div class="menu">${MENU.map(m => `<button type="button" data-id="${m.id}"><span class="it">${m.name}</span><span class="pc">${m.price}</span><span class="ef">${m.eff}</span></button>`).join('')}</div>
-    <div class="btns"><button class="btn sub" id="shadeCos">🎭 코스튬 빌리기</button></div>
+    <button type="button" class="cosbanner" id="shadeCos"><span class="cb-e">🦈🦖👑</span><span class="cb-t"><b>🎭 코스튬 빌리기</b><small>상어·공룡·임금님… 입으면 다른 사람에게도 보여요</small></span><span class="cb-go">▸</span></button>
+    <div class="menu cards">${MENU.map(m => `<button type="button" data-id="${m.id}" class="m-${m.id}"><span class="mimg">${m.img}</span><span class="it">${m.name}</span><span class="pc">${m.price}</span><span class="tix">${[['멀리건', m.tix[0]], ['OK권', m.tix[1]], ['순간이동', m.tix[2]]].filter(t => t[1]).map(t => `<i>${t[0]}<b>×${t[1]}</b></i>`).join('')}</span><span class="ef">${m.chip.split(': ')[1] || ''}</span></button>`).join('')}</div>
     <div class="shade-now" id="shadeNow">${shadeNames()}</div><button class="btn sub" id="shadeClose">그냥 구경만 할게요</button>`);
   $('shadeCos').onclick = showCostumes;
   shadeTimer = setInterval(() => { const el = $('shadeNow'); if (el) el.innerHTML = shadeNames(); }, 1500);

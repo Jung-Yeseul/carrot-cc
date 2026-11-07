@@ -489,3 +489,25 @@ td.cur,th.cur{background:color-mix(in srgb,var(--leaf) 14%,transparent)}
 .crsbox.strip .crspick button{flex:0 0 96px;scroll-snap-align:center;padding:10px 4px}
 .crsbox.strip .crspick button span{font-size:26px}
 @media (min-width:700px){.crsbox.strip{max-width:560px}}
+/* 그늘집 메뉴판: 사진(그림) + 이름 + 금액 카드 */
+.menu.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:8px;max-height:min(52vh,460px);overflow:auto;flex-direction:initial}
+.menu.cards button{display:flex;flex-direction:column;align-items:stretch;gap:3px;padding:0 0 9px;overflow:hidden;border-radius:14px;text-align:left}
+.menu.cards .mimg{display:grid;place-items:center;height:74px;font-size:44px;line-height:1;background:linear-gradient(160deg,#fde7c8,#f7c58a);margin-bottom:4px}
+.menu.cards .m-ramen .mimg{background:linear-gradient(160deg,#fff1c9,#f4b860)}
+.menu.cards .m-makgeolli .mimg{background:linear-gradient(160deg,#f3efe4,#d9cfb8)}
+.menu.cards .m-odeng .mimg{background:linear-gradient(160deg,#fbe2c4,#e8a86a)}
+.menu.cards .m-tteok .mimg{background:linear-gradient(160deg,#ffd0c4,#ef6a4f)}
+.menu.cards .it{padding:0 10px;font-size:14px;font-weight:700;line-height:1.25}
+.menu.cards .pc{padding:0 10px;font-size:15px;font-weight:700;color:var(--carrot);font-family:var(--mono);grid-row:auto;align-self:auto}
+.menu.cards .tix{display:flex;flex-wrap:wrap;gap:3px;padding:0 10px}
+.menu.cards .tix i{font-style:normal;font-size:10.5px;padding:1px 6px;border-radius:99px;background:color-mix(in srgb,var(--gold) 22%,transparent);color:var(--fg)}
+.menu.cards .ef{padding:0 10px;font-size:11.5px;line-height:1.3}
+.cosbanner{display:flex;align-items:center;gap:10px;width:100%;margin:2px 0 10px;padding:11px 14px;border:0;border-radius:14px;cursor:pointer;font:inherit;text-align:left;color:#fff;background:linear-gradient(120deg,#ff7a1a,#e8457a);box-shadow:0 4px 14px rgba(232,69,122,.35);animation:cbpulse 2.4s ease-in-out infinite}
+.cosbanner .cb-e{font-size:24px;letter-spacing:-4px;flex:none}
+.cosbanner .cb-t{display:flex;flex-direction:column;gap:1px;flex:1;min-width:0}
+.cosbanner b{font-size:16px}
+.cosbanner small{font-size:11.5px;opacity:.92}
+.cosbanner .cb-go{font-size:20px;flex:none}
+@keyframes cbpulse{0%,100%{transform:scale(1)}50%{transform:scale(1.02)}}
+@media (prefers-reduced-motion:reduce){.cosbanner{animation:none}}
+.menu.cards .tix b{margin-left:2px}
