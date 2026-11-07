@@ -474,3 +474,9 @@ td.cur,th.cur{background:color-mix(in srgb,var(--leaf) 14%,transparent)}
 .crsnow{border:1.5px solid var(--line);background:color-mix(in srgb,var(--surface) 88%,transparent);color:var(--fg);border-radius:999px;padding:6px 14px;font:700 14px var(--body);cursor:pointer}
 .crsnow small{font-weight:600;color:var(--carrot);margin-left:4px}
 .crsbox[hidden]{display:none}
+
+/* 클럽하우스 안에서는 인사 버튼도 숨겨요 */
+.app.inclub .emotewrap{display:none}
+.lb-btns:not(.lk) .btn:first-child:not(.link):not(.sub){flex:1 1 100%}
+.lb-btns:not(.lk):has(.btn.link){justify-content:center}
+.app.inclub .chbadge{display:none}

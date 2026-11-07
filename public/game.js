@@ -1671,8 +1671,8 @@ function updActions() {
       <button class="act" id="rLobby">🏛️ 로비로</button>`;
   if (S.mode === 'club' && !LB.lockerUI) {
     if (LB.zone === 'out') html = '<button class="act" id="clEnter">🚪 클럽하우스 입장</button>';
-    else if (LB.zone === 'locker') html = '<button class="act" id="clDress">👕 옷 갈아입기</button><button class="act sub" id="clLobby">🏛️ 로비로</button>';
-    else html = '<button class="act sub" id="clLocker">👕 락커룸</button><button class="act sub" id="clRange">🏌️ 드라이빙 레인지</button><button class="act" id="clCourse">⛳ 티오프 하러 가기</button>';
+    else if (LB.zone === 'locker') html = '<button class="act" id="clDress">👕 옷 갈아입기</button>';
+    // 로비에서는 버튼 없이 걸어 다녀요 (문으로 걸어가면 들어가져요)
   }
   if (S.mode === 'eat') html = '<button class="act sub" id="eatDone">다 먹었어요</button>';
   if (S.mode === 'flight') html = '<button class="act sub" id="skipFlight">공 멈춘 곳 바로 보기 ▸▸</button>';
@@ -3431,8 +3431,8 @@ function lbShow(name, say, btns) {
 function openDesk(welcome) {
   LB.desk = 'open';
   const cn = COURSES[CRS_ID].name;
-  lbShow('프론트 토끼 매니저', welcome ? `어서 오세요, ${NET.nick} 님! 당근 컨트리클럽 ${cn}입니다. 오늘은 무엇을 도와드릴까요?` : `어서 오세요! 당근 컨트리클럽 ${cn}입니다. 오늘은 무엇을 도와드릴까요?`,
-    [['⛳ 바로 티오프', 'g-course'], ['👕 옷 갈아입기', 'g-locker', 'sub'], ['🏌️ 연습장', 'g-range', 'sub']]);
+  lbShow('프론트 토끼 매니저', welcome ? `어서 오세요, ${NET.nick} 님! 오늘 코스는 ${COURSES[CRS_ID].emoji} ${cn}!` : `어서 오세요! 오늘 코스는 ${COURSES[CRS_ID].emoji} ${cn}!`,
+    [['⛳ 티오프 하러 가기', 'g-course'], ['옷 갈아입기', 'g-locker', 'link'], ['연습장', 'g-range', 'link']]);
   tone(1568, .4, 'sine', .08);
 }
 function closeDesk(snooze) { LB.desk = 'idle'; LB.welcome = null; if (snooze) LB.deskSnooze = true; if (!LB.lockerUI) $('lobbyUI').hidden = true; }
