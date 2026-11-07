@@ -148,6 +148,11 @@ const MENU = [
   { id: 'ramen', img: '🍜', name: '그늘집 컵라면', price: '9,000원', eff: '멀리건 1장·순간이동권 2장 + 처음 먹으면 비거리 +20%.', chip: '컵라면: 비거리 +20%', tix: [1, 0, 2] },
   { id: 'makgeolli', img: '🍶', name: '막걸리 한 잔', price: '15,000원', eff: '멀리건 1장·OK권 1장·순간이동권 1장 + 처음 먹으면 홀컵이 크게 보여요(손 떨림).', chip: '막걸리: 홀컵 크게, 손 떨림', tix: [1, 1, 1] },
   { id: 'odeng', img: '🍢', name: '오뎅 꼬치', price: '11,000원', eff: '멀리건 2장·순간이동권 1장. 동반자가 너그러워져요.', chip: '오뎅: 너그러운 동반자', tix: [2, 0, 1] },
+  { id: 'sikhye', img: '🥤', name: '살얼음 식혜', price: '8,000원', eff: 'OK권 1장·순간이동권 1장 + 처음 먹으면 공이 바람을 절반만 타요.', chip: '식혜: 바람 절반', tix: [0, 1, 1] },
+  { id: 'gimbap', img: '🍙', name: '참치 김밥', price: '10,000원', eff: '멀리건 1장·OK권 1장 + 처음 먹으면 러프·벙커에서도 공이 잘 맞아요.', chip: '김밥: 러프·벙커 탈출', tix: [1, 1, 0] },
+  { id: 'egg', img: '🥚', name: '맥반석 구운 계란', price: '6,000원', eff: '멀리건 1장 + 처음 먹으면 OK 거리가 넓어져요.', chip: '구운 계란: OK 거리 넓게', tix: [1, 0, 0] },
+  { id: 'pajeon', img: '🥞', name: '해물파전', price: '18,000원', eff: '멀리건 2장·OK권 2장·순간이동권 1장. 둘이 나눠 먹는 크기라 효과 대신 쿠폰이 넉넉해요.', chip: '', tix: [2, 2, 1], nobuff: true },
+  { id: 'icecream', img: '🍦', name: '당근 소프트콘', price: '7,000원', eff: '순간이동권 2장. 디저트라 효과 대신 쿠폰만 받아요.', chip: '', tix: [0, 0, 2], nobuff: true },
   { id: 'tteok', img: '🌶️', name: '매운 떡볶이', price: '13,000원', eff: '멀리건 1장·OK권 1장·순간이동권 2장 + 처음 먹으면 매워서 정신이 번쩍! 파워바가 천천히 움직여요.', chip: '떡볶이: 파워바 느리게', tix: [1, 1, 2] },
 ];
 
@@ -262,12 +267,105 @@ const PATCHES = [];
   }
 })();
 
+// ================= 카트 도로 깔기 =================
+// 골프장처럼 홀마다 페어웨이 옆으로 카트 도로를 깔고, 그린 앞에서 끝내요. 원래 도로도 그린 위로는 안 지나가게 가장자리로 밀어요
+(() => {
+  const inGreen = (x, z, pad) => HOLES.some(h => Math.hypot(x - h.cup[0], z - h.cup[1]) < h.green + pad);
+  const inWater = (x, z, pad) => HOLES.some(h => h.water.some(w => Math.hypot(x - w[0], z - w[1]) < w[2] + pad));
+  const segBad = (a, b, pad) => { for (let t = 0; t <= 1.001; t += .1) { const x = a[0] + (b[0] - a[0]) * t, z = a[1] + (b[1] - a[1]) * t; if (inGreen(x, z, pad) || inWater(x, z, pad)) return true; } return false; };
+  for (const p of PATHS) p.forEach((q, i) => {
+    for (const h of HOLES) {
+      const r = h.green + 5; let dx = q[0] - h.cup[0], dz = q[1] - h.cup[1], d = Math.hypot(dx, dz);
+      if (d >= r - 1) continue;
+      if (d < .5) { const nb = p[i ? i - 1 : 1]; dx = nb[0] - h.cup[0]; dz = nb[1] - h.cup[1]; d = Math.hypot(dx, dz) || 1; }
+      q[0] = h.cup[0] + dx / d * r; q[1] = h.cup[1] + dz / d * r;
+    }
+  });
+  const base = PATHS.map(p => p.slice()), allPts = () => base.flat();
+  for (const h of HOLES) {
+    const F = h.fair, off = h.fw / 2 + 3.4; let best = null;
+    for (const sg of [1, -1]) {
+      const pts = [];
+      for (let i = 0; i < F.length - 1; i++) {
+        const a = F[i], b = F[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz), nx = dz / L * sg, nz = -dx / L * sg, n = Math.max(1, Math.ceil(L / 12));
+        for (let k = i ? 1 : 0; k <= n; k++) pts.push([a[0] + dx * k / n + nx * off, a[1] + dz * k / n + nz * off]);
+      }
+      const good = pts.filter(q => !inGreen(q[0], q[1], 4.5) && !inWater(q[0], q[1], 2));
+      let score = (pts.length - good.length) * 3;
+      for (const q of good) if (surface(q[0], q[1]) !== 'rough') score++;
+      if (good.length >= 2 && (!best || score < best.score)) best = { pts: good, score };
+    }
+    if (!best) continue;
+    // 물이나 그린을 가로지르는 구간이 생기면 거기서 끊어요
+    let run = [best.pts[0]];
+    const add = r => { if (r.length >= 2) PATHS.push(r); };
+    for (let i = 1; i < best.pts.length; i++) { if (segBad(run[run.length - 1], best.pts[i], .5)) { add(run); run = [best.pts[i]]; } else run.push(best.pts[i]); }
+    add(run);
+    // 양 끝을 가까운 원래 도로에 이어요
+    const newer = PATHS.slice(base.length).filter(p => !p.joined);
+    for (const p of newer) {
+      p.joined = true;
+      for (const end of [p[0], p[p.length - 1]]) {
+        let bq = null, bd = 45;
+        for (const q of allPts()) { const d = Math.hypot(q[0] - end[0], q[1] - end[1]); if (d < bd && !segBad(end, q, .5)) { bd = d; bq = q; } }
+        if (bq && bd > .5) { const c = [end, bq]; c.joined = true; PATHS.push(c); }
+      }
+    }
+  }
+  // 도로가 끊긴 곳이 없게: 따로 떨어진 도로 묶음을 가장 가까운 곳끼리 이어요
+  for (let guard = 0; guard < 12; guard++) {
+    const key = q => q[0].toFixed(3) + ',' + q[1].toFixed(3), par = new Map(), find = k => { while (par.get(k) !== k) k = par.get(k); return k; };
+    for (const p of PATHS) for (const q of p) if (!par.has(key(q))) par.set(key(q), key(q));
+    for (const p of PATHS) for (let i = 1; i < p.length; i++) par.set(find(key(p[i])), find(key(p[0])));
+    const pts = PATHS.flat(), root0 = find(key(pts[0]));
+    const groups = new Set(pts.map(q => find(key(q)))); if (groups.size < 2) break;
+    let best = null;
+    for (const a of pts) if (find(key(a)) === root0) for (const b of pts) if (find(key(b)) !== root0) { const d = Math.hypot(a[0] - b[0], a[1] - b[1]); if ((!best || d < best.d) && !segBad(a, b, .5)) best = { a, b, d }; }
+    if (!best) break;
+    PATHS.push([best.a, best.b]);
+  }
+})();
+
 // ================= 카트 도로 (경로 찾기) =================
-const NODES = [], NADJ = [];
+const NODES = [], NADJ = [], SEGS = [];
 (() => {
   const idx = new Map(), id = p => { const k = p[0] + ',' + p[1]; if (!idx.has(k)) { idx.set(k, NODES.length); NODES.push(p); NADJ.push([]); } return idx.get(k); };
-  for (const path of PATHS) for (let i = 1; i < path.length; i++) { const a = id(path[i - 1]), b = id(path[i]), d = Math.hypot(path[i][0] - path[i - 1][0], path[i][1] - path[i - 1][1]); NADJ[a].push([b, d]); NADJ[b].push([a, d]); }
+  for (const path of PATHS) for (let i = 1; i < path.length; i++) { const a = id(path[i - 1]), b = id(path[i]), d = Math.hypot(path[i][0] - path[i - 1][0], path[i][1] - path[i - 1][1]); NADJ[a].push([b, d]); NADJ[b].push([a, d]); SEGS.push([a, b]); }
 })();
+// 카트는 도로로만: 도로 위에서 가장 가까운 점, 그리고 도로만 따라가는 길
+function nearPath(x, z, clear) {
+  let best = null;
+  SEGS.forEach(([a, b], si) => {
+    const A = NODES[a], B = NODES[b], dx = B[0] - A[0], dz = B[1] - A[1], L2 = dx * dx + dz * dz;
+    const t = L2 ? Math.max(0, Math.min(1, ((x - A[0]) * dx + (z - A[1]) * dz) / L2)) : 0, p = [A[0] + dx * t, A[1] + dz * t], d = Math.hypot(p[0] - x, p[1] - z);
+    if ((!best || d < best.d) && (!clear || legClear(p, [x, z]))) best = { p, si, d };
+  });
+  return best || (clear ? nearPath(x, z, false) : null);
+}
+function pathRoute(sp, tp) {
+  if (sp.si === tp.si) return [tp.p];
+  const H = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1]);
+  const dist = NODES.map(() => Infinity), prev = NODES.map(() => -1), done = NODES.map(() => false);
+  for (const n of SEGS[sp.si]) dist[n] = H(sp.p, NODES[n]);
+  for (;;) {
+    let u = -1; for (let i = 0; i < NODES.length; i++) if (!done[i] && dist[i] < Infinity && (u < 0 || dist[i] < dist[u])) u = i;
+    if (u < 0) break; done[u] = true;
+    for (const [v, d] of NADJ[u]) if (dist[u] + d < dist[v]) { dist[v] = dist[u] + d; prev[v] = u; }
+  }
+  let end = -1, bd = Infinity; for (const n of SEGS[tp.si]) { const d = dist[n] + H(NODES[n], tp.p); if (d < bd) { bd = d; end = n; } }
+  if (end < 0) return null;
+  const route = []; for (let u = end; u >= 0; u = prev[u]) route.unshift(NODES[u]);
+  if (H(route[0], sp.p) < .5) route.shift();
+  route.push(tp.p); return route;
+}
+// 출발점(도로 근처)→목적지: 도로로 가서, 목적지에서 가장 가까운 도로 위에 세워요. 나머지는 걸어가요
+function cartPlan(sx, sz, tx, tz) {
+  const sp = nearPath(sx, sz, false), tp = nearPath(tx, tz, true);
+  let pts = sp && tp && pathRoute(sp, tp);
+  if (!pts) return { pts: planRoute(sx, sz, tx, tz), dest: [tx, tz], walk: false };
+  if (sp.d > .8) pts.unshift(sp.p);
+  return { pts, dest: tp.p, walk: tp.d > 2.2 };
+}
 function legClear(a, b) { for (const h of HOLES) for (const w of h.water) if (segD(w[0], w[1], a, b) < w[2] + 1.8) return false; return true; }
 function planRoute(sx, sz, tx, tz) {
   const s = [sx, sz], t = [tx, tz], OFF = 2.5; // 도로 밖 구간은 비싸게 쳐서 되도록 도로로 다녀요
@@ -1791,9 +1889,20 @@ function greenSafe(x, z) {
 }
 function rideTo(dx, dz, face, say, mid) {
   if (S.mode === 'ride' || !me.cart) return;
-  { const [ex, ez, moved] = greenSafe(dx, dz); RIDE.walkTo = moved ? [dx, dz, face] : null; if (moved) { dx = ex; dz = ez; face = Math.atan2(RIDE.walkTo[0] - ex, RIDE.walkTo[1] - ez); } }
-  // 카트를 내 옆에 대고 출발
-  const route = planRoute(me.x, me.z, dx, dz);
+  // 카트는 도로에 세워둬요. 멀리 있으면 카트까지 먼저 걸어가요(공유 카트는 바로 출발)
+  const sp = nearPath(me.x, me.z, false);
+  if (sp && sp.d > 3.5 && !RIDE.stops && !S.rideWalked) {
+    S.pendingRide = [dx, dz, face, say, mid, sp.p]; parkCart(sp.p[0], sp.p[1], segYaw(sp.si));
+    me.moveT = sp.p.slice(); me.path = null; lastActKey = '';
+    caddieSay('카트는 길에 세워뒀어요~ 카트까지 걸어오세요!', 2400); return;
+  }
+  S.rideWalked = false; S.pendingRide = null;
+  RIDE.toShade = Math.hypot(dx - SHADE.x, dz - SHADE.z) < 8 ? [dx, dz] : null;
+  const plan = cartPlan(me.x, me.z, dx, dz);
+  RIDE.walkTo = plan.walk ? [dx, dz, face] : null; RIDE.why = plan.walk ? 'path' : '';
+  if (plan.walk) { const [ex, ez] = plan.dest; face = Math.atan2(dx - ex, dz - ez); dx = ex; dz = ez; }
+  { const [ex, ez, moved] = greenSafe(dx, dz); if (moved) { if (!RIDE.walkTo) RIDE.walkTo = [dx, dz, face]; RIDE.why = 'green'; dx = ex; dz = ez; face = Math.atan2(RIDE.walkTo[0] - ex, RIDE.walkTo[1] - ez); } }
+  const route = plan.pts; if (RIDE.why === 'green') route[route.length - 1] = [dx, dz];
   const first = route[0], yaw0 = Math.atan2(first[0] - me.x, first[1] - me.z);
   RIDE.x = me.x + Math.cos(yaw0) * .4; RIDE.z = me.z - Math.sin(yaw0) * .4; RIDE.yaw = yaw0; RIDE.sp = 0;
   // 도착 지점은 목적지 바로 옆 (내리면 그 자리에 서도록)
@@ -1803,6 +1912,22 @@ function rideTo(dx, dz, face, say, mid) {
   placeCart(); caddieSay(say); startEngine(); tone(660, .07, 'square', .05); tone(660, .07, 'square', .05, .12);
   $('help').classList.add('off');
 }
+function segYaw(si) { const [a, b] = SEGS[si]; return Math.atan2(NODES[b][0] - NODES[a][0], NODES[b][1] - NODES[a][1]); }
+// 사람 없이 카트만 세워두기
+function parkCart(x, z, yaw) {
+  const c = me.cart; if (!c) return; c.visible = true; RIDE.x = x; RIDE.z = z; RIDE.yaw = yaw;
+  const fx = Math.sin(yaw), fz = Math.cos(yaw), hf = heightAt(x + fx * 1.3, z + fz * 1.3), hb = heightAt(x - fx * 1.3, z - fz * 1.3);
+  c.position.set(x, (hf + hb) / 2, z); c.rotation.set(-Math.atan2(hf - hb, 2.6), yaw, 0);
+}
+// 카트까지 걸어오면 출발
+setInterval(() => {
+  const pr = S.pendingRide; if (!pr) return;
+  if (S.mode !== 'walk') { if (S.mode !== 'wait') S.pendingRide = null; return; }
+  if (me.moveT) return;
+  S.pendingRide = null;
+  if (Math.hypot(me.x - pr[5][0], me.z - pr[5][1]) > 1.6) return; // 다른 데로 걸어갔어요: 취소
+  S.rideWalked = true; me.x = pr[5][0]; me.z = pr[5][1]; rideTo(pr[0], pr[1], pr[2], pr[3], pr[4]);
+}, 200);
 function placeCart() {
   const c = me.cart, fx = Math.sin(RIDE.yaw), fz = Math.cos(RIDE.yaw);
   const hf = heightAt(RIDE.x + fx * 1.3, RIDE.z + fz * 1.3), hb = heightAt(RIDE.x - fx * 1.3, RIDE.z - fz * 1.3);
@@ -1818,10 +1943,10 @@ function rideStopDone() {
   if (!st || st.mine) return false;
   RIDE.si++; const nx = RIDE.stops[RIDE.si]; if (!nx) return false;
   RIDE.pause = 1.6; RIDE.sp = 0; caddieSay(`${DUEL.nick || '상대'} 님 여기서 내리세요~ 나이스 샷!`, 2200);
-  const [gx, gz, gm] = greenSafe(nx.x, nx.z);
-  RIDE.pts = planRoute(RIDE.x, RIDE.z, gx, gz); RIDE.i = 0; RIDE.dest = [gx, gz];
+  const plan = cartPlan(RIDE.x, RIDE.z, nx.x, nx.z);
+  RIDE.pts = plan.pts; RIDE.i = 0; RIDE.dest = plan.dest.slice();
   RIDE.face = nx.mine ? Math.atan2(aimTarget()[0] - S.ball.x, aimTarget()[1] - S.ball.z) : null;
-  RIDE.walkTo = gm && nx.mine ? [nx.x, nx.z, RIDE.face] : null;
+  RIDE.walkTo = plan.walk && nx.mine ? [nx.x, nx.z, RIDE.face] : null; RIDE.why = 'path';
   return true;
 }
 function updateRide(dt) {
@@ -1848,19 +1973,30 @@ function arrive() {
   if (RIDE.face != null) { me.yaw = RIDE.face; cam.yaw = RIDE.face; }
   // 카트는 내린 자리 옆에 세워둬요
   const side = (RIDE.face != null ? RIDE.face : RIDE.yaw) + Math.PI / 2;
-  RIDE.x = dx + Math.sin(side) * 2.4; RIDE.z = dz + Math.cos(side) * 2.4;
-  if (!canStand(RIDE.x, RIDE.z)) { RIDE.x = dx - Math.sin(side) * 2.4; RIDE.z = dz - Math.cos(side) * 2.4; }
+  if (RIDE.walkTo) {
+    // 도로 위에 그대로 세우고, 사람은 옆으로 내려요
+    RIDE.x = dx; RIDE.z = dz; const sd = RIDE.yaw + Math.PI / 2;
+    for (const k of [1.7, -1.7]) { const x = dx + Math.sin(sd) * k, z = dz + Math.cos(sd) * k; if (canStand(x, z)) { me.x = x; me.z = z; break; } }
+  } else {
+    RIDE.x = dx + Math.sin(side) * 2.4; RIDE.z = dz + Math.cos(side) * 2.4;
+    if (!canStand(RIDE.x, RIDE.z)) { RIDE.x = dx - Math.sin(side) * 2.4; RIDE.z = dz - Math.cos(side) * 2.4; }
+  }
   const sx = me.x, sz = me.z, sy = me.yaw; placeCart(); me.x = sx; me.z = sz; me.yaw = sy; me.seat = null; me.anim = 0;
   S.mode = 'walk'; lastActKey = '';
+  if (RIDE.toShade) {
+    // 그늘집 도착: 걸을 필요 없이 바로 그늘집 앞에 서서 전체를 보고, 메뉴판이 열려요
+    const [sx2, sz2] = RIDE.toShade; RIDE.toShade = null; RIDE.walkTo = null;
+    me.x = sx2; me.z = sz2; me.moveT = null; shadeArrive(); me.jump = .6; return;
+  }
   if (RIDE.walkTo) {
     // 그린 앞에서 내렸어요: 공까지는 걸어가요
     const [wx, wz] = RIDE.walkTo; RIDE.walkTo = null;
-    caddieSay('그린에는 카트가 못 들어가요~ 여기서부터 걸어가세요!', 2600);
+    caddieSay(RIDE.why === 'green' ? '그린에는 카트가 못 들어가요~ 여기서부터 걸어가세요!' : '카트는 길로만 다녀요~ 여기서부터 걸어가세요!', 2600);
     setTimeout(() => { if (S.mode === 'walk') { me.moveT = [wx, wz]; } }, 500);
   } else caddieSay(['도착했습니다~ 나이스 샷 하세요!', '여기서 내리시면 돼요~', '도착! 천천히 치세요~'][Math.random() * 3 | 0], 2600);
   me.jump = .6;
 }
-function skipRide() { if (S.mode !== 'ride') return; if (RIDE.stops) { const mine = RIDE.stops.find((st, i) => i >= RIDE.si && st.mine); if (mine) RIDE.dest = [mine.x, mine.z]; } RIDE.i = RIDE.pts.length; const [dx, dz] = RIDE.dest; RIDE.x = dx; RIDE.z = dz; if (RIDE.stops) { const [gx, gz, gm] = greenSafe(dx, dz); if (gm) { RIDE.walkTo = [dx, dz, null]; RIDE.dest = [gx, gz]; } } arrive(); snapCam(); }
+function skipRide() { if (S.mode !== 'ride') return; if (RIDE.stops) { const mine = RIDE.stops.find((st, i) => i >= RIDE.si && st.mine); if (mine) RIDE.dest = [mine.x, mine.z]; } RIDE.i = RIDE.pts.length; const [dx, dz] = RIDE.dest; RIDE.x = dx; RIDE.z = dz; if (RIDE.stops) { const pl = cartPlan(dx, dz, dx, dz); if (pl.walk) { RIDE.walkTo = [dx, dz, null]; RIDE.why = 'path'; RIDE.dest = pl.dest.slice(); RIDE.x = pl.dest[0]; RIDE.z = pl.dest[1]; } } arrive(); snapCam(); }
 
 // ================= 샷 =================
 function enterAim() {
@@ -1924,7 +2060,7 @@ function chargePower() { const t = (performance.now() - S.chargeT) / 1000 * (S.b
 function launchVel(p, yaw, club, lie) {
   const c = CLUBS[club];
   let v = c.v * p * (S.buff === 'ramen' ? 1.2 : 1);
-  if (club !== 3) v *= lie === 'rough' ? .85 : lie === 'sand' ? (club === 2 ? .8 : .55) : 1;
+  if (club !== 3) v *= S.buff === 'gimbap' ? (lie === 'rough' ? .96 : lie === 'sand' ? (club === 2 ? .93 : .78) : 1) : lie === 'rough' ? .85 : lie === 'sand' ? (club === 2 ? .8 : .55) : 1;
   const h = Math.cos(c.loft) * v;
   return { vx: Math.sin(yaw) * h, vy: Math.sin(c.loft) * v, vz: Math.cos(yaw) * h, putt: club === 3 };
 }
@@ -1958,7 +2094,7 @@ const GRAV_ROLL = .55;
 function stepBall(b, dt, sim) {
   const h = hole();
   if (b.state === 'fly') {
-    if (h.wind) { b.vx += h.wind[0] * dt; b.vz += h.wind[1] * dt; }
+    if (h.wind) { const wk = S.buff === 'sikhye' ? .5 : 1; b.vx += h.wind[0] * dt * wk; b.vz += h.wind[1] * dt * wk; }
     b.vy -= G * dt; b.x += b.vx * dt; b.y += b.vy * dt; b.z += b.vz * dt;
     if (!b.tree) for (const t of TREES) {
       const dx = b.x - t.x, dz = b.z - t.z;
@@ -2034,7 +2170,7 @@ function onBallEvent(e) {
     setTimeout(() => { S.ballVis = false; finishHole(''); }, 700);
   } else if (e === 'stop') {
     const s = surface(b.x, b.z), d = distToCup();
-    if (s === 'green' && d < 1.6 && !S.okTix && !S.okHinted) { S.okHinted = true; setTimeout(() => toast('OK 거리인데 OK권이 없어요. 그늘집에서 사 먹으면 받아요!', 2400), 900); }
+    if (s === 'green' && d < okR() && !S.okTix && !S.okHinted) { S.okHinted = true; setTimeout(() => toast('OK 거리인데 OK권이 없어요. 그늘집에서 사 먹으면 받아요!', 2400), 900); }
     if (S.strokes >= h.par * 2) { S.mode = 'wait'; finishHole('양파! 픽업'); return; }
     const thief = crocNear(b.x, b.z);
     if (thief && !S.crocDone && (h.ev === 'croc' || Math.random() < .6)) { S.crocDone = true; crocSteal(thief); return; }
@@ -2203,7 +2339,8 @@ function wcCamera() {
   if (!WC.cam) WC.cam = want.slice(); for (let i = 0; i < 6; i++) WC.cam[i] += (want[i] - WC.cam[i]) * .08;
   return WC.cam;
 }
-function okReady() { return S.okTix > 0 && S.ball.state === 'rest' && S.ballVis && surface(S.ball.x, S.ball.z) === 'green' && distToCup() < 1.6; }
+function okReady() { return S.okTix > 0 && S.ball.state === 'rest' && S.ballVis && surface(S.ball.x, S.ball.z) === 'green' && distToCup() < okR(); }
+const okR = () => S.buff === 'egg' ? 2.6 : 1.6;
 function useOk() { if (!okReady() || S.mode !== 'walk') return; S.okTix--; renderTix(); S.strokes++; S.mode = 'wait'; showBubble(me, 'OK 감사합니다~'); finishHole('OK! 컨시드'); }
 function pickUp() {
   if (S.mode !== 'walk') return;
@@ -2262,12 +2399,17 @@ function shadeNames() {
   const list = [...NET.others.values()].filter(o => Math.hypot(o.x - SHADE.x, o.z - SHADE.z) < 7).map(o => o.nick);
   return list.length ? `지금 그늘집에 ${esc(list.slice(0, 5).join(', '))}${list.length > 5 ? ` 외 ${list.length - 5}명` : ''} 님이 쉬고 있어요.` : '그늘집이 한산하네요. 혼자 여유롭게 쉬어가세요.';
 }
+function shadeArrive() {
+  me.yaw = Math.atan2(SHADE.x - me.x, SHADE.z - me.z); cam.yaw = me.yaw; cam.dist = Math.max(cam.dist, 12); cam.mode = 'follow'; snapCam();
+  S.shadeSeen = true; ownerSay(['어서 오세요~ 당근 CC 그늘집입니다!', '오늘 당근주스 갓 짰어요~', '컵라면 물 올려둘까요?'][Math.random() * 3 | 0]);
+  setTimeout(() => { if (S.mode === 'walk' && ($('overlay').hidden)) showShade(); }, 650);
+}
 function showShade() {
   const had = S.buff && MENU.find(m => m.id === S.buff);
   overlay(`<span class="eyebrow">그늘집 · 오늘의 메뉴</span><h2>${had ? '또 오셨네요!' : '잠깐 쉬었다 가세요'}</h2>
     <p>${had ? `이미 ${esc(had.chip)} 효과가 있어요. 이번엔 간식으로 맛있게만 드세요~` : '하나 고르면 라운딩 끝까지 효과가 있어요.'}</p>
     <button type="button" class="cosbanner" id="shadeCos"><span class="cb-e">🦈🦖👑</span><span class="cb-t"><b>🎭 코스튬 빌리기</b><small>상어·공룡·임금님… 입으면 다른 사람에게도 보여요</small></span><span class="cb-go">▸</span></button>
-    <div class="menu cards">${MENU.map(m => `<button type="button" data-id="${m.id}" class="m-${m.id}"><span class="mimg">${m.img}</span><span class="it">${m.name}</span><span class="pc">${m.price}</span><span class="tix">${[['멀리건', m.tix[0]], ['OK권', m.tix[1]], ['순간이동', m.tix[2]]].filter(t => t[1]).map(t => `<i>${t[0]}<b>×${t[1]}</b></i>`).join('')}</span><span class="ef">${m.chip.split(': ')[1] || ''}</span></button>`).join('')}</div>
+    <div class="menu cards">${MENU.map(m => `<button type="button" data-id="${m.id}" class="m-${m.id}"><span class="mimg">${m.img}</span><span class="it">${m.name}</span><span class="pc">${m.price}</span><span class="tix">${[['멀리건', m.tix[0]], ['OK권', m.tix[1]], ['순간이동', m.tix[2]]].filter(t => t[1]).map(t => `<i>${t[0]}<b>×${t[1]}</b></i>`).join('')}</span><span class="ef">${m.nobuff ? '효과 없이 쿠폰만' : m.chip.split(': ')[1]}</span></button>`).join('')}</div>
     <div class="shade-now" id="shadeNow">${shadeNames()}</div><button class="btn sub" id="shadeClose">그냥 구경만 할게요</button>`);
   $('shadeCos').onclick = showCostumes;
   shadeTimer = setInterval(() => { const el = $('shadeNow'); if (el) el.innerHTML = shadeNames(); }, 1500);
@@ -2366,6 +2508,11 @@ const EAT_LINES = {
   ramen: ['후루룩~', '국물이 끝내줘요', '골프장 컵라면은 9,000원의 맛', '면발 쫄깃!'],
   makgeolli: ['캬~!', '파전도 하나 시킬걸', '한 잔만 더…?', '얼굴이 화끈화끈'],
   odeng: ['호호, 뜨거워', '국물 리필 되나요?', '꼬치가 두 개 더 있었네', '속이 든든~'],
+  sikhye: ['살얼음 사각사각', '밥알이 동동', '속이 뻥 뚫려요', '바람도 시원하다~'],
+  gimbap: ['한 줄 순삭', '참치마요 최고', '꼬다리가 제일 맛있어', '든든하다!'],
+  egg: ['톡톡 까서~', '사이다 없나요?', '소금 콕!', '목이 메인다…'],
+  pajeon: ['바삭바삭!', '오징어 많이 들었다', '막걸리가 생각나네', '둘이 먹다 하나 쓰러져도 몰라'],
+  icecream: ['차가워!', '머리가 띵~', '당근 맛 진짜 나요', '콘까지 와삭'],
   tteok: ['스읍… 맵다!', '하아 하아 물 주세요', '어묵도 들어있네', '정신이 번쩍 들어요'],
 };
 const EAT_SEC = 4.8, EAT = { on: false, t: 0, m: null, food: null, steam: null, step: -1, first: false };
@@ -2420,6 +2567,34 @@ function makeFood(id) {
     }
     steamY = .24;
   }
+  else if (id === 'sikhye') {
+    add(new T.CylinderGeometry(.15, .12, .3, 18, 1, true), ph(0xffffff, { transparent: true, opacity: .3, side: T.DoubleSide, shininess: 90 }), 0, .15, 0);
+    add(new T.CylinderGeometry(.14, .11, .24, 18), ph(0xf1e2bf), 0, .12, 0);
+    for (let i = 0; i < 10; i++) add(new T.SphereGeometry(.014, 5, 4), ph(0xffffff), rand(-.09, .09), .245, rand(-.09, .09));
+    for (let i = 0; i < 3; i++) add(new T.BoxGeometry(.05, .05, .05), ph(0xe8f6ff, { transparent: true, opacity: .7 }), rand(-.06, .06), .25, rand(-.06, .06));
+  } else if (id === 'gimbap') {
+    add(new T.CylinderGeometry(.3, .28, .03, 24), ph(0xffffff), 0, .015, 0);
+    for (let i = 0; i < 7; i++) {
+      const x = -.21 + i * .07, r = add(new T.CylinderGeometry(.06, .06, .05, 14), ph(0x1d2b1f), x, .065, Math.sin(i) * .02); r.rotation.z = Math.PI / 2 - .25;
+      const w = add(new T.CylinderGeometry(.05, .05, .052, 12), ph(0xfbf8f0), x, .065, Math.sin(i) * .02); w.rotation.z = Math.PI / 2 - .25;
+      const c = add(new T.CylinderGeometry(.018, .018, .054, 6), ph(0xf0861f), x, .07, Math.sin(i) * .02); c.rotation.z = Math.PI / 2 - .25;
+    }
+  } else if (id === 'egg') {
+    add(new T.CylinderGeometry(.26, .2, .1, 16), ph(0xb98a4e), 0, .05, 0);
+    for (let i = 0; i < 4; i++) { const e = add(new T.SphereGeometry(.07, 12, 10), ph(0x8a5a35, { shininess: 60 }), Math.cos(i * 1.6) * .1, .13, Math.sin(i * 1.6) * .1); e.scale.y = 1.25; }
+    add(new T.SphereGeometry(.03, 8, 6), ph(0xffffff), .2, .03, .2);
+  } else if (id === 'pajeon') {
+    add(new T.CylinderGeometry(.38, .36, .03, 26), ph(0xffffff), 0, .015, 0);
+    add(new T.CylinderGeometry(.32, .32, .05, 26), ph(0xd99a3a, { emissive: 0x3a1a00 }), 0, .055, 0);
+    for (let i = 0; i < 9; i++) add(new T.BoxGeometry(.24, .014, .03), ph(0x3f9a4e), rand(-.15, .15), .085, rand(-.15, .15)).rotation.y = Math.random() * 3;
+    for (let i = 0; i < 4; i++) add(new T.TorusGeometry(.03, .012, 5, 10), ph(0xf6e3d0), rand(-.15, .15), .09, rand(-.15, .15)).rotation.x = Math.PI / 2;
+    steamY = .1;
+  } else if (id === 'icecream') {
+    const cone = add(new T.ConeGeometry(.09, .3, 14), ph(0xd9a066), 0, .15, 0); cone.rotation.x = Math.PI;
+    add(new T.SphereGeometry(.1, 14, 10), ph(0xf6a04d), 0, .33, 0);
+    add(new T.SphereGeometry(.075, 12, 9), ph(0xf8b46a), 0, .42, 0);
+    add(new T.ConeGeometry(.04, .08, 10), ph(0xfac384), 0, .5, 0);
+  }
   if (steamY) { const s = steamPuff(18); s.position.y = steamY; s.userData.h = .7; g.add(s); g.userData.steam = s; }
   return g;
 }
@@ -2432,7 +2607,7 @@ const sndSlurp = () => { const a = audio(), m = out(); if (!a || !m) return; noi
 const sndGulp = () => { tone(180, .12, 'sine', .2); tone(120, .14, 'sine', .18, .13); };
 const sndChew = () => { noise(.06, 1500, 2, .14); noise(.06, 1300, 2, .12, .14); };
 const sndKya = () => { const a = audio(), m = out(); if (!a || !m) return; const o = a.createOscillator(), g = a.createGain(); o.type = 'sawtooth'; o.frequency.setValueAtTime(500, a.currentTime); o.frequency.linearRampToValueAtTime(900, a.currentTime + .12); o.frequency.linearRampToValueAtTime(400, a.currentTime + .4); g.gain.setValueAtTime(.04, a.currentTime); g.gain.exponentialRampToValueAtTime(.001, a.currentTime + .45); o.connect(g).connect(m); o.start(); o.stop(a.currentTime + .46); };
-const EAT_SND = { carrot: sndGulp, ramen: sndSlurp, makgeolli: sndGulp, odeng: sndChew, tteok: sndChew };
+const EAT_SND = { carrot: sndGulp, ramen: sndSlurp, makgeolli: sndGulp, odeng: sndChew, tteok: sndChew, sikhye: sndGulp, gimbap: sndChew, egg: sndChew, pajeon: sndChew, icecream: sndSlurp };
 const priceOf = m => +m.price.replace(/[^0-9]/g, '');
 // ---- 그늘집 코스튬: 빌려 입으면 다른 사람에게도 보이고, 다음에 와서 벗거나 바꿀 수 있어요 ----
 function showCostumes() {
@@ -2479,7 +2654,7 @@ function finishEat() {
   S.spent = (S.spent || 0) + priceOf(m); renderSpent(); S.st.menus.push(m.name.replace('갓 짠 ', '').replace('그늘집 ', ''));
   toast(`${m.price} 결제 완료 · 그늘집 가격은 원래 이래요`, 2200);
   S.mulligans += m.tix[0]; S.okTix += m.tix[1]; S.warpTix += m.tix[2] || 0; renderTix(); setTimeout(() => toast(`${m.tix[0] ? `멀리건 ${m.tix[0]}장 ` : ''}${m.tix[1] ? `OK권 ${m.tix[1]}장 ` : ''}${m.tix[2] ? `순간이동권 ${m.tix[2]}장 ` : ''}받았어요!`, 2000), 4600);
-  if (EAT.first) { S.buff = m.id; const c = $('buffChip'); c.textContent = m.chip; c.hidden = false; setTimeout(() => toast(`${m.chip} 효과가 생겼어요`, 2000), 2300); }
+  if (EAT.first && !m.nobuff) { S.buff = m.id; const c = $('buffChip'); c.textContent = m.chip; c.hidden = false; setTimeout(() => toast(`${m.chip} 효과가 생겼어요`, 2000), 2300); }
   if (m.id === 'makgeolli') { S.st.tipsy = true; me.tipsy = 60; setTimeout(() => toast('취기가 올라와요… 1분 동안 비틀비틀', 2000), EAT.first ? 4500 : 2300); }
   showBubble(me, ['배부르다~', '잘 먹었습니다!', '역시 그늘집은 비싸도 맛있어'][Math.random() * 3 | 0]);
   setTimeout(() => ownerSay('또 오세요~ 라운딩 끝나고도 열려 있어요'), 1200);
@@ -4370,7 +4545,7 @@ function frame() {
 
   // 그늘집에 처음 들어오면 메뉴 안내
   const inShade = Math.hypot(me.x - SHADE.x, me.z - SHADE.z) < 6;
-  if (inShade && !S.shadeSeen && S.mode === 'walk') { S.shadeSeen = true; toast('그늘집이에요. 메뉴판을 볼 수 있어요', 2000); ownerSay(['어서 오세요~ 당근 CC 그늘집입니다!', '오늘 당근주스 갓 짰어요~', '컵라면 물 올려둘까요?'][Math.random() * 3 | 0]); }
+  if (inShade && !S.shadeSeen && S.mode === 'walk' && !me.moveT && !keys.size && $('overlay').hidden && !EAT.on && !TUT.on) { S.shadeSeen = true; setTimeout(() => { if (S.mode === 'walk' && $('overlay').hidden && Math.hypot(me.x - SHADE.x, me.z - SHADE.z) < 6) showShade(); }, 300); ownerSay(['어서 오세요~ 당근 CC 그늘집입니다!', '오늘 당근주스 갓 짰어요~', '컵라면 물 올려둘까요?'][Math.random() * 3 | 0]); }
   if (!inShade) S.shadeSeen = false;
 
   // 다른 사람

@@ -490,7 +490,7 @@ td.cur,th.cur{background:color-mix(in srgb,var(--leaf) 14%,transparent)}
 .crsbox.strip .crspick button span{font-size:26px}
 @media (min-width:700px){.crsbox.strip{max-width:560px}}
 /* 그늘집 메뉴판: 사진(그림) + 이름 + 금액 카드 */
-.menu.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:8px;max-height:min(52vh,460px);overflow:auto;flex-direction:initial}
+.menu.cards{display:grid;grid-auto-rows:max-content;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:8px;max-height:min(52vh,460px);overflow:auto;flex-direction:initial}
 .menu.cards button{display:flex;flex-direction:column;align-items:stretch;gap:3px;padding:0 0 9px;overflow:hidden;border-radius:14px;text-align:left}
 .menu.cards .mimg{display:grid;place-items:center;height:74px;font-size:44px;line-height:1;background:linear-gradient(160deg,#fde7c8,#f7c58a);margin-bottom:4px}
 .menu.cards .m-ramen .mimg{background:linear-gradient(160deg,#fff1c9,#f4b860)}
@@ -511,3 +511,9 @@ td.cur,th.cur{background:color-mix(in srgb,var(--leaf) 14%,transparent)}
 @keyframes cbpulse{0%,100%{transform:scale(1)}50%{transform:scale(1.02)}}
 @media (prefers-reduced-motion:reduce){.cosbanner{animation:none}}
 .menu.cards .tix b{margin-left:2px}
+.menu.cards .m-sikhye .mimg{background:linear-gradient(160deg,#fbf3df,#e8d3a4)}
+.menu.cards .m-gimbap .mimg{background:linear-gradient(160deg,#e3f1dc,#9ccb8a)}
+.menu.cards .m-egg .mimg{background:linear-gradient(160deg,#f6ead9,#d8b48a)}
+.menu.cards .m-pajeon .mimg{background:linear-gradient(160deg,#fbe9c4,#e2b05a)}
+.menu.cards .m-icecream .mimg{background:linear-gradient(160deg,#ffeedd,#ffc79a)}
+@media (max-height:620px){.menu.cards .mimg{height:54px;font-size:34px}.cosbanner{padding:8px 12px;margin-bottom:8px}.cosbanner small{display:none}}
