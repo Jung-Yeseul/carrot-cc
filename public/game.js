@@ -382,12 +382,13 @@ renderEntryMode();
 function renderEntryCrs() {
   const el = $('crsPick'); if (!el) return;
   el.innerHTML = COURSE_IDS.map(id => `<button type="button" data-ecrs="${id}" class="${id === entryCrs ? 'on' : ''}" aria-pressed="${id === entryCrs}"><span>${COURSES[id].emoji}</span>${COURSES[id].name}</button>`).join('');
-  el.querySelectorAll('[data-ecrs]').forEach(b => b.onclick = () => { entryCrs = b.dataset.ecrs; tone(880, .05, 'triangle', .05); renderEntryCrs(); setTimeout(() => { $('crsBox').hidden = true; $('crsNow').setAttribute('aria-expanded', 'false'); }, 350); });
+  el.querySelectorAll('[data-ecrs]').forEach(b => b.onclick = () => { entryCrs = b.dataset.ecrs; tone(880, .05, 'triangle', .05); renderEntryCrs(); });
   const d = $('crsDesc'); if (d) d.textContent = COURSES[entryCrs].desc;
   const n = $('crsNow'); if (n) n.innerHTML = `${COURSES[entryCrs].emoji} ${COURSES[entryCrs].name} <small>바꾸기 ▾</small>`;
 }
-if ($('crsNow')) $('crsNow').onclick = () => { const b = $('crsBox'); b.hidden = !b.hidden; $('crsNow').setAttribute('aria-expanded', String(!b.hidden)); };
 renderEntryCrs();
+// 고른 코스가 보이게 가로 줄을 그 위치로 넘겨 둬요
+setTimeout(() => { const el = $('crsPick'), on = el && el.querySelector('.on'); if (on) el.scrollLeft = on.offsetLeft - (el.clientWidth - on.offsetWidth) / 2; }, 50);
 function teeUpTo(ch) {
   try { localStorage.setItem('carrotMode', PLAY_MODE); } catch {}
   if (entryCrs !== CRS_ID) { switchCourse(entryCrs, 'club'); try { const a = JSON.parse(sessionStorage.getItem('carrotAuto')); a.ch = ch; sessionStorage.setItem('carrotAuto', JSON.stringify(a)); } catch {} return; }

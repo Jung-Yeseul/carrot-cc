@@ -25,7 +25,7 @@ button{font-family:inherit}
 
 /* ---------- 입장 화면 ---------- */
 .lobby{min-height:100%;display:grid;place-items:center;padding-block:32px}
-.lobby-inner{width:100%;max-width:460px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px}
+.lobby-inner{width:100%;max-width:460px;min-width:0;display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px}
 .mascot{width:150px;height:auto;animation:bob 2.6s ease-in-out infinite;transform-origin:50% 90%}
 @keyframes bob{0%,100%{transform:rotate(-3deg) translateY(0)}50%{transform:rotate(3deg) translateY(-4px)}}
 .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.16em;color:var(--muted);margin:0}
@@ -480,3 +480,12 @@ td.cur,th.cur{background:color-mix(in srgb,var(--leaf) 14%,transparent)}
 .lb-btns:not(.lk) .btn:first-child:not(.link):not(.sub){flex:1 1 100%}
 .lb-btns:not(.lk):has(.btn.link){justify-content:center}
 .app.inclub .chbadge{display:none}
+
+/* 오늘의 코스: 한 줄 가로 스크롤 */
+.crsbox.strip{max-width:100%;width:100%;min-width:0;overflow:hidden}
+.crsbox.strip .crspick{width:100%;min-width:0;box-sizing:border-box}
+.crsbox.strip .crspick{display:flex;grid-template-columns:none;overflow-x:auto;scroll-snap-type:x mandatory;gap:8px;padding:4px 4px 8px;margin:6px 0 0;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.crsbox.strip .crspick::-webkit-scrollbar{display:none}
+.crsbox.strip .crspick button{flex:0 0 96px;scroll-snap-align:center;padding:10px 4px}
+.crsbox.strip .crspick button span{font-size:26px}
+@media (min-width:700px){.crsbox.strip{max-width:560px}}
