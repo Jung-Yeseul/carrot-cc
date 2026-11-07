@@ -1757,7 +1757,7 @@ function updActions() {
     }
     if (S.inRest) {
       // 쉼터에서는 늘 같은 3개: 그늘집 · 화장실 · 공으로(카트)
-      html = (S.ball.state === 'rest' && near ? html : '') + '<button class="act" id="restShade">🍢 그늘집</button><button class="act wc" id="restWC">🚻 화장실</button>' + (S.ball.state === 'rest' && !near ? '<button class="act sub" id="cartBall">🚗 공으로</button>' : '');
+      html = (S.ball.state === 'rest' && near ? html : '') + '<button class="act" id="restShade">🍢 그늘집</button><button class="act wc" id="restWC">🚻 화장실</button>' + (S.ball.state === 'rest' && !near ? '<button class="act sub" id="restBack">⛳ 공으로</button>' : '');
     }
     if (S.mulligans && S.prev && S.ball.state === 'rest') html += `<button class="act sub" id="mull">다시 치기 (멀리건 ${S.mulligans})</button>`;
     if (okReady()) html += `<button class="act" id="okBtn">OK! 넣은 걸로 (${S.okTix})</button>`;
@@ -1778,6 +1778,7 @@ function updActions() {
   a.innerHTML = html;
   const on = (id, f) => { const el = $(id); if (el) el.onclick = f; };
   on('skipRide', skipRide); on('eatDone', () => { EAT.t = EAT_SEC; }); on('skipFlight', skipFlight); on('ready', enterAim); on('goBall', walkToBall); on('cartBall', () => cartTo(S.ball.x, S.ball.z, true)); on('warpBall', warpToBall); on('menuBtn', showShade); on('mull', mulligan); on('okBtn', useOk); on('pickBtn', pickUp);
+  on('restBack', backToBall);
   on('wcM', () => useRestroom('m')); on('wcW', () => useRestroom('w'));
   on('restShade', () => walkThen([SHADE.x, SHADE.z + 2.5], 4.5, [SHADE.x, SHADE.z], showShade));
   on('restWC', () => { overlay(`<span class="eyebrow">화장실</span><h2>어느 쪽으로 갈까요?</h2><div class="btns"><button class="act wc m" id="wcPickM">남자 화장실</button><button class="act wc w" id="wcPickW">여자 화장실</button></div><button class="linkbtn" id="wcPickX">닫기</button>`, true); wcPickBind(); });
@@ -1866,6 +1867,33 @@ function startEngine() {
   o.connect(f).connect(g).connect(m); o.start(); eng = { o, g };
 }
 function stopEngine() { if (!eng) return; const e = eng; eng = null; e.g.gain.setTargetAtTime(0, AC.currentTime, .15); setTimeout(() => { try { e.o.stop(); } catch {} }, 700); }
+// 그늘집·화장실 왕복은 동선 없이: 캐디 한마디 → 화면이 잠깐 어두워졌다가 → 바로 도착
+function quickTravel(tx, tz, face, say, after) {
+  if (S.mode !== 'walk' || S.quick) return;
+  S.quick = true; S.pendingRide = null; me.moveT = null; me.path = null; keys.clear();
+  if (say) caddieSay(say, 1800);
+  $('fade').classList.add('on');
+  setTimeout(() => {
+    S.quick = false; if (S.mode !== 'walk') { $('fade').classList.remove('on'); return; }
+    me.x = tx; me.z = tz; if (face != null) { me.yaw = face; cam.yaw = face; }
+    const sp = nearPath(tx, tz, true); if (sp && sp.d < 25) parkCart(sp.p[0], sp.p[1], segYaw(sp.si));
+    snapCam(); lastActKey = '';
+    setTimeout(() => $('fade').classList.remove('on'), 120);
+    if (after) after();
+  }, 560);
+}
+function ballStand() {
+  const x = S.ball.x, z = S.ball.z, tg = aimTarget(), a = Math.atan2(tg[0] - x, tg[1] - z); let tx = x - Math.sin(a) * 1.4, tz = z - Math.cos(a) * 1.4;
+  for (let k = 0; k < 20 && !canStand(tx, tz); k++) { tx += rand(-1.5, 1.5); tz += rand(-1.5, 1.5); }
+  return [tx, tz, a];
+}
+function goShadeQuick(say) {
+  quickTravel(SHADE.x + rand(-1, 1), SHADE.z + 5.3, null, say || '그늘집으로 모실게요~', shadeArrive);
+}
+function backToBall() {
+  if (!(S.ball.state === 'rest' && S.ballVis)) return;
+  const [x, z, f] = ballStand(); quickTravel(x, z, f, '공 있는 데로 모실게요~', () => { S.autoGo = false; });
+}
 function cartTo(x, z, toBall, say, mid) {
   if (toBall && DUEL.on && S.mode === 'walk' && duelShareRide(say, mid)) return;
   RIDE.stops = null;
@@ -2192,8 +2220,8 @@ function restMenu() {
     <div class="btns"><button class="btn" id="goEat">그늘집 (배고파요)</button><button class="btn" id="goWC">화장실 (급해요)</button></div>
     <button class="btn sub" id="restNo">괜찮아요</button>`, true);
   $('restNo').onclick = closeOverlay;
-  $('goEat').onclick = () => { closeOverlay(); cartTo(SHADE.x + rand(-1, 1), SHADE.z + 5.3, false, '배고프시죠? 그늘집으로 모실게요~', '오늘은 당근주스가 제일 잘 나가요!'); };
-  $('goWC').onclick = () => { closeOverlay(); RIDE.rush = true; cartTo(RR_MID[0] + 1.6 * RR_OUT[0], RR_MID[1] + 1.6 * RR_OUT[1], false, '급하시죠? 꽉 잡으세요, 밟습니다!', '거의 다 왔어요, 조금만 참으세요!'); };
+  $('goEat').onclick = () => { closeOverlay(); goShadeQuick('배고프시죠? 그늘집으로 모실게요~'); };
+  $('goWC').onclick = () => { closeOverlay(); quickTravel(RR_MID[0] + 1.6 * RR_OUT[0], RR_MID[1] + 1.6 * RR_OUT[1], Math.atan2(-RR_OUT[0], -RR_OUT[1]), '급하시죠? 바로 모실게요!'); };
 }
 // 오른쪽 위 [그늘집 가기] [화장실 가기]: 언제든 누르면 캐디가 바로 데려가요
 function canTravel() {
@@ -2205,12 +2233,12 @@ function canTravel() {
 $('goShadeBtn').onclick = () => {
   closeSheets(); if (!canTravel()) return;
   if (Math.hypot(me.x - SHADE.x, me.z - SHADE.z) < 6) { showShade(); return; }
-  closeOverlay(); cartTo(SHADE.x + rand(-1, 1), SHADE.z + 5.3, false, '배고프시죠? 그늘집으로 모실게요~', '오늘은 당근주스가 제일 잘 나가요!');
+  closeOverlay(); goShadeQuick('배고프시죠? 그늘집으로 모실게요~');
 };
 $('goWCBtn').onclick = () => {
   closeSheets(); if (!canTravel()) return;
   if (Math.hypot(me.x - RR_MID[0], me.z - RR_MID[1]) < 5) { toast('바로 앞이에요! 남자/여자 화장실 버튼을 눌러주세요', 1600); return; }
-  closeOverlay(); RIDE.rush = true; cartTo(RR_MID[0] + 1.6 * RR_OUT[0], RR_MID[1] + 1.6 * RR_OUT[1], false, '급하시죠? 꽉 잡으세요, 밟습니다!', '거의 다 왔어요, 조금만 참으세요!');
+  closeOverlay(); quickTravel(RR_MID[0] + 1.6 * RR_OUT[0], RR_MID[1] + 1.6 * RR_OUT[1], Math.atan2(-RR_OUT[0], -RR_OUT[1]), '급하시죠? 바로 모실게요!');
 };
 // ================= 화장실 안: 진짜 들어가서 볼일 보기 =================
 // 코스 밖 먼 곳에 화장실 칸을 하나 지어 두고, 들어가면 카메라가 그 안을 비춰요.
@@ -2392,7 +2420,7 @@ function nextHoleCard(s) {
   S.autoGo = false;
   // 멀면 카트, 가까우면 걸어서 (묻지 않아요)
   $('goCart').onclick = () => { closeOverlay(); if (Math.hypot(me.x - t[0], me.z - t[1]) > AUTO_CART_U) cartTo(t[0], t[1], true, '다음 홀로 모실게요~', holeTalk(S.hole)); else walkToBall(); };
-  if (shade) $('goShade').onclick = () => { closeOverlay(); cartTo(SHADE.x + rand(-1, 1), SHADE.z + 5.3, false, '그늘집으로 모실게요~', '당근주스가 진짜 맛있어요. 꼭 드셔보세요!'); };
+  if (shade) $('goShade').onclick = () => { closeOverlay(); goShadeQuick('그늘집으로 모실게요~'); };
 }
 let shadeTimer = 0;
 function shadeNames() {
@@ -2410,10 +2438,11 @@ function showShade() {
     <p>${had ? `이미 ${esc(had.chip)} 효과가 있어요. 이번엔 간식으로 맛있게만 드세요~` : '하나 고르면 라운딩 끝까지 효과가 있어요.'}</p>
     <button type="button" class="cosbanner" id="shadeCos"><span class="cb-e">🦈🦖👑</span><span class="cb-t"><b>🎭 코스튬 빌리기</b><small>상어·공룡·임금님… 입으면 다른 사람에게도 보여요</small></span><span class="cb-go">▸</span></button>
     <div class="menu cards">${MENU.map(m => `<button type="button" data-id="${m.id}" class="m-${m.id}"><span class="mimg">${m.img}</span><span class="it">${m.name}</span><span class="pc">${m.price}</span><span class="tix">${[['멀리건', m.tix[0]], ['OK권', m.tix[1]], ['순간이동', m.tix[2]]].filter(t => t[1]).map(t => `<i>${t[0]}<b>×${t[1]}</b></i>`).join('')}</span><span class="ef">${m.nobuff ? '효과 없이 쿠폰만' : m.chip.split(': ')[1]}</span></button>`).join('')}</div>
-    <div class="shade-now" id="shadeNow">${shadeNames()}</div><button class="btn sub" id="shadeClose">그냥 구경만 할게요</button>`);
+    <div class="shade-now" id="shadeNow">${shadeNames()}</div><div class="btns">${HOLES.length && S.ball.state === 'rest' && S.ballVis && Math.hypot(S.ball.x - SHADE.x, S.ball.z - SHADE.z) > 10 ? '<button class="btn sub" id="shadeBack">⛳ 공으로 돌아가기</button>' : ''}<button class="btn sub" id="shadeClose">그냥 구경만 할게요</button></div>`);
   $('shadeCos').onclick = showCostumes;
   shadeTimer = setInterval(() => { const el = $('shadeNow'); if (el) el.innerHTML = shadeNames(); }, 1500);
   $('shadeClose').onclick = closeOverlay;
+  if ($('shadeBack')) $('shadeBack').onclick = () => { closeOverlay(); backToBall(); };
   document.querySelectorAll('.menu button').forEach(b => b.onclick = () => { eatFood(MENU.find(x => x.id === b.dataset.id)); });
   document.querySelector('.menu button').focus();
 }
