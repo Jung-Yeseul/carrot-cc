@@ -1446,11 +1446,18 @@ function toast(t, ms = 1800) { const el = $('toast'); el.textContent = t; el.cla
 function feed(t) { const f = $('feed'); const d = document.createElement('div'); d.textContent = t; f.appendChild(d); while (f.children.length > (window.innerWidth < 640 ? 2 : 3)) f.firstChild.remove(); setTimeout(() => d.remove(), 5100); }
 // ---- 후원: 카카오페이·토스로 1,000원 (링크는 서버 환경 변수에서 받아요) ----
 const DONATE = { ok: false, toss: '', kakao: '' };
-fetch('/api/donate').then(r => r.ok ? r.json() : null).then(j => { if (j && (j.toss || j.kakao)) Object.assign(DONATE, j, { ok: true }); }).catch(() => {});
+fetch('/api/donate').then(r => r.ok ? r.json() : null).then(j => {
+  if (!(j && (j.toss || j.kakao))) return;
+  Object.assign(DONATE, j, { ok: true });
+  // 첫 화면에 늘 보이는 후원 칸
+  if (j.kakao) { $('spKakao').href = j.kakao; $('spKakao').hidden = false; }
+  if (j.toss) { $('spToss').href = j.toss; $('spToss').hidden = false; }
+  $('supportBox').hidden = false;
+}).catch(() => {});
 function showDonate() {
   if (!DONATE.ok) return;
   overlay(`<span class="eyebrow">후원 · 1,000원</span><h2>만든 사람에게 당근 하나 🥕</h2>
-    <p class="sub">재밌게 치셨다면 1,000원으로 응원해 주세요. 서버비랑 새 코스 만드는 데 써요.</p>
+    <p class="sub">직장인이 퇴근하고 혼자 만드는 게임이에요. 당근 하나(1,000원)가 큰 힘이 됩니다! 서버비랑 새 코스 만드는 데 써요.</p>
     <div class="donate">${DONATE.kakao ? `<a class="dn kakao" href="${DONATE.kakao}" target="_blank" rel="noopener"><b>카카오페이</b><small>1,000원 보내기</small></a>` : ''}${DONATE.toss ? `<a class="dn toss" href="${DONATE.toss}" target="_blank" rel="noopener"><b>토스</b><small>1,000원 보내기</small></a>` : ''}</div>
     ${DONATE.kakao ? '<p class="dnnote">카카오페이는 송금 화면에서 금액을 1,000원으로 넣어 주세요.</p>' : ''}
     <button type="button" class="linkbtn" id="dnClose">다음에 할게요</button>`, true);
