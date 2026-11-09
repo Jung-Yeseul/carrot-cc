@@ -324,6 +324,38 @@ const PATCHES = [];
     if (!best) break;
     PATHS.push([best.a, best.b]);
   }
+  // 그린 → 다음 티: 도로로 너무 빙 돌아가면 지름길 도로를 하나 더 깔아요 (용암·물·그린은 피해서)
+  const H = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]), K = q => q[0].toFixed(3) + ',' + q[1].toFixed(3);
+  const roadDist = (A, B) => {
+    const adj = new Map(), add = (u, v) => { const ku = K(u), kv = K(v), d = H(u, v); if (!adj.has(ku)) adj.set(ku, []); if (!adj.has(kv)) adj.set(kv, []); adj.get(ku).push([kv, d]); adj.get(kv).push([ku, d]); };
+    for (const p of PATHS) for (let i = 1; i < p.length; i++) add(p[i - 1], p[i]);
+    const dist = new Map([[K(A), 0]]), done = new Set(), tk = K(B);
+    for (;;) {
+      let u = null, bu = Infinity; for (const [k, d] of dist) if (!done.has(k) && d < bu) { bu = d; u = k; }
+      if (u == null) return Infinity; if (u === tk) return bu; done.add(u);
+      for (const [v, d] of adj.get(u) || []) if (bu + d < (dist.get(v) ?? Infinity)) dist.set(v, bu + d);
+    }
+  };
+  const nearV = (x, z) => { let b = null, bd = Infinity; for (const q of PATHS.flat()) { const d = Math.hypot(q[0] - x, q[1] - z); if (d < bd) { bd = d; b = q; } } return b; };
+  for (let i = 0; i + 1 < HOLES.length; i++) {
+    const c = HOLES[i].cup, B = nearV(...HOLES[i + 1].tee); if (!B) continue;
+    // 그린 둘레의 도로 점마다(카트가 그린 옆 어느 도로로 들어와도) 다음 티까지 빙 돌지 않게
+    const seen = new Set();
+    for (const A of PATHS.flat()) {
+      if (Math.hypot(A[0] - c[0], A[1] - c[1]) > HOLES[i].green + 22 || seen.has(K(A)) || K(A) === K(B)) continue; seen.add(K(A));
+      linkIfFar(A, B);
+    }
+  }
+  function linkIfFar(A, B) {
+    const straight = H(A, B); if (roadDist(A, B) < straight * 1.5 + 25) return;
+    if (!segBad(A, B, 1)) { PATHS.push([A, B]); return; }
+    // 가운데가 막혔으면 옆으로 한 번 꺾어서 돌아가요
+    const mx = (A[0] + B[0]) / 2, mz = (A[1] + B[1]) / 2, nx = -(B[1] - A[1]) / straight, nz = (B[0] - A[0]) / straight;
+    for (const k of [18, -18, 30, -30, 45, -45, 60, -60]) {
+      const M = [mx + nx * k, mz + nz * k];
+      if (!segBad(A, M, 1) && !segBad(M, B, 1)) { PATHS.push([A, M, B]); break; }
+    }
+  }
 })();
 
 // ================= 카트 도로 (경로 찾기) =================
@@ -359,9 +391,27 @@ function pathRoute(sp, tp) {
   route.push(tp.p); return route;
 }
 // 출발점(도로 근처)→목적지: 도로로 가서, 목적지에서 가장 가까운 도로 위에 세워요. 나머지는 걸어가요
+// 가까운 도로 후보들 (가장 가까운 것 + 비슷하게 가까운 것들)
+function nearPaths(x, z, clear) {
+  const best = nearPath(x, z, clear); if (!best) return [];
+  const out = [best];
+  SEGS.forEach(([a, b], si) => {
+    if (si === best.si) return;
+    const A = NODES[a], B = NODES[b], dx = B[0] - A[0], dz = B[1] - A[1], L2 = dx * dx + dz * dz;
+    const t = L2 ? Math.max(0, Math.min(1, ((x - A[0]) * dx + (z - A[1]) * dz) / L2)) : 0, p = [A[0] + dx * t, A[1] + dz * t], d = Math.hypot(p[0] - x, p[1] - z);
+    if (d < best.d + 10 && (!clear || legClear(p, [x, z]))) out.push({ p, si, d });
+  });
+  return out.sort((a, b) => a.d - b.d).slice(0, 5);
+}
 function cartPlan(sx, sz, tx, tz) {
-  const sp = nearPath(sx, sz, false), tp = nearPath(tx, tz, true);
-  let pts = sp && tp && pathRoute(sp, tp);
+  // 출발·도착 근처 도로 후보 중에서 전체 거리가 가장 짧은 조합을 골라요 (빙 돌아가지 않게)
+  let sp = null, tp = null, pts = null, bestC = Infinity;
+  const routeLen = (from, r) => { let L = 0, q = from; for (const p of r) { L += Math.hypot(p[0] - q[0], p[1] - q[1]); q = p; } return L; };
+  for (const a of nearPaths(sx, sz, false)) for (const b of nearPaths(tx, tz, true)) {
+    const r = pathRoute(a, b); if (!r) continue;
+    const cost = a.d * 1.5 + routeLen(a.p, r) + b.d * 2;
+    if (cost < bestC) { bestC = cost; sp = a; tp = b; pts = r; }
+  }
   if (!pts) return { pts: planRoute(sx, sz, tx, tz), dest: [tx, tz], walk: false };
   if (sp.d > .8) pts.unshift(sp.p);
   return { pts, dest: tp.p, walk: tp.d > 2.2 };
