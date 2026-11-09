@@ -1477,7 +1477,7 @@ function showDonate() {
     <p class="sub">직장인이 퇴근하고 혼자 만드는 게임이에요. 당근 하나(1,000원)가 큰 힘이 됩니다! 서버비랑 새 코스 만드는 데 써요.</p>
     <div class="donate">${DONATE.kakao ? `<a class="dn kakao" href="${DONATE.kakao}" target="_blank" rel="noopener"><b>카카오페이</b><small>1,000원 보내기</small></a>` : ''}${DONATE.toss ? `<a class="dn toss" href="${DONATE.toss}" target="_blank" rel="noopener"><b>토스</b><small>1,000원 보내기</small></a>` : ''}</div>
     ${DONATE.account ? acctHtml() : ''}
-    ${DONATE.kakao ? '<p class="dnnote">카카오페이는 송금 화면에서 금액을 1,000원으로 넣어 주세요.</p>' : ''}
+    ${DONATE.kakao ? '<p class="dnnote">카카오페이 송금 화면에서 금액(1,000원)을 확인하고 보내 주세요.</p>' : ''}
     <button type="button" class="linkbtn" id="dnClose">다음에 할게요</button>`, true);
   $('dnClose').onclick = closeOverlay; bindAcct($('overlay'));
   document.querySelectorAll('.donate .dn').forEach(a => a.addEventListener('click', () => setTimeout(() => { closeOverlay(); toast('고마워요! 당근 잘 먹을게요 🥕', 2400); }, 400)));
