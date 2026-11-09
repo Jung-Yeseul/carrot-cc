@@ -1447,21 +1447,39 @@ function feed(t) { const f = $('feed'); const d = document.createElement('div');
 // ---- 후원: 카카오페이·토스로 1,000원 (링크는 서버 환경 변수에서 받아요) ----
 const DONATE = { ok: false, toss: '', kakao: '' };
 fetch('/api/donate').then(r => r.ok ? r.json() : null).then(j => {
-  if (!(j && (j.toss || j.kakao))) return;
+  if (!(j && (j.toss || j.kakao || j.account))) return;
   Object.assign(DONATE, j, { ok: true });
+  if (j.account) { $('spAcct').innerHTML = acctHtml('sp'); bindAcct($('spAcct')); $('spAcct').hidden = false; }
   // 첫 화면에 늘 보이는 후원 칸
   if (j.kakao) { $('spKakao').href = j.kakao; $('spKakao').hidden = false; }
   if (j.toss) { $('spToss').href = j.toss; $('spToss').hidden = false; }
   $('supportBox').hidden = false;
 }).catch(() => {});
+// 계좌: 복사 버튼 + (휴대폰이면) 토스 앱으로 1,000원 보내기
+const IS_MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+function acctHtml() {
+  const a = DONATE.account, no = a.no.replace(/-/g, '');
+  const toss = `supertoss://send?amount=1000&bank=${encodeURIComponent(a.bank)}&accountNo=${encodeURIComponent(no)}&origin=qr`;
+  return `<div class="acct"><span class="ac-t">${esc(a.bank)} <b>${esc(a.no)}</b>${a.name ? ` · ${esc(a.name)}` : ''}</span>
+    <div class="ac-b"><button type="button" class="ac-copy">계좌번호 복사</button>${IS_MOBILE ? `<a class="ac-toss" href="${toss}">토스로 보내기</a>` : ''}</div></div>`;
+}
+function bindAcct(root) {
+  const b = root.querySelector('.ac-copy'); if (!b) return;
+  b.onclick = async () => {
+    const t = `${DONATE.account.bank} ${DONATE.account.no.replace(/-/g, '')}`;
+    try { await navigator.clipboard.writeText(t); } catch { const x = document.createElement('textarea'); x.value = t; document.body.appendChild(x); x.select(); try { document.execCommand('copy'); } catch {} x.remove(); }
+    toast('계좌번호를 복사했어요. 은행 앱에서 1,000원 보내 주세요 🥕', 2600);
+  };
+}
 function showDonate() {
   if (!DONATE.ok) return;
   overlay(`<span class="eyebrow">후원 · 1,000원</span><h2>만든 사람에게 당근 하나 🥕</h2>
     <p class="sub">직장인이 퇴근하고 혼자 만드는 게임이에요. 당근 하나(1,000원)가 큰 힘이 됩니다! 서버비랑 새 코스 만드는 데 써요.</p>
     <div class="donate">${DONATE.kakao ? `<a class="dn kakao" href="${DONATE.kakao}" target="_blank" rel="noopener"><b>카카오페이</b><small>1,000원 보내기</small></a>` : ''}${DONATE.toss ? `<a class="dn toss" href="${DONATE.toss}" target="_blank" rel="noopener"><b>토스</b><small>1,000원 보내기</small></a>` : ''}</div>
+    ${DONATE.account ? acctHtml() : ''}
     ${DONATE.kakao ? '<p class="dnnote">카카오페이는 송금 화면에서 금액을 1,000원으로 넣어 주세요.</p>' : ''}
     <button type="button" class="linkbtn" id="dnClose">다음에 할게요</button>`, true);
-  $('dnClose').onclick = closeOverlay;
+  $('dnClose').onclick = closeOverlay; bindAcct($('overlay'));
   document.querySelectorAll('.donate .dn').forEach(a => a.addEventListener('click', () => setTimeout(() => { closeOverlay(); toast('고마워요! 당근 잘 먹을게요 🥕', 2400); }, 400)));
 }
 function overlay(html, soft) { const o = $('overlay'); o.className = 'overlay' + (soft ? ' soft' : ''); o.innerHTML = `<div class="card">${html}</div>`; o.hidden = false; }

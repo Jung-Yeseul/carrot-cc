@@ -531,3 +531,10 @@ td.cur,th.cur{background:color-mix(in srgb,var(--leaf) 14%,transparent)}
 .support .sp{flex:1 1 150px;max-width:220px;padding:10px 12px;border-radius:12px;font-weight:700;font-size:14px;text-decoration:none}
 .support .sp.kakao{background:#fee500;color:#191919}
 .support .sp.toss{background:#0064ff;color:#fff}
+.donate:empty{display:none}
+.acct{display:flex;flex-direction:column;gap:8px;align-items:center;margin:10px 0 4px;padding:12px;border-radius:12px;background:var(--card,#fff);border:1px solid color-mix(in srgb,var(--fg,#222) 12%,transparent)}
+.acct .ac-t{font-size:14px}.acct .ac-t b{font-family:var(--mono);letter-spacing:.02em}
+.acct .ac-b{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;width:100%}
+.acct .ac-copy,.acct .ac-toss{flex:1 1 140px;max-width:220px;padding:10px 12px;border-radius:12px;font:inherit;font-weight:700;font-size:14px;text-decoration:none;cursor:pointer;text-align:center}
+.acct .ac-copy{border:0;background:var(--carrot,#ff7a1a);color:#fff}
+.acct .ac-toss{background:#0064ff;color:#fff}

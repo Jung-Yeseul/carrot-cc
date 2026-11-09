@@ -104,8 +104,11 @@ const server = http.createServer((req, res) => {
     const t = String(process.env.DONATE_TOSS || '').trim(), k = String(process.env.DONATE_KAKAO || '').trim();
     const tid = (t.match(/^(?:https?:\/\/)?toss\.me\/([A-Za-z0-9_\-가-힣]+)/) || [])[1] || (/^[A-Za-z0-9_\-가-힣]{2,40}$/.test(t) ? t : '');
     const kok = /^https:\/\/qr\.kakaopay\.com\/[A-Za-z0-9]+$/.test(k) ? k : '';
+    // DONATE_ACCOUNT: '은행 계좌번호 예금주' (예: 신한 110-123-456789 홍길동) — 계좌 복사 + 토스 앱 송금 버튼
+    const am = String(process.env.DONATE_ACCOUNT || '').trim().match(/^([가-힣A-Za-z]{2,12})\s+([0-9][0-9\- ]{5,24}[0-9])(?:\s+([가-힣A-Za-z ]{1,20}))?$/);
+    const account = am ? { bank: am[1], no: am[2].replace(/\s+/g, ''), name: (am[3] || '').trim() } : null;
     res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'max-age=300' });
-    return res.end(JSON.stringify({ toss: tid ? `https://toss.me/${encodeURIComponent(tid)}/1000` : '', kakao: kok }));
+    return res.end(JSON.stringify({ toss: tid ? `https://toss.me/${encodeURIComponent(tid)}/1000` : '', kakao: kok, account }));
   }
   if (url.pathname === '/healthz') { res.writeHead(200); return res.end('ok'); }
   if (url.pathname === '/metamoa' || url.pathname.startsWith('/metamoa/')) {
