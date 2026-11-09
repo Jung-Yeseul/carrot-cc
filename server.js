@@ -108,7 +108,15 @@ const server = http.createServer((req, res) => {
     const am = String(process.env.DONATE_ACCOUNT || '').trim().match(/^([가-힣A-Za-z]{2,12})\s+([0-9][0-9\- ]{5,24}[0-9])(?:\s+([가-힣A-Za-z ]{1,20}))?$/);
     const account = am ? { bank: am[1], no: am[2].replace(/\s+/g, ''), name: (am[3] || '').trim() } : null;
     res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'max-age=300' });
-    return res.end(JSON.stringify({ toss: tid ? `https://toss.me/${encodeURIComponent(tid)}/1000` : '', kakao: kok, account }));
+    // 토스 앱 '받기 QR' 링크(supertoss://send?...)도 받아요. 금액은 1,000원으로 맞춰요 (휴대폰에서만 열려요)
+    let tapp = '';
+    if (/^supertoss:\/\/send\?/.test(t)) {
+      const q = new URLSearchParams(t.slice(t.indexOf('?') + 1));
+      if (/^[0-9\-]{6,24}$/.test(q.get('accountNo') || '') && /^[가-힣A-Za-z0-9 ]{2,20}$/.test(q.get('bank') || '')) {
+        q.set('amount', '1000'); tapp = 'supertoss://send?' + q.toString();
+      }
+    }
+    return res.end(JSON.stringify({ toss: tid ? `https://toss.me/${encodeURIComponent(tid)}/1000` : '', tossApp: tapp, kakao: kok, account }));
   }
   if (url.pathname === '/healthz') { res.writeHead(200); return res.end('ok'); }
   if (url.pathname === '/metamoa' || url.pathname.startsWith('/metamoa/')) {

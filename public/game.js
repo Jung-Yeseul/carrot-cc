@@ -1447,12 +1447,14 @@ function feed(t) { const f = $('feed'); const d = document.createElement('div');
 // ---- 후원: 카카오페이·토스로 1,000원 (링크는 서버 환경 변수에서 받아요) ----
 const DONATE = { ok: false, toss: '', kakao: '' };
 fetch('/api/donate').then(r => r.ok ? r.json() : null).then(j => {
+  // 토스 앱 링크는 휴대폰에서만 열려요
+  if (j && !j.toss && j.tossApp && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) j.toss = j.tossApp;
   if (!(j && (j.toss || j.kakao || j.account))) return;
   Object.assign(DONATE, j, { ok: true });
   if (j.account) { $('spAcct').innerHTML = acctHtml('sp'); bindAcct($('spAcct')); $('spAcct').hidden = false; }
   // 첫 화면에 늘 보이는 후원 칸
   if (j.kakao) { $('spKakao').href = j.kakao; $('spKakao').hidden = false; }
-  if (j.toss) { $('spToss').href = j.toss; $('spToss').hidden = false; }
+  if (j.toss) { $('spToss').href = j.toss; if (j.toss.startsWith('supertoss:')) $('spToss').removeAttribute('target'); $('spToss').hidden = false; }
   $('supportBox').hidden = false;
 }).catch(() => {});
 // 계좌: 복사 버튼 + (휴대폰이면) 토스 앱으로 1,000원 보내기
@@ -1475,7 +1477,7 @@ function showDonate() {
   if (!DONATE.ok) return;
   overlay(`<span class="eyebrow">후원 · 1,000원</span><h2>만든 사람에게 당근 하나 🥕</h2>
     <p class="sub">직장인이 퇴근하고 혼자 만드는 게임이에요. 당근 하나(1,000원)가 큰 힘이 됩니다! 서버비랑 새 코스 만드는 데 써요.</p>
-    <div class="donate">${DONATE.kakao ? `<a class="dn kakao" href="${DONATE.kakao}" target="_blank" rel="noopener"><b>카카오페이</b><small>1,000원 보내기</small></a>` : ''}${DONATE.toss ? `<a class="dn toss" href="${DONATE.toss}" target="_blank" rel="noopener"><b>토스</b><small>1,000원 보내기</small></a>` : ''}</div>
+    <div class="donate">${DONATE.kakao ? `<a class="dn kakao" href="${DONATE.kakao}" target="_blank" rel="noopener"><b>카카오페이</b><small>1,000원 보내기</small></a>` : ''}${DONATE.toss ? `<a class="dn toss" href="${DONATE.toss}"${DONATE.toss.startsWith('supertoss:') ? '' : ' target="_blank" rel="noopener"'}><b>토스</b><small>1,000원 보내기</small></a>` : ''}</div>
     ${DONATE.account ? acctHtml() : ''}
     ${DONATE.kakao ? '<p class="dnnote">카카오페이 송금 화면에서 금액(1,000원)을 확인하고 보내 주세요.</p>' : ''}
     <button type="button" class="linkbtn" id="dnClose">다음에 할게요</button>`, true);
