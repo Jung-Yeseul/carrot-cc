@@ -566,9 +566,35 @@ $('coachSkip').onclick = () => { const st = TUT.step; tutEnd(false); toast('따�
 // 모바일 ☰ 메뉴: 오른쪽 위 버튼들을 한 곳에 모아요 (원래 버튼을 대신 눌러줘요)
 $('mMenuBtn').onclick = () => {
   const app = $('app'), course = !app.classList.contains('inclub') && !app.classList.contains('inrange');
-  const items = [['exitBtn', '🏛️ 나가기 (클럽하우스·정문)', 'wide'], ['cardBtn', '📋 스코어카드', '', course], ['sound', null, ''], ['goShadeBtn', '🍢 그늘집 가기', '', course], ['goWCBtn', '🚻 화장실 가기', '', course], ['ballQ', '⛳ 공으로 가기', '', course && S.mode === 'walk' && S.ball.state === 'rest' && S.ballVis && Math.hypot(me.x - S.ball.x, me.z - S.ball.z) > 3.2], ['duelQ', '⚔️ 대전하기', '', course && !DUEL.on], ['pickQ', '🏳️ 이 홀 그만하기', '', course && S.mode === 'walk' && S.ball.state === 'rest' && S.ballVis], ['peopleBtn', null, ''], ['clipBtn', null, 'wide'], ['basicsQ', '📖 골프 쉽게 알기', ''], ['donateQ', '🥕 만든 사람에게 당근 사주기', 'wide', DONATE.ok], ['nick', `✏️ 이름표: ${NET.nick}`, ''], ['langBtnQ', '🌐 Language', 'wide']];
-  const list = items.filter(([id, , , ok]) => ok !== false && (id === 'langBtnQ' || id === 'basicsQ' || id === 'donateQ' || id === 'ballQ' || id === 'pickQ' || id === 'duelQ' || ($(id) && !$(id).hidden)));
-  overlay(`<span class="eyebrow">메뉴</span><div class="qmenu">${list.map(([id, label, cls]) => `<button type="button" class="btn sub ${cls}" data-q="${id}">${label || esc($(id).textContent.trim())}</button>`).join('')}</div><button type="button" class="linkbtn" id="qClose">닫기</button>`);
+  const vis = id => $(id) && !$(id).hidden, num = id => (($(id) && $(id).querySelector('b')) || {}).textContent || '';
+  const soundOn = $('sound') && $('sound').getAttribute('aria-pressed') !== 'false';
+  const ballFar = course && S.mode === 'walk' && S.ball.state === 'rest' && S.ballVis && Math.hypot(me.x - S.ball.x, me.z - S.ball.z) > 3.2;
+  const langName = (LG.LANGS.find(l => l[0] === LG.lang) || ['', ''])[1];
+  // [id, 아이콘, 이름, 작은 글씨, 보일지]
+  const groups = [
+    ['코스', [
+      ['ballQ', '⛳', '공으로 가기', '', ballFar],
+      ['goShadeBtn', '🍢', '그늘집', '', course && vis('goShadeBtn')],
+      ['goWCBtn', '🚻', '화장실', '', course && vis('goWCBtn')],
+      ['cardBtn', '📋', '스코어카드', '', course && vis('cardBtn')],
+      ['duelQ', '⚔️', '대전하기', '', course && !DUEL.on],
+      ['pickQ', '🏳️', '이 홀 그만', '', course && S.mode === 'walk' && S.ball.state === 'rest' && S.ballVis],
+      ['peopleBtn', '👥', '같이 치는 중', num('peopleBtn'), vis('peopleBtn')],
+      ['clipBtn', '🎬', '하이라이트', num('clipBtn'), vis('clipBtn')],
+    ]],
+    ['설정', [
+      ['sound', soundOn ? '🔊' : '🔇', soundOn ? '소리 켬' : '소리 끔', '', vis('sound')],
+      ['nick', '✏️', '이름표', NET.nick, vis('nick')],
+      ['langBtnQ', '🌐', 'Language', langName, true],
+      ['basicsQ', '📖', '골프 설명', '', true],
+    ]],
+  ];
+  const tile = ([id, ic, label, sub]) => `<button type="button" class="qt" data-q="${id}"><span class="qi">${ic}</span><span class="ql">${label}</span>${sub ? `<small>${esc(String(sub))}</small>` : ''}</button>`;
+  const body = groups.map(([g, list]) => { const v = list.filter(x => x[4]); return v.length ? `<div class="qgroup"><span class="qg">${g}</span><div class="qtiles">${v.map(tile).join('')}</div></div>` : ''; }).join('');
+  overlay(`<div class="qhead"><span class="eyebrow">메뉴</span>${course ? `<b>${S.hole + 1}번 홀 · ${S.strokes}타째</b>` : ''}</div>${body}
+    ${DONATE.ok ? '<button type="button" class="qdonate" data-q="donateQ"><span class="qi">🥕</span><span><b>만든 사람에게 당근 사주기</b><small>재밌었다면 1,000원으로 응원해 주세요</small></span><span class="qgo">›</span></button>' : ''}
+    <div class="qfoot"><button type="button" class="qexit" data-q="exitBtn">🏛️ 나가기 <small>클럽하우스 · 정문</small></button><button type="button" class="linkbtn" id="qClose">닫기</button></div>`);
+  $('overlay').classList.add('qsheet');
   $('qClose').onclick = closeOverlay;
   document.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { if (b.dataset.q === 'langBtnQ') return openLangMenu(); if (b.dataset.q === 'basicsQ') return showBasics(); if (b.dataset.q === 'donateQ') return showDonate(); if (b.dataset.q === 'ballQ') { closeOverlay(); S.autoGo = true; return; } if (b.dataset.q === 'pickQ') { closeOverlay(); return pickUp(); } if (b.dataset.q === 'duelQ') return openDuelLobby(false); closeOverlay(); $(b.dataset.q).click(); });
 };
