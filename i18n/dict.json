@@ -6643,5 +6643,20 @@
   "Support via Toss",
   "Tossで応援",
   "用Toss支持"
+ ],
+ "계좌번호 복사": [
+  "Copy account number",
+  "口座番号をコピー",
+  "复制账号"
+ ],
+ "계좌번호를 복사했어요. 은행 앱에서 1,000원 보내 주세요 🥕": [
+  "Account number copied. Send ₩1,000 from your bank app 🥕",
+  "口座番号をコピーしました。銀行アプリから1,000ウォン送ってください 🥕",
+  "已复制账号。请在银行App里转1,000韩元 🥕"
+ ],
+ "토스로 보내기": [
+  "Send with Toss",
+  "Tossで送る",
+  "用Toss发送"
  ]
 }
