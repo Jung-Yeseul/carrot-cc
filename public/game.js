@@ -1456,6 +1456,8 @@ fetch('/api/donate').then(r => r.ok ? r.json() : null).then(j => {
   if (j.kakao) { $('spKakao').href = j.kakao; $('spKakao').hidden = false; }
   if (j.toss) { $('spToss').href = j.toss; if (j.toss.startsWith('supertoss:')) $('spToss').removeAttribute('target'); $('spToss').hidden = false; }
   $('supportBox').hidden = false;
+  $('carrotShake').hidden = false;
+  $('carrotShake').onclick = () => { const b = $('carrotShake'); b.classList.remove('hit'); void b.offsetWidth; b.classList.add('hit'); setTimeout(showDonate, 350); };
 }).catch(() => {});
 // 계좌: 복사 버튼 + (휴대폰이면) 토스 앱으로 1,000원 보내기
 const IS_MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
@@ -1472,6 +1474,14 @@ function bindAcct(root) {
     try { await navigator.clipboard.writeText(t); } catch { const x = document.createElement('textarea'); x.value = t; document.body.appendChild(x); x.select(); try { document.execCommand('copy'); } catch {} x.remove(); }
     toast('계좌번호를 복사했어요. 은행 앱에서 1,000원 보내 주세요 🥕', 2600);
   };
+}
+// 라운딩 끝: 오늘의 그늘집 장부 + 진짜 당근(1,000원) 제안
+function receiptHtml() {
+  const L = (S.st && S.st.ledger) || [], tot = L.reduce((a, x) => a + x[1], 0) || S.spent || 0;
+  const rows = L.slice(0, 8).map(([n, p, ic]) => `<li><span>${ic ? `<i>${ic}</i> ` : ''}<span>${esc(n)}</span></span><b>${p.toLocaleString('ko-KR')}원</b></li>`).join('') + (L.length > 8 ? `<li class="more"><span>외 ${L.length - 8}개</span><b></b></li>` : '');
+  const bill = tot ? `<div class="receipt"><span class="eyebrow">🧾 오늘의 그늘집 장부</span><ul>${rows}</ul><div class="rc-tot"><span>합계</span><b>${tot.toLocaleString('ko-KR')}원</b></div><p class="rc-free">장부는 당근 CC가 쏩니다! 🎉</p></div>` : '';
+  if (!DONATE.ok) return bill;
+  return bill + `<div class="rc-ask"><p>${tot ? '대신 재밌었다면 진짜 당근 하나(1,000원) 사주실래요?' : '재밌었다면 만든 사람에게 진짜 당근 하나(1,000원) 사주실래요?'}</p><button type="button" class="btn" id="dnEnd">🥕 당근 사주기</button></div>`;
 }
 function showDonate() {
   if (!DONATE.ok) return;
@@ -2479,7 +2489,7 @@ function showShade() {
     <p>${had ? `이미 ${esc(had.chip)} 효과가 있어요. 이번엔 간식으로 맛있게만 드세요~` : '하나 고르면 라운딩 끝까지 효과가 있어요.'}</p>
     <button type="button" class="cosbanner" id="shadeCos"><span class="cb-e">🦈🦖👑</span><span class="cb-t"><b>🎭 코스튬 빌리기</b><small>상어·공룡·임금님… 입으면 다른 사람에게도 보여요</small></span><span class="cb-go">▸</span></button>
     <div class="menu cards">${MENU.map(m => `<button type="button" data-id="${m.id}" class="m-${m.id}"><span class="mimg">${m.img}</span><span class="it">${m.name}</span><span class="pc">${m.price}</span><span class="tix">${[['멀리건', m.tix[0]], ['OK권', m.tix[1]], ['순간이동', m.tix[2]]].filter(t => t[1]).map(t => `<i>${t[0]}<b>×${t[1]}</b></i>`).join('')}</span><span class="ef">${m.nobuff ? '효과 없이 쿠폰만' : m.chip.split(': ')[1]}</span></button>`).join('')}</div>
-    <div class="shade-now" id="shadeNow">${shadeNames()}</div><div class="btns">${HOLES.length && S.ball.state === 'rest' && S.ballVis && Math.hypot(S.ball.x - SHADE.x, S.ball.z - SHADE.z) > 10 ? '<button class="btn sub" id="shadeBack">⛳ 공으로 돌아가기</button>' : ''}<button class="btn sub" id="shadeClose">그냥 구경만 할게요</button></div>`);
+    <p class="fakeprice">🧾 게임 속 가격이에요 · 진짜 결제는 없어요</p><div class="shade-now" id="shadeNow">${shadeNames()}</div><div class="btns">${HOLES.length && S.ball.state === 'rest' && S.ballVis && Math.hypot(S.ball.x - SHADE.x, S.ball.z - SHADE.z) > 10 ? '<button class="btn sub" id="shadeBack">⛳ 공으로 돌아가기</button>' : ''}<button class="btn sub" id="shadeClose">그냥 구경만 할게요</button></div>`);
   $('shadeCos').onclick = showCostumes;
   shadeTimer = setInterval(() => { const el = $('shadeNow'); if (el) el.innerHTML = shadeNames(); }, 1500);
   $('shadeClose').onclick = closeOverlay;
@@ -2497,7 +2507,7 @@ function endRound() {
     <p>PAR ${TOTAL_PAR} 기준. ${nb ? '새 베스트 기록이에요. ' : `베스트 ${best}타. `}${line}</p>
     <img class="story" src="${cardUrl}" alt="라운딩 결과 카드">
     <div class="btns">${IS_DEMO() ? '<p class="cs">미리보기에서는 저장이 안 돼요. 실제 사이트에서 저장·공유할 수 있어요.</p>' : `<a class="btn" href="${cardUrl}" download="carrot-cc-round.png">결과 카드 저장</a>${navigator.canShare ? '<button class="btn sub" type="button" id="cardShare">스토리에 공유</button>' : ''}`}</div>
-    <div class="btns"><button class="btn sub" id="again">다시 라운딩</button><button class="btn sub" id="stroll">코스 산책하기</button></div>${DONATE.ok ? '<button type="button" class="linkbtn" id="dnEnd">🥕 재밌었다면 당근 하나 사주기 (1,000원)</button>' : ''}`);
+    <div class="btns"><button class="btn sub" id="again">다시 라운딩</button><button class="btn sub" id="stroll">코스 산책하기</button></div>${receiptHtml()}`);
   if ($('dnEnd')) $('dnEnd').onclick = showDonate;
   if ($('cardShare')) $('cardShare').onclick = () => card.toBlob(async b => { if (!(await shareBlob(b, 'carrot-cc-round.png', `당근 CC ${tot}타! ${siteHost()} @ttanjit.lab`))) toast('이 기기에서는 바로 공유가 안 돼요. 저장 후 올려 주세요', 2200); }, 'image/png');
   $('again').onclick = () => { closeOverlay(); resetRound(true); };
@@ -2695,7 +2705,7 @@ function wearCostume(k) {
   closeOverlay(); me.jump = .8; tone(660, .08, 'triangle', .1); tone(990, .12, 'triangle', .1, .1);
   if (!k) { ownerSay('반납 확인했습니다~ 깨끗하게 입으셨네요!'); showBubble(me, '역시 당근은 당근 그대로'); return; }
   if (k === was) { ownerSay('이미 입고 계세요! 잘 어울려요~'); return; }
-  const [n, e, pr] = COSTUMES[k]; S.spent = (S.spent || 0) + pr; renderSpent();
+  const [n, e, pr] = COSTUMES[k]; S.spent = (S.spent || 0) + pr; renderSpent(); (S.st.ledger ||= []).push([n, pr, e]);
   ownerSay(`${n} 대여 완료! 세탁비는 서비스예요~`); showBubble(me, `${e} 변신 완료!`); toast(`${n} ${pr.toLocaleString('ko-KR')}원 결제 · 그늘집 대여료는 원래 그래요`, 2400);
 }
 function eatFood(m) {
@@ -2722,7 +2732,7 @@ function finishEat() {
   const m = EAT.m; scene.remove(EAT.food); EAT.food = null;
   me.seat = null; me.anim = 0; me.eating = false; me.x = SHADE.x - .6; me.z = SHADE.z + 2.6; me.yaw = 0; me.jump = .7; cam.yaw = Math.PI;
   S.mode = 'walk'; lastActKey = ''; $('caddieTip').hidden = true;
-  S.spent = (S.spent || 0) + priceOf(m); renderSpent(); S.st.menus.push(m.name.replace('갓 짠 ', '').replace('그늘집 ', ''));
+  S.spent = (S.spent || 0) + priceOf(m); renderSpent(); (S.st.ledger ||= []).push([m.name, priceOf(m), m.img || '']); S.st.menus.push(m.name.replace('갓 짠 ', '').replace('그늘집 ', ''));
   toast(`${m.price} 결제 완료 · 그늘집 가격은 원래 이래요`, 2200);
   S.mulligans += m.tix[0]; S.okTix += m.tix[1]; S.warpTix += m.tix[2] || 0; renderTix(); setTimeout(() => toast(`${m.tix[0] ? `멀리건 ${m.tix[0]}장 ` : ''}${m.tix[1] ? `OK권 ${m.tix[1]}장 ` : ''}${m.tix[2] ? `순간이동권 ${m.tix[2]}장 ` : ''}받았어요!`, 2000), 4600);
   if (EAT.first && !m.nobuff) { S.buff = m.id; const c = $('buffChip'); c.textContent = m.chip; c.hidden = false; setTimeout(() => toast(`${m.chip} 효과가 생겼어요`, 2000), 2300); }
@@ -2831,7 +2841,7 @@ $('clipBtn').onclick = () => { const s = $('clipSheet'); const open = s.hidden; 
 $('clipClose').onclick = () => { $('clipSheet').hidden = true; $('clipBtn').setAttribute('aria-expanded', 'false'); };
 
 // ================= 라운딩 결과 카드 (스토리용 1080×1920) =================
-function newStats() { return { croc: 0, crow: 0, animals: [], chance: 0, menus: [], birdie: 0, eagle: 0, hio: 0, tipsy: false, ob: 0, water: 0 }; }
+function newStats() { return { croc: 0, crow: 0, animals: [], chance: 0, menus: [], ledger: [], birdie: 0, eagle: 0, hio: 0, tipsy: false, ob: 0, water: 0 }; }
 function roundTitle(st, d) {
   if (st.hio) return '홀인원 레전드';
   if (st.eagle) return '이글 사냥꾼';
