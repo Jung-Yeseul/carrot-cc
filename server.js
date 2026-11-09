@@ -99,6 +99,14 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
     return res.end(JSON.stringify(hofPayload()));
   }
+  if (url.pathname === '/api/donate') {
+    // 후원 링크는 서버 환경 변수에서만 읽어요 (DONATE_TOSS: toss.me 아이디나 링크, DONATE_KAKAO: 카카오페이 송금 링크)
+    const t = String(process.env.DONATE_TOSS || '').trim(), k = String(process.env.DONATE_KAKAO || '').trim();
+    const tid = (t.match(/^(?:https?:\/\/)?toss\.me\/([A-Za-z0-9_\-가-힣]+)/) || [])[1] || (/^[A-Za-z0-9_\-가-힣]{2,40}$/.test(t) ? t : '');
+    const kok = /^https:\/\/qr\.kakaopay\.com\/[A-Za-z0-9]+$/.test(k) ? k : '';
+    res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'max-age=300' });
+    return res.end(JSON.stringify({ toss: tid ? `https://toss.me/${encodeURIComponent(tid)}/1000` : '', kakao: kok }));
+  }
   if (url.pathname === '/healthz') { res.writeHead(200); return res.end('ok'); }
   if (url.pathname === '/metamoa' || url.pathname.startsWith('/metamoa/')) {
     metamoa.handle(req, res, url, { publicDir: PUBLIC_DIR, count: () => total() }).catch(e => { if (!res.headersSent) res.writeHead(500); res.end('error'); console.log('[metamoa]', e.message); });

@@ -516,11 +516,11 @@ $('coachSkip').onclick = () => { const st = TUT.step; tutEnd(false); toast('따�
 // 모바일 ☰ 메뉴: 오른쪽 위 버튼들을 한 곳에 모아요 (원래 버튼을 대신 눌러줘요)
 $('mMenuBtn').onclick = () => {
   const app = $('app'), course = !app.classList.contains('inclub') && !app.classList.contains('inrange');
-  const items = [['exitBtn', '🏛️ 나가기 (클럽하우스·정문)', 'wide'], ['cardBtn', '📋 스코어카드', '', course], ['sound', null, ''], ['goShadeBtn', '🍢 그늘집 가기', '', course], ['goWCBtn', '🚻 화장실 가기', '', course], ['duelQ', '⚔️ 대전하기', '', course && !DUEL.on], ['pickQ', '🏳️ 이 홀 그만하기', '', course && S.mode === 'walk' && S.ball.state === 'rest' && S.ballVis], ['peopleBtn', null, ''], ['clipBtn', null, 'wide'], ['basicsQ', '📖 골프 쉽게 알기', ''], ['nick', `✏️ 이름표: ${NET.nick}`, ''], ['langBtnQ', '🌐 Language', 'wide']];
-  const list = items.filter(([id, , , ok]) => ok !== false && (id === 'langBtnQ' || id === 'basicsQ' || id === 'pickQ' || id === 'duelQ' || ($(id) && !$(id).hidden)));
+  const items = [['exitBtn', '🏛️ 나가기 (클럽하우스·정문)', 'wide'], ['cardBtn', '📋 스코어카드', '', course], ['sound', null, ''], ['goShadeBtn', '🍢 그늘집 가기', '', course], ['goWCBtn', '🚻 화장실 가기', '', course], ['duelQ', '⚔️ 대전하기', '', course && !DUEL.on], ['pickQ', '🏳️ 이 홀 그만하기', '', course && S.mode === 'walk' && S.ball.state === 'rest' && S.ballVis], ['peopleBtn', null, ''], ['clipBtn', null, 'wide'], ['basicsQ', '📖 골프 쉽게 알기', ''], ['donateQ', '🥕 만든 사람에게 당근 사주기', 'wide', DONATE.ok], ['nick', `✏️ 이름표: ${NET.nick}`, ''], ['langBtnQ', '🌐 Language', 'wide']];
+  const list = items.filter(([id, , , ok]) => ok !== false && (id === 'langBtnQ' || id === 'basicsQ' || id === 'donateQ' || id === 'pickQ' || id === 'duelQ' || ($(id) && !$(id).hidden)));
   overlay(`<span class="eyebrow">메뉴</span><div class="qmenu">${list.map(([id, label, cls]) => `<button type="button" class="btn sub ${cls}" data-q="${id}">${label || esc($(id).textContent.trim())}</button>`).join('')}</div><button type="button" class="linkbtn" id="qClose">닫기</button>`);
   $('qClose').onclick = closeOverlay;
-  document.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { if (b.dataset.q === 'langBtnQ') return openLangMenu(); if (b.dataset.q === 'basicsQ') return showBasics(); if (b.dataset.q === 'pickQ') { closeOverlay(); return pickUp(); } if (b.dataset.q === 'duelQ') return openDuelLobby(false); closeOverlay(); $(b.dataset.q).click(); });
+  document.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { if (b.dataset.q === 'langBtnQ') return openLangMenu(); if (b.dataset.q === 'basicsQ') return showBasics(); if (b.dataset.q === 'donateQ') return showDonate(); if (b.dataset.q === 'pickQ') { closeOverlay(); return pickUp(); } if (b.dataset.q === 'duelQ') return openDuelLobby(false); closeOverlay(); $(b.dataset.q).click(); });
 };
 // ---- 닉네임 ----
 const NICK_RE = /^[가-힣a-zA-Z0-9 _]+$/;
@@ -1444,6 +1444,19 @@ updSoundBtn();
 let toastT = 0;
 function toast(t, ms = 1800) { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), ms); }
 function feed(t) { const f = $('feed'); const d = document.createElement('div'); d.textContent = t; f.appendChild(d); while (f.children.length > (window.innerWidth < 640 ? 2 : 3)) f.firstChild.remove(); setTimeout(() => d.remove(), 5100); }
+// ---- 후원: 카카오페이·토스로 1,000원 (링크는 서버 환경 변수에서 받아요) ----
+const DONATE = { ok: false, toss: '', kakao: '' };
+fetch('/api/donate').then(r => r.ok ? r.json() : null).then(j => { if (j && (j.toss || j.kakao)) Object.assign(DONATE, j, { ok: true }); }).catch(() => {});
+function showDonate() {
+  if (!DONATE.ok) return;
+  overlay(`<span class="eyebrow">후원 · 1,000원</span><h2>만든 사람에게 당근 하나 🥕</h2>
+    <p class="sub">재밌게 치셨다면 1,000원으로 응원해 주세요. 서버비랑 새 코스 만드는 데 써요.</p>
+    <div class="donate">${DONATE.kakao ? `<a class="dn kakao" href="${DONATE.kakao}" target="_blank" rel="noopener"><b>카카오페이</b><small>1,000원 보내기</small></a>` : ''}${DONATE.toss ? `<a class="dn toss" href="${DONATE.toss}" target="_blank" rel="noopener"><b>토스</b><small>1,000원 보내기</small></a>` : ''}</div>
+    ${DONATE.kakao ? '<p class="dnnote">카카오페이는 송금 화면에서 금액을 1,000원으로 넣어 주세요.</p>' : ''}
+    <button type="button" class="linkbtn" id="dnClose">다음에 할게요</button>`, true);
+  $('dnClose').onclick = closeOverlay;
+  document.querySelectorAll('.donate .dn').forEach(a => a.addEventListener('click', () => setTimeout(() => { closeOverlay(); toast('고마워요! 당근 잘 먹을게요 🥕', 2400); }, 400)));
+}
 function overlay(html, soft) { const o = $('overlay'); o.className = 'overlay' + (soft ? ' soft' : ''); o.innerHTML = `<div class="card">${html}</div>`; o.hidden = false; }
 function closeOverlay() { $('overlay').hidden = true; clearInterval(shadeTimer); }
 $('cardBtn').onclick = () => { const s = $('cardSheet'); s.hidden = !s.hidden; $('peopleSheet').hidden = true; $('cardBtn').setAttribute('aria-expanded', String(!s.hidden)); $('peopleBtn').setAttribute('aria-expanded', 'false'); };
@@ -2456,7 +2469,8 @@ function endRound() {
     <p>PAR ${TOTAL_PAR} 기준. ${nb ? '새 베스트 기록이에요. ' : `베스트 ${best}타. `}${line}</p>
     <img class="story" src="${cardUrl}" alt="라운딩 결과 카드">
     <div class="btns">${IS_DEMO() ? '<p class="cs">미리보기에서는 저장이 안 돼요. 실제 사이트에서 저장·공유할 수 있어요.</p>' : `<a class="btn" href="${cardUrl}" download="carrot-cc-round.png">결과 카드 저장</a>${navigator.canShare ? '<button class="btn sub" type="button" id="cardShare">스토리에 공유</button>' : ''}`}</div>
-    <div class="btns"><button class="btn sub" id="again">다시 라운딩</button><button class="btn sub" id="stroll">코스 산책하기</button></div>`);
+    <div class="btns"><button class="btn sub" id="again">다시 라운딩</button><button class="btn sub" id="stroll">코스 산책하기</button></div>${DONATE.ok ? '<button type="button" class="linkbtn" id="dnEnd">🥕 재밌었다면 당근 하나 사주기 (1,000원)</button>' : ''}`);
+  if ($('dnEnd')) $('dnEnd').onclick = showDonate;
   if ($('cardShare')) $('cardShare').onclick = () => card.toBlob(async b => { if (!(await shareBlob(b, 'carrot-cc-round.png', `당근 CC ${tot}타! ${siteHost()} @ttanjit.lab`))) toast('이 기기에서는 바로 공유가 안 돼요. 저장 후 올려 주세요', 2200); }, 'image/png');
   $('again').onclick = () => { closeOverlay(); resetRound(true); };
   $('stroll').onclick = () => { closeOverlay(); S.mode = 'walk'; S.ballVis = false; S.ball.state = 'done'; lastActKey = ''; toast('천천히 둘러보세요. 오른쪽 위 스코어카드에서 새 라운딩을 시작할 수 있어요', 2800); showAgainInSheet(); };
