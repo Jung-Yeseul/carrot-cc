@@ -3,7 +3,7 @@ services:
   - type: web
     name: carrot-cc
     runtime: node
-    plan: free            # 정식 오픈 땐 starter(월 $7)로 올리면 잠들지 않아요
+    plan: starter         # 무료 한도 초과로 정지돼서 starter(월 $7)로 업그레이드
     buildCommand: npm install
     startCommand: npm start
     healthCheckPath: /healthz
