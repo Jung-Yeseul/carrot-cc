@@ -12,3 +12,5 @@ services:
         value: "50"
       - key: CAPACITY     # 채널당 정원
         value: "30"
+      - key: DONATE_KAKAO # 카카오페이 송금코드 링크
+        value: "https://qr.kakaopay.com/Ej7scKxyb1f408173"
