@@ -6738,5 +6738,40 @@
   "Golf basics",
   "ゴルフ説明",
   "高尔夫说明"
+ ],
+ "시작할게요!": [
+  "Let's start!",
+  "始めます！",
+  "开始吧！"
+ ],
+ "골프 설명 더 보기": [
+  "More golf basics",
+  "ゴルフ説明をもっと見る",
+  "查看更多高尔夫说明"
+ ],
+ "코스 미리 보기": [
+  "Preview course",
+  "コースを下見",
+  "预览球场"
+ ],
+ "공 옆이에요! 곧 치는 화면이 열려요": [
+  "You're at the ball! The shot screen opens soon",
+  "ボールの横です！すぐ打つ画面が開きます",
+  "到球旁边了！马上打开击球画面"
+ ],
+ "캐디가 공까지 데려다주는 중이에요. 잠깐만요~": [
+  "Your caddie is taking you to the ball. One moment~",
+  "キャディーがボールまで案内中です。少々お待ちを～",
+  "球童正带你去球那里，稍等～"
+ ],
+ "어서 오세요, {0} 님! 오늘 코스는 {1} {2}! 바로 티오프 장소로 모실게요~": [
+  "Welcome, {0}! Today's course is {1} {2}! Let me take you straight to the tee~",
+  "いらっしゃいませ、{0}さん！今日のコースは{1} {2}！すぐティーへご案内します～",
+  "欢迎，{0}！今天的球场是{1} {2}！马上带你去开球台～"
+ ],
+ "반가워요, {0} 님! 골프는 공을 깃발 밑 구멍에 넣으면 끝, 적게 칠수록 잘한 거예요. 공까지는 제가 데려다 드리고, 치는 법은 그때그때 알려드릴게요!": [
+  "Nice to meet you, {0}! In golf you get the ball into the hole under the flag — fewer shots is better. I'll take you to the ball and show you how to hit as we go!",
+  "はじめまして、{0}さん！ゴルフは旗の下の穴にボールを入れたら終わり、少ない打数ほど上手です。ボールまではご案内して、打ち方はその都度教えますね！",
+  "你好，{0}！高尔夫就是把球打进旗子下的洞，杆数越少越好。我会带你去球那里，打法随时教你！"
  ]
 }

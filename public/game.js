@@ -1950,14 +1950,24 @@ function warpToBall() {
 // 공을 친 다음: 묻지 않고 알아서 이동해요. 멀면(약 60m 넘게) 카트, 가까우면 걸어가요
 const AUTO_CART_U = 20;
 setInterval(() => {
-  if (!S.autoGo || S.mode !== 'walk' || S.ball.state !== 'rest' || !S.ballVis || cam.focus || TUT.on) return;
+  if (!S.autoGo || S.mode !== 'walk' || S.ball.state !== 'rest' || !S.ballVis || cam.focus) return;
   if ($('overlay') && !$('overlay').hidden) return;
-  S.autoGo = false;
+  S.autoGo = false; S.autoAim = true;
   const d = Math.hypot(me.x - S.ball.x, me.z - S.ball.z);
   if (d < 3.2) return;
   const onGreen = greenSafe(S.ball.x, S.ball.z)[2];
   if (d > AUTO_CART_U && !(onGreen && d < AUTO_CART_U * 2)) cartTo(S.ball.x, S.ball.z, true); else walkToBall();
 }, 700);
+// 공 옆에 도착하면 [공 치기 준비]를 안 눌러도 바로 조준 화면으로
+setInterval(() => {
+  if (!S.autoAim) return;
+  if (S.mode === 'ride' || me.moveT || S.pendingRide || S.quick) return;
+  if (S.mode !== 'walk' || S.ball.state !== 'rest' || !S.ballVis) { if (S.mode !== 'walk') S.autoAim = false; return; }
+  if (!$('overlay').hidden || !$('lobbyUI').hidden || cam.focus) return;
+  if (Math.hypot(me.x - S.ball.x, me.z - S.ball.z) > 3.2) { S.autoAim = false; return; }
+  S.autoAim = false; if (DUEL.on && !duelMayShoot()) return;
+  setTimeout(() => { if (S.mode === 'walk' && !me.moveT) enterAim(); }, 600);
+}, 300);
 function walkToBall() {
   const tg = aimTarget(), a = Math.atan2(tg[0] - S.ball.x, tg[1] - S.ball.z);
   let tx = S.ball.x - Math.sin(a) * 1.4, tz = S.ball.z - Math.cos(a) * 1.4;
@@ -3767,7 +3777,11 @@ function finishCine() {
   if (c.kind === 'enter') {
     me.yaw = Math.PI; cam.yaw = Math.PI;
     setTimeout(() => { $('clubTitle').hidden = true; }, 900);
-    LB.welcome = [me.x, me.z]; let lv = null; try { lv = localStorage.getItem('carrotLv'); } catch {} if (lv) openDesk(true); else askLevel();   // '처음이에요/익숙해요'는 처음 한 번만 물어요
+    // 처음 하는 사람도 바로 치게: 레벨 질문·프론트·락커·연습장 없이 매니저 한마디 후 곧장 티오프 장소로 (클럽하우스는 메뉴 '나가기'로 언제든 구경)
+    let tutDone = false; try { tutDone = !!localStorage.getItem('carrotTut') || !!localStorage.getItem('carrotLv'); } catch {}
+    if (!tutDone) TUT.on = true;
+    lbShow('프론트 토끼 매니저', `어서 오세요, ${NET.nick} 님! 오늘 코스는 ${COURSES[CRS_ID].emoji} ${COURSES[CRS_ID].name}! 바로 티오프 장소로 모실게요~`, []);
+    setTimeout(() => { if (S.mode === 'club') { $('lobbyUI').hidden = true; goCourseDoor(true); } }, 2000);
   } else { me.yaw = 0; cam.yaw = Math.PI; toast('정문 밖이에요. 언제든 다시 입장할 수 있어요', 2200); }
 }
 function skipCine() {
@@ -3806,8 +3820,8 @@ function lobbyAct(a) {
   else if (a === 'lv-new') { try { localStorage.setItem('carrotLv', 'new'); } catch {} LB.asking = false; LB.welcome = null; TUT.on = true; $('lobbyUI').hidden = true; tutGo('desk'); }
   else if (a === 'tut-locker') tutGo('locker');
   else if (a === 'cd-ok') { caddieBye(); toast('나이스 샷 기대할게요!', 1400); if (S.ball.state === 'rest' && S.ballVis) S.autoGo = true; }
-  else if (a === 'cd-guide') { caddieBye(); showGuide(S.hole); }
-  else if (a === 'cd-basics') { caddieBye(); showBasics(); }
+  else if (a === 'cd-guide') { caddieBye(); showGuide(S.hole); S.autoGo = true; }
+  else if (a === 'cd-basics') { caddieBye(); showBasics(); S.autoGo = true; }
   else if (a === 'lklobby') { closeLocker(); walkPath([[-13, 0], [-9, 0], [-2, -2.2]]); }
 }
 let typeT = 0;
@@ -3891,7 +3905,7 @@ function enterCourse(resume) {
 // ---- 골프가 처음인 사람: 순서대로 따라가는 튜토리얼 ----
 // 입구 → [처음이에요] → 프론트 인사 → 락커룸 옷 갈아입기 → 연습장 3번 치기 → 스타트 하우스(캐디·규칙) → 1번 홀 따라 치기
 const TUT = { on: false, step: '', shots: 0, hint: '' };
-const TUT_STEPS = { desk: 1, locker: 2, range: 3, tee: 4, hole1: 5 };
+const TUT_STEPS = {};
 function askLevel() {
   LB.asking = true;
   lbShow('당근 컨트리클럽', '어서 오세요! 골프는 처음이신가요?', [['골프가 처음이에요', 'lv-new'], ['골프에 익숙해요', 'lv-pro', 'sub']]);
@@ -3946,13 +3960,13 @@ function rangeToCourse() {
 setInterval(() => {
   if (!TUT.on || TUT.step !== 'hole1') return;
   if (S.hole > 0 || S.scores[0] != null) { TUT.step = 'done'; coach('첫 홀 끝! 이렇게 9홀을 돌면 라운딩 끝이에요. 이제 혼자서도 칠 수 있어요 🎉', ['좋아요!', () => tutEnd(true)]); return; }
-  if (!$('overlay').hidden) return;
+  if (!$('overlay').hidden || !$('lobbyUI').hidden) return;
   const d = Math.hypot(me.x - S.ball.x, me.z - S.ball.z), green = surface(S.ball.x, S.ball.z) === 'green';
   let h = '';
   if (S.mode === 'aim') h = green ? '구멍 근처예요! 퍼터로 살살 굴려요. 버튼을 짧게 눌렀다 떼요' : '노란 선을 끌어서 방향을 맞추고, 큰 버튼을 꾹 누르고 있다가 떼요';
   else if (S.mode === 'flight') h = '날아간다~ 공이 멈출 때까지 기다려요';
   else if (S.mode === 'ride') h = '캐디가 공까지 데려다주는 중이에요';
-  else if (S.mode === 'walk' && S.ball.state === 'rest') h = d < 3.2 ? '공 옆이에요! [공 치기 준비]를 눌러요' : green ? '공이 구멍 근처에 있어요. 걸어가서 [공 치기 준비]를 눌러요' : '공이 멀면 [카트]를 눌러요. 캐디가 공까지 데려다줘요';
+  else if (S.mode === 'walk' && S.ball.state === 'rest') h = d < 3.2 ? '공 옆이에요! 곧 치는 화면이 열려요' : '캐디가 공까지 데려다주는 중이에요. 잠깐만요~';
   if (h && h !== TUT.hint) { TUT.hint = h; coach(h); }
 }, 400);
 
@@ -3972,7 +3986,7 @@ function showBasics() {
       <li><b>클럽(채)</b> 알아서 골라줘요. 드라이버는 제일 멀리, 퍼터는 구멍 근처에서 굴려요.</li>
     </ul>
     <div class="btns"><button class="btn" id="basicsOk">알겠어요!</button></div>`);
-  $('basicsOk').onclick = () => { closeOverlay(); if (S.mode === 'walk' && S.hole === 0 && S.strokes === 0) showGuide(0); if (TUT.on && TUT.step === 'tee') tutGo('hole1'); };
+  $('basicsOk').onclick = () => { closeOverlay(); if (TUT.on && TUT.step === 'tee') tutGo('hole1'); if (S.mode === 'walk' && S.ball.state === 'rest' && S.ballVis) S.autoGo = true; };
 }
 // 스타트 하우스: 토끼 캐디가 카트 옆에서 인사해요
 let helloCad = null;
@@ -3984,9 +3998,9 @@ function caddieHello(resume) {
   const n = HOLES[S.hole];
   const say = resume ? `다시 오셨네요, ${NET.nick} 님! ${S.hole + 1}번 홀 ${S.strokes ? `공 있는 데서 ${S.strokes + 1}타째부터` : '티잉 구역에서'} 이어서 칠게요.`
     : `안녕하세요, ${NET.nick} 님! 오늘 함께할 토끼 캐디예요. 여기가 티오프 장소예요. 첫 홀은 ${n.name}, PAR ${n.par}! 편하게 치세요~`;
-  if (TUT.on && !resume) { lbShow('토끼 캐디', `반가워요, ${NET.nick} 님! 여기가 출발하는 곳(스타트 하우스)이에요. 치기 전에 골프 규칙을 1분만 알려드릴게요.`, [['골프 설명 듣기', 'cd-basics']]); tutGo('tee'); return; }
+  if (TUT.on && !resume) { lbShow('토끼 캐디', `반가워요, ${NET.nick} 님! 골프는 공을 깃발 밑 구멍에 넣으면 끝, 적게 칠수록 잘한 거예요. 공까지는 제가 데려다 드리고, 치는 법은 그때그때 알려드릴게요!`, [['시작할게요!', 'cd-ok'], ['골프 설명 더 보기', 'cd-basics', 'link']]); tutGo('hole1'); return; }
   let seen = false; try { seen = !!localStorage.getItem('carrotBasics'); } catch {}
-  lbShow('토끼 캐디', say, resume ? [['좋아요, 가요!', 'cd-ok']] : seen ? [['잘 부탁해요!', 'cd-ok'], ['오늘 코스 미리 보기', 'cd-guide', 'sub'], ['골프 쉽게 알기', 'cd-basics', 'sub']] : [['골프가 처음이에요', 'cd-basics'], ['잘 부탁해요!', 'cd-ok', 'sub']]);
+  lbShow('토끼 캐디', say, resume ? [['좋아요, 가요!', 'cd-ok']] : [['잘 부탁해요!', 'cd-ok'], ['코스 미리 보기', 'cd-guide', 'link'], ['골프 설명', 'cd-basics', 'link']]);
   tone(988, .1, 'triangle', .08); tone(1318, .14, 'triangle', .08, .1);
 }
 function caddieBye() {
@@ -4115,7 +4129,7 @@ function goFirstTee() {
   if (S.ball.state === 'rest' && S.strokes > 0) { const a = Math.atan2(hole().cup[0] - S.ball.x, hole().cup[1] - S.ball.z); for (const r of [2, 3, 4.5]) { const x = S.ball.x - Math.sin(a) * r, z = S.ball.z - Math.cos(a) * r; if (canStand(x, z)) { me.x = x; me.z = z; break; } } me.yaw = a; cam.yaw = a; }
   snapCam(); lastActKey = '';
   sendPos(true);
-  setTimeout(() => { if (PLAY_MODE === 'duel' && !DUEL.on && !TUT.on && S.mode === 'walk') return openDuelLobby(true); if (S.hole === 0 && S.strokes === 0 && $('overlay').hidden && $('lobbyUI').hidden && S.mode === 'walk') showGuide(0); }, 900);
+  setTimeout(() => { if (PLAY_MODE === 'duel' && !DUEL.on && S.mode === 'walk') return openDuelLobby(true); if (S.hole === 0 && S.strokes === 0 && $('overlay').hidden && $('lobbyUI').hidden && S.mode === 'walk') showGuide(0); }, 900);
   setTimeout(() => $('help').classList.add('off'), window.innerWidth < 640 ? 7000 : 12000);
 }
 
